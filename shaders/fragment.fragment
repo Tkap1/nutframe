@@ -101,7 +101,7 @@ void main()
 		vec2 uv = v_local_uv;
 		color = t.color;
 		float d = distance(uv, vec2(0.5));
-		mat2 ro = rot(time*8);
+		mat2 ro = rot(time*2+(d/0.1));
 		float r = smoothstep(0.3, 0.48, d);
 		float g = smoothstep(0.4, 0.49, d);
 		float b = smoothstep(0.45, 0.3, d);

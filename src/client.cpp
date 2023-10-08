@@ -49,10 +49,10 @@ global s_game_renderer* g_r;
 #include "audio.cpp"
 #include "bucket.cpp"
 
-#ifdef m_debug
+#ifdef m_build_dll
 extern "C" {
 __declspec(dllexport)
-#endif // m_debug
+#endif // m_build_dll
 m_update_game(update_game)
 {
 	game = (s_game*)game_memory;
@@ -74,9 +74,9 @@ m_update_game(update_game)
 	draw_texture(platform_data->mouse, 1, v2(1024), make_color(1), game->noise, {.effect_id = 1});
 }
 
-#ifdef m_debug
+#ifdef m_build_dll
 }
-#endif // m_debug
+#endif // m_build_dll
 
 func void update()
 {

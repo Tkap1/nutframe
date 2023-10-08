@@ -50,6 +50,7 @@ static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 #include "platform_shared.cpp"
 #include "file.cpp"
 #include "bucket.cpp"
+#include "common.cpp"
 
 #ifdef m_debug
 int main(int argc, char** argv)
@@ -87,7 +88,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	s_platform_funcs platform_funcs = zero;
 	platform_funcs.play_sound = play_sound;
-	platform_funcs.load_gl_func = (t_load_gl_func)load_gl_func;
 	// platform_funcs.show_cursor = ShowCursor;
 	platform_funcs.cycle_between_available_resolutions = cycle_between_available_resolutions;
 
@@ -123,29 +123,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	game_renderer->set_vsync = set_vsync;
 	game_renderer->load_texture = load_texture;
 
-	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		init opengl start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-	{
-		glGenVertexArrays(1, &platform_renderer.default_vao);
-		glBindVertexArray(platform_renderer.default_vao);
-
-		glGenBuffers(1, &platform_renderer.default_ssbo);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, platform_renderer.default_ssbo);
-		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, platform_renderer.default_ssbo);
-
-		// @Fixme(tkap, 07/10/2023): proper size. we have to basically set this to the maximum of things that we have ever drawn
-		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(s_transform) * 1024, null, GL_DYNAMIC_DRAW);
-
-		glDebugMessageCallback(gl_debug_callback, null);
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-
-		for(int shader_i = 0; shader_i < e_shader_count; shader_i++)
-		{
-			platform_renderer.programs[shader_i] = load_shader(shader_paths[shader_i].vertex_path, shader_paths[shader_i].fragment_path, &platform_frame_arena);
-		}
-
-		glUseProgram(platform_renderer.programs[e_shader_default]);
-	}
-	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		init opengl end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	init_opengl(&platform_renderer, &platform_frame_arena);
 
 	b8 running = true;
 	f64 time_passed = 0;
@@ -292,6 +270,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 		time_passed = get_seconds() - start_of_frame_seconds;
 	}
+
+	return 0;
 
 }
 

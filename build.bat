@@ -10,34 +10,59 @@ if NOT defined VSCMD_ARG_TGT_ARCH (
 
 if not exist build\NUL mkdir build
 
+SETLOCAL ENABLEDELAYEDEXPANSION
+
+@REM 0 for win32, 1 for SDL
+set platform=1
+
+set build_dll=1
+
 @REM @Fixme(tkap, 05/10/2023): W4
 set comp=-nologo -std:c++20 -Zc:strictStrings- -W0 -FC -Gm- -GR- -EHa- -wd 4324 -wd 4127 -wd 4505 -D_CRT_SECURE_NO_WARNINGS -Dm_app
 set linker=-INCREMENTAL:NO
-set comp=%comp% -wd4201
+set comp=!comp! -wd4201
+
+if !platform!==0 (
+	set platform_file=..\src\win32_platform.cpp
+)
+
+if !platform!==1 (
+	set platform_file=..\src\sdl_platform.cpp
+	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl"
+	set comp=!comp! -Dm_sdl
+	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\glew\include"
+	set linker=!linker! "C:\Users\34687\Desktop\Dev\C\sdl\VisualC\x64\Release\SDL2.lib"
+	set linker=!linker! "C:\Users\34687\Desktop\Dev\C\glew\lib\Release\x64\glew32.lib"
+	set build_dll=0
+)
 
 set debug=2
-if %debug%==0 (
-	set comp=%comp% -O2 -MT
-	set linker=%linker% -SUBSYSTEM:windows
+if !debug!==0 (
+	set comp=!comp! -O2 -MT
+	set linker=!linker! -SUBSYSTEM:windows
+	set build_dll=0
 	rc.exe /nologo icon.rc
 )
-if %debug%==1 (
-	set comp=%comp% -O2 -Dm_debug -MTd
+if !debug!==1 (
+	set comp=!comp! -O2 -Dm_debug -MTd
 )
-if %debug%==2 (
-	set comp=%comp% -Od -Dm_debug -Zi -MTd
+if !debug!==2 (
+	set comp=!comp! -Od -Dm_debug -Zi -MTd
 )
 
-SETLOCAL ENABLEDELAYEDEXPANSION
+if !build_dll!==1 (
+	set comp=!comp! -Dm_build_dll
+)
+
 pushd build
 
 	if "%1%"=="pch" (
-		cl /Ycpch_client.h ..\src\pch_client.cpp %comp% /c
-		cl /Ycpch_platform.h ..\src\pch_platform.cpp %comp% /c
+		cl /Ycpch_client.h ..\src\pch_client.cpp !comp! /c
+		cl /Ycpch_platform.h ..\src\pch_platform.cpp !comp! /c
 	)
 
-	if %debug%==0 (
-		cl ..\src\win32_platform.cpp ..\src\client.cpp -FeDigHard.exe %comp% -link %linker% -PDB:platform_client.pdb ..\icon.res > temp_compiler_output.txt
+	if !build_dll!==0 (
+		cl !platform_file! ..\src\client.cpp -FeDigHard.exe !comp! -link !linker! -PDB:platform_client.pdb ..\icon.res > temp_compiler_output.txt
 		if NOT !ErrorLevel! == 0 (
 			type temp_compiler_output.txt
 			popd
@@ -45,7 +70,7 @@ pushd build
 		)
 		type temp_compiler_output.txt
 	) else (
-		cl ..\src\client.cpp /Yupch_client.h -LD -FeDigHard.dll %comp% -link %linker% pch_client.obj -PDB:client.pdb > temp_compiler_output.txt
+		cl ..\src\client.cpp /Yupch_client.h -LD -FeDigHard.dll !comp! -link !linker! pch_client.obj -PDB:client.pdb > temp_compiler_output.txt
 		if NOT !ErrorLevel! == 0 (
 			type temp_compiler_output.txt
 			popd
@@ -55,7 +80,7 @@ pushd build
 
 		tasklist /fi "ImageName eq DigHard.exe" /fo csv 2>NUL | find /I "DigHard.exe">NUL
 		if NOT !ERRORLEVEL!==0 (
-			cl ..\src\win32_platform.cpp /Yupch_platform.h -FeDigHard.exe %comp% -link %linker% pch_platform.obj -PDB:platform_client.pdb > temp_compiler_output.txt
+			cl !platform_file! /Yupch_platform.h -FeDigHard.exe !comp! -link !linker! pch_platform.obj -PDB:platform_client.pdb > temp_compiler_output.txt
 			if NOT !ErrorLevel! == 0 (
 				type temp_compiler_output.txt
 				popd
@@ -66,7 +91,8 @@ pushd build
 	)
 
 popd
-if %errorlevel%==0 goto success
+
+if !errorlevel!==0 goto success
 goto fail
 
 :success

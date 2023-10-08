@@ -114,7 +114,6 @@ struct s_sound
 	s16* samples;
 };
 
-typedef void* (*t_load_gl_func)(const char*);
 typedef b8 (*t_play_sound)(s_sound);
 typedef void (*t_set_vsync)(b8);
 typedef int (*t_show_cursor)(b8);
@@ -174,7 +173,6 @@ struct s_platform_data
 
 struct s_platform_funcs
 {
-	t_load_gl_func load_gl_func;
 	t_play_sound play_sound;
 	t_show_cursor show_cursor;
 	t_cycle_between_available_resolutions cycle_between_available_resolutions;
@@ -202,8 +200,8 @@ struct s_game_renderer
 
 
 #define m_update_game(name) void name(s_platform_data* platform_data, s_platform_funcs platform_funcs, void* game_memory, s_game_renderer* rendering)
-#ifdef m_debug
+#ifdef m_build_dll
 typedef m_update_game(t_update_game);
-#else // m_debug
+#else // m_build_dll
 m_update_game(update_game);
 #endif
