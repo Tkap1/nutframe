@@ -39,3 +39,6 @@ build_clang.bat
 *.rdbg
 *_output.txt
 *.zip
+*.html
+*.js
+*.wasm

@@ -473,6 +473,8 @@ func void create_window(int width, int height)
 		check(DescribePixelFormat(g_window.dc, format, sizeof(pfd), &pfd));
 		SetPixelFormat(g_window.dc, format, &pfd);
 
+		// @Fixme(tkap, 08/10/2023): We need a define for this so we can change the shader version also. We want 4.3 in windows
+		// for debugging reasons.
 		int gl_attribs[] = {
 			WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
 			WGL_CONTEXT_MINOR_VERSION_ARB, 3,

@@ -56,7 +56,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 4 );
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 3 );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
 
@@ -278,7 +278,7 @@ func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_a
 {
 	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
 	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
-	const char* header = "#version 430 core\n";
+	const char* header = "#version 330 core\n";
 	char* vertex_src = read_file(vertex_path, frame_arena);
 	if(!vertex_src || !vertex_src[0]) { return 0; }
 	char* fragment_src = read_file(fragment_path, frame_arena);

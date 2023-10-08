@@ -345,11 +345,6 @@ func b8 is_key_released(s_input* input, int key)
 	return (!input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
 }
 
-func char* handle_plural(int num)
-{
-	return (num == 1 || num == -1) ? "" : "s";
-}
-
 func void spawn_particles(int count, s_particle_spawn_data data)
 {
 	for(int i = 0; i < count; i++)

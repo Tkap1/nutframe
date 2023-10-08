@@ -9,7 +9,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
-#include <intrin.h>
 
 #include "types.h"
 #include "rng.h"
