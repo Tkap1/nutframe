@@ -106,7 +106,7 @@ global constexpr int c_left_mouse = 1020;
 global constexpr int c_right_mouse = 1021;
 global constexpr int c_max_keys = 1024;
 
-global constexpr int c_game_memory = 5 * c_mb;
+global constexpr int c_game_memory = 1 * c_mb;
 
 struct s_sound
 {

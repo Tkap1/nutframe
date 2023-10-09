@@ -469,7 +469,6 @@ struct s_game
 	s_font font_arr[e_font_count];
 	s_camera camera;
 
-	s_sarray<s_particle, 16384> particles;
 	s_sarray<s_delayed_sound, 64> delayed_sounds;
 
 	s_sound sounds[e_sound_count];
@@ -479,9 +478,6 @@ struct s_game
 
 	u32 particle_fbo;
 	u32 particle_texture;
-
-	s_tile tiles[c_tiles_down][c_tiles_right];
-	b8 tiles_active[c_tiles_down][c_tiles_right];
 
 	s_sprite_data sprite_data[e_sprite_count];
 

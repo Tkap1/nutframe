@@ -25,8 +25,16 @@ struct s_shader_paths
 struct s_platform_renderer
 {
 	u32 default_vao;
-	u32 default_ssbo;
+	u32 default_vbo;
 	u32 programs[e_shader_count];
+};
+
+struct s_do_one_frame_data
+{
+	s_platform_funcs platform_funcs;
+	void* game_memory;
+	s_platform_renderer* platform_renderer;
+	s_game_renderer* game_renderer;
 };
 
 
@@ -50,3 +58,4 @@ func void after_loading_texture(s_game_renderer* game_renderer);
 func void render();
 func void printShaderLog( GLuint shader );
 void printProgramLog( GLuint program );
+func void do_one_frame(void* in_data);

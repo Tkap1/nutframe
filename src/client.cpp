@@ -15,7 +15,6 @@
 #include "client.h"
 #include "audio.h"
 
-global s_sarray<s_transform, 16384> particles;
 global s_sarray<s_transform, c_max_entities> text_arr[e_font_count];
 
 global s_lin_arena* frame_arena;
@@ -55,6 +54,8 @@ __declspec(dllexport)
 #endif // m_build_dll
 m_update_game(update_game)
 {
+	static_assert(sizeof(s_game) <= c_game_memory);
+
 	game = (s_game*)game_memory;
 	g_r = rendering;
 	if(!game->initialized)
@@ -122,23 +123,6 @@ func void render(float dt)
 		} break;
 
 		invalid_default_case;
-	}
-
-	foreach_raw(particle_i, particle, game->particles)
-	{
-		s_v2 pos = lerp(particle.prev_pos, particle.pos, dt);
-		s_v4 color = particle.color;
-		float percent = (particle.time / particle.duration);
-		float percent_left = 1.0f - percent;
-		if(particle.fade)
-		{
-			color.w *= powf(percent_left, 0.5f);
-		}
-		float radius = particle.radius;
-		if(particle.shrink)
-		{
-			radius *= range_lerp(percent, 0, 1, 1, 0.2f);
-		}
 	}
 
 	#ifdef m_debug
@@ -345,29 +329,6 @@ func b8 is_key_released(s_input* input, int key)
 	return (!input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
 }
 
-func void spawn_particles(int count, s_particle_spawn_data data)
-{
-	for(int i = 0; i < count; i++)
-	{
-		s_particle p = zero;
-		p.duration = data.duration * (1 - data.duration_rand * game->rng.randf32());
-		p.speed = data.speed * (1 - data.speed_rand * game->rng.randf32());
-		p.radius = data.radius * (1 - data.radius_rand * game->rng.randf32());
-		p.pos = data.pos;
-		p.prev_pos = p.pos;
-
-		float foo = (float)game->rng.randf2() * data.angle_rand * tau;
-		float angle = data.angle + foo;
-		p.dir = v2_from_angle(angle);
-		p.color.x = data.color.x * (1 - data.color_rand * game->rng.randf32());
-		p.color.y = data.color.y * (1 - data.color_rand * game->rng.randf32());
-		p.color.z = data.color.z * (1 - data.color_rand * game->rng.randf32());
-		p.color.w = data.color.w;
-		p.fade = data.fade;
-		p.shrink = data.shrink;
-		game->particles.add_checked(p);
-	}
-}
 
 func void play_delayed_sound(s_sound sound, float delay)
 {
@@ -385,44 +346,6 @@ func s_bounds get_camera_bounds(s_camera camera)
 	result.top = camera.center.y - c_base_res.y / 2;
 	result.bottom = camera.center.y + c_base_res.y / 2;
 	return result;
-}
-
-func s_tile_collision get_tile_collision(s_v2 pos, s_v2 size)
-{
-	s_tile_collision result = zero;
-	int x_index = floorfi(pos.x / (float)c_tile_size);
-	int y_index = floorfi(pos.y / (float)c_tile_size);
-
-	for(int y = -1; y <= 1; y++)
-	{
-		int yy = y_index + y;
-		for(int x = -1; x <= 1; x++)
-		{
-			int xx = x_index + x;
-			if(!is_valid_tile_index(xx, yy)) { continue; }
-			if(!is_tile_active(xx, yy)) { continue; }
-			s_v2 tile_center = v2(xx * c_tile_size, yy * c_tile_size);
-			tile_center += v2(c_tile_size) / 2;
-			if(rect_collides_rect_center(pos, size, tile_center, v2(c_tile_size)))
-			{
-				result.collided = true;
-				result.index = v2i(xx, yy);
-				return result;
-			}
-		}
-	}
-
-	return result;
-}
-
-func b8 is_valid_tile_index(int x, int y)
-{
-	return x >= 0 && x < c_tiles_right && y >= 0 && y < c_tiles_down;
-}
-
-func b8 is_valid_tile_index(s_v2i p)
-{
-	return is_valid_tile_index(p.x, p.y);
 }
 
 func s_v2 get_world_mouse(s_camera camera)
@@ -740,61 +663,7 @@ func void begin_winning()
 	game->transient.winning = true;
 	game->transient.won = true;
 	play_sound_if_supported(e_sound_win);
-}
 
-func b8 is_tile_active(int x, int y)
-{
-	assert(is_valid_tile_index(x, y));
-	return game->tiles_active[y][x];
-}
-
-func b8 is_tile_active(s_v2i index)
-{
-	return is_tile_active(index.x, index.y);
-}
-
-func s_v2i get_closest_tile_to_mouse(s_camera camera)
-{
-	s_v2 mouse = get_world_mouse(camera);
-	int mx = floorfi(mouse.x / c_tile_size);
-	int my = floorfi(mouse.y / c_tile_size);
-
-	// @Note(tkap, 01/10/2023): Let's just check on a 17x17 tile radius
-	float shortest_dist = 999999.0f;
-	s_v2i closest = v2i(-1, -1);
-	for(int y = -8; y <= 8; y++)
-	{
-		int yy = my + y;
-		for(int x = -8; x <= 8; x++)
-		{
-			int xx = mx + x;
-			if(is_valid_tile_index(xx, yy) && is_tile_active(xx, yy))
-			{
-				float dist = v2_distance(mouse, get_tile_center(xx, yy));
-				if(dist < shortest_dist)
-				{
-					shortest_dist = dist;
-					closest = v2i(xx, yy);
-				}
-			}
-		}
-	}
-
-	return closest;
-}
-
-func s_v2 get_tile_center(int x, int y)
-{
-	assert(is_valid_tile_index(x, y));
-	return v2(
-		x * c_tile_size + c_tile_size / 2.0f,
-		y * c_tile_size + c_tile_size / 2.0f
-	);
-}
-
-func s_v2 get_tile_center(s_v2i index)
-{
-	return get_tile_center(index.x, index.y);
 }
 
 func s_v2 world_to_screen(s_v2 pos, s_camera cam)
@@ -805,33 +674,7 @@ func s_v2 world_to_screen(s_v2 pos, s_camera cam)
 	return result;
 }
 
-func s_v2 get_tile_pos(s_v2i index)
-{
-	assert(is_valid_tile_index(index));
-	return v2(
-		(float)(index.x * c_tile_size),
-		(float)(index.y * c_tile_size)
-	);
-}
 
-
-func void do_tile_particles(s_v2 pos, int tile_type, int type)
-{
-	s_v4 color = g_tile_data[tile_type].particle_color;
-	color.w *= type == 0 ? 0.5f : 1.0f;
-	spawn_particles(type == 0 ? 3 : 20, {
-		.speed = 75.0f,
-		.speed_rand = 0.5f,
-		.radius = type == 0 ? 8.0f : 16.0f,
-		.radius_rand = 0.5f,
-		.duration = 0.5f,
-		.duration_rand = 0.5f,
-		.angle = 0,
-		.angle_rand = 1,
-		.pos = pos,
-		.color = color,
-	});
-}
 
 func s_label_group begin_label_group(s_v2 pos, e_font font_type, int selected, float spacing)
 {
@@ -1002,55 +845,6 @@ func float get_kill_area_speed()
 	return result;
 }
 
-func void damage_tile(s_v2i index, int damage)
-{
-	assert(is_valid_tile_index(index));
-	assert(is_tile_active(index));
-	s_tile tile = game->tiles[index.y][index.x];
-	int health = g_tile_data[tile.type].health;
-	assert(health > 0);
-	game->tiles[index.y][index.x].damage_taken += damage;
-	if(game->tiles[index.y][index.x].damage_taken >= health)
-	{
-		add_exp(g_tile_data[tile.type].exp);
-
-		do_tile_particles(
-			random_point_in_rect_topleft(get_tile_pos(index), v2(c_tile_size), &game->rng),
-			tile.type, 1
-		);
-		play_sound_if_supported(g_tile_data[tile.type].break_sound);
-		game->tiles_active[index.y][index.x] = false;
-
-		s_v2 tile_pos = get_tile_pos(index);
-		s_v2 tile_center = get_tile_center(index);
-		for(int y = 0; y < c_tile_pieces; y++)
-		{
-			for(int x = 0; x < c_tile_pieces; x++)
-			{
-				s_broken_tile piece = zero;
-				piece.type = tile.type;
-				piece.pos = tile_pos + v2(x * (c_tile_size / c_tile_pieces), y * (c_tile_size / c_tile_pieces));
-				piece.prev_pos = piece.pos;
-				piece.index = v2i(x, y);
-				piece.sub_size = v2(1.0f / (float)c_tile_pieces);
-				s_v2 center = piece.pos + v2(c_tile_size / (c_tile_pieces * 2));
-				piece.dir = v2_normalized(center - tile_center) * game->rng.randf32();
-				game->transient.broken_tiles.add_checked(piece);
-			}
-		}
-
-	}
-	else
-	{
-		s_v2 pos;
-		if(get_hovered_tile(game->camera) == index) { pos = get_world_mouse(game->camera); }
-		else { pos = random_point_in_rect_topleft(get_tile_pos(index), v2(c_tile_size), &game->rng); }
-		do_tile_particles(
-			pos, tile.type, 0
-		);
-		play_sound_if_supported(e_sound_dig);
-	}
-}
 
 func float get_dash_cd()
 {

@@ -1,4 +1,12 @@
 
+
+enum e_render_flags
+{
+	e_render_flag_use_texture = 1 << 0,
+	e_render_flag_flip_x = 1 << 1,
+};
+
+
 func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, s_transform t = zero)
 {
 	t.pos = pos;
@@ -47,7 +55,7 @@ func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, s_transform t = 
 func void draw_texture(s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_transform t = zero)
 {
 	t.layer = layer;
-	t.texture_id = (int)texture.gpu_id;
+	t.flags |= e_render_flag_use_texture;
 	t.pos = pos;
 	t.draw_size = size;
 	t.color = color;

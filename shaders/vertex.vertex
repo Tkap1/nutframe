@@ -1,93 +1,109 @@
 
-layout(std430, binding = 0) buffer buffer_name
-{
-	s_transform transforms[];
-};
+
+layout (location = 0) in int in_flags;
+layout (location = 1) in int in_layer;
+layout (location = 2) in int in_sublayer;
+layout (location = 3) in int in_effect_id;
+layout (location = 4) in float in_mix_weight;
+layout (location = 5) in vec2 in_pos;
+layout (location = 6) in vec2 in_origin_offset;
+layout (location = 7) in vec2 in_draw_size;
+layout (location = 8) in vec2 in_texture_size;
+layout (location = 9) in vec2 in_uv_min;
+layout (location = 10) in vec2 in_uv_max;
+layout (location = 11) in vec4 in_color;
+layout (location = 12) in vec4 in_mix_color;
+
+
+flat out int v_flags;
+flat out int v_layer;
+flat out int v_sublayer;
+flat out int v_effect_id;
+out float v_mix_weight;
+out vec2 v_pos;
+out vec2 v_origin_offset;
+out vec2 v_draw_size;
+out vec2 v_texture_size;
+out vec2 v_uv_min;
+out vec2 v_uv_max;
+out vec4 v_color;
+out vec4 v_mix_color;
 
 out vec2 v_local_uv;
 out vec2 v_uv;
-out flat s_transform v_t;
 
 uniform vec2 base_res;
 uniform vec2 window_size;
-uniform float time;
-
-vec3 hsv_2_rgb(vec3 color)
-{
-	vec4 k = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-	vec3 p = abs(fract(color.xxx + k.xyz) * 6.0 - k.www);
-	return color.z * mix(k.xxx, clamp(p - k.xxx, 0.0, 1.0), color.y);
-}
-
-float range_lerp(float val, float amin, float amax, float bmin, float bmax)
-{
-	float p = (val - amin) / (amax - amin);
-	return bmin + (bmax - bmin) * p;
-}
 
 void main()
 {
 
 	float v_size = 1.0;
-	vec2 vertices[] = {
-		vec2(-v_size, v_size),
-		vec2(v_size, v_size),
-		vec2(v_size, -v_size),
-		vec2(-v_size, v_size),
-		vec2(v_size, -v_size),
-		vec2(-v_size, -v_size),
-	};
+	vec2 vertices[6];
+	vertices[0] = vec2(-v_size, v_size);
+	vertices[1] = vec2(v_size, v_size);
+	vertices[2] = vec2(v_size, -v_size);
+	vertices[3] = vec2(-v_size, v_size);
+	vertices[4] = vec2(v_size, -v_size);
+	vertices[5] = vec2(-v_size, -v_size);
 
-	vec2 local_uv[] = {
-		vec2(0, 0),
-		vec2(1, 0),
-		vec2(1, 1),
-		vec2(0, 0),
-		vec2(1, 1),
-		vec2(0, 1),
-	};
+	vec2 local_uv[6];
+	local_uv[0] = vec2(0, 0);
+	local_uv[1] = vec2(1, 0);
+	local_uv[2] = vec2(1, 1);
+	local_uv[3] = vec2(0, 0);
+	local_uv[4] = vec2(1, 1);
+	local_uv[5] = vec2(0, 1);
 
-	s_transform t = transforms[gl_InstanceID];
-
-	float min_uv_x = t.flip_x != 0 ? t.uv_max.x : t.uv_min.x;
-	float max_uv_x = t.flip_x != 0 ? t.uv_min.x : t.uv_max.x;
+	float min_uv_x = (in_flags & 2) != 0 ? in_uv_max.x : in_uv_min.x;
+	float max_uv_x = (in_flags & 2) != 0 ? in_uv_min.x : in_uv_max.x;
 	vec2 topleft = vec2(
 		min_uv_x,
-		t.uv_min.y
+		in_uv_min.y
 	);
 	vec2 topright = vec2(
 		max_uv_x,
-		t.uv_min.y
+		in_uv_min.y
 	);
 	vec2 bottomright = vec2(
 		max_uv_x,
-		t.uv_max.y
+		in_uv_max.y
 	);
 	vec2 bottomleft = vec2(
 		min_uv_x,
-		t.uv_max.y
+		in_uv_max.y
 	);
 
-	vec2 uvs[] = {
-		topleft,
-		topright,
-		bottomright,
-		topleft,
-		bottomright,
-		bottomleft,
-	};
+	vec2 uvs[6];
+	uvs[0] = topleft;
+	uvs[1] = topright;
+	uvs[2] = bottomright;
+	uvs[3] = topleft;
+	uvs[4] = bottomright;
+	uvs[5] = bottomleft;
 
-	vec2 pos = t.pos * (2 / base_res) - 1;
-	pos.y *= -1;
-	vec2 size = t.draw_size / base_res;
+	v_flags = in_flags;
+	v_layer = in_layer;
+	v_sublayer = in_sublayer;
+	v_effect_id = in_effect_id;
+	v_mix_weight = in_mix_weight;
+	v_pos = in_pos;
+	v_origin_offset = in_origin_offset;
+	v_draw_size = in_draw_size;
+	v_texture_size = in_texture_size;
+	v_uv_min = in_uv_min;
+	v_uv_max = in_uv_max;
+	v_color = in_color;
+	v_mix_color = in_mix_color;
 
-	v_t = t;
+	vec2 pos = in_pos * (2.0 / base_res) - 1.0;
+	pos.y *= -1.0;
+	vec2 size = in_draw_size / base_res;
 
-	// float z = range_lerp(t.layer, 0, 1000, 0, 1);
-	float z = t.layer / 100.0;
-	z += t.sublayer / 4.0 / 100.0;
+	float z = float(in_layer) / 100.0;
+	z += float(in_sublayer) / 4.0 / 100.0;
 
 	v_uv = uvs[gl_VertexID];
 	v_local_uv = local_uv[gl_VertexID];
-	gl_Position = vec4((vertices[gl_VertexID] + t.origin_offset) * size + pos, z, 1);
+	gl_Position = vec4((vertices[gl_VertexID] + in_origin_offset) * size + pos, z, 1.0);
 }

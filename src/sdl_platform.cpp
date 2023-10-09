@@ -1,7 +1,3 @@
-#pragma comment(lib, "user32.lib")
-#pragma comment(lib, "gdi32.lib")
-#pragma comment(lib, "opengl32.lib")
-#pragma comment(lib, "Ole32.lib")
 
 #include "pch_platform.h"
 
@@ -14,8 +10,9 @@
 #include "resource.h"
 #include "memory.h"
 #include "config.h"
-#include "bucket.h"
 #include "shader_shared.h"
+#include "bucket.h"
+#include "common.h"
 #include "platform_shared.h"
 #include "sdl_platform.h"
 
@@ -31,6 +28,7 @@ global GLuint gProgramID = 0;
 global GLint gVertexPos2DLocation = -1;
 global GLuint gVBO = 0;
 global GLuint gIBO = 0;
+global f64 time_passed;
 
 global s_shader_paths shader_paths[e_shader_count] = {
 	{
@@ -38,8 +36,6 @@ global s_shader_paths shader_paths[e_shader_count] = {
 		.fragment_path = "shaders/fragment.fragment",
 	},
 };
-
-
 
 #include "memory.cpp"
 #include "platform_shared.cpp"
@@ -49,20 +45,27 @@ global s_shader_paths shader_paths[e_shader_count] = {
 
 int main(int argc, char** argv)
 {
-
+	SDL_SetMainReady();
 	if(SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		return 1;
 	}
 
+	#ifdef __EMSCRIPTEN__
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+	#else
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 3 );
 	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
+	#endif
+
 
 	gWindow = SDL_CreateWindow(
 		"SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		c_resolutions[c_base_resolution_index].x, c_resolutions[c_base_resolution_index].y, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL
+		c_resolutions[c_base_resolution_index].x, c_resolutions[c_base_resolution_index].y, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
 	);
 	if(gWindow == NULL)
 	{
@@ -104,7 +107,7 @@ int main(int argc, char** argv)
 
 	{
 		s_lin_arena all = zero;
-		all.capacity = 100 * c_mb;
+		all.capacity = 10 * c_mb;
 
 		// @Note(tkap, 26/06/2023): We expect this memory to be zero'd
 		all.memory = malloc(all.capacity);
@@ -113,14 +116,14 @@ int main(int argc, char** argv)
 		game_renderer = (s_game_renderer*)la_get(&all, sizeof(s_game_renderer));
 
 		game_memory = la_get(&all, c_game_memory);
-		platform_frame_arena = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
-		game_frame_arena = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
+		platform_frame_arena = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		game_frame_arena = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
 		g_platform_data.frame_arena = &game_frame_arena;
 
-		game_renderer->arenas[0] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
-		game_renderer->arenas[1] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
-		game_renderer->transform_arenas[0] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
-		game_renderer->transform_arenas[1] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
+		game_renderer->arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		game_renderer->arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		game_renderer->transform_arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		game_renderer->transform_arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
 		game_renderer->textures.add(zero);
 		after_loading_texture(game_renderer);
 	}
@@ -131,134 +134,32 @@ int main(int argc, char** argv)
 
 	b8 running = true;
 	f64 time_passed = 0;
-
-	#ifndef m_debug
 	g_platform_data.recompiled = true;
-	#endif // m_debug
+
+	#ifdef __EMSCRIPTEN__
+	s_do_one_frame_data* foo = (s_do_one_frame_data*)calloc(1, sizeof(s_do_one_frame_data));
+	foo->platform_funcs = platform_funcs;
+	foo->game_memory = game_memory;
+	foo->platform_renderer = &platform_renderer;
+	foo->game_renderer = game_renderer;
+	// emscripten_request_animation_frame_loop(do_one_frame, &foo);
+	emscripten_set_main_loop_arg(do_one_frame, foo, -1, 0);
+	#else
 
 	while(running)
 	{
-		f64 start_of_frame_ms = SDL_GetTicks();
-
-		SDL_Event e;
-		while(SDL_PollEvent(&e) != 0)
-		{
-			if(e.type == SDL_QUIT)
-			{
-				running = false;
-			}
-		}
-
-		g_platform_data.input = &g_input;
-		g_platform_data.logic_input = &g_logic_input;
-		g_platform_data.quit_after_this_frame = !running;
-		g_platform_data.window_width = g_window.width;
-		g_platform_data.window_height = g_window.height;
-		g_platform_data.time_passed = time_passed;
-
-		{
-			int x, y;
-			SDL_GetMouseState(&x, &y);
-			g_platform_data.mouse.x = (float)x;
-			g_platform_data.mouse.y = (float)y;
-		}
-		// g_platform_data.is_window_active = GetActiveWindow() == g_window.handle;
-
-		update_game(&g_platform_data, platform_funcs, game_memory, game_renderer);
-		g_platform_data.recompiled = false;
-
-		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		render start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-		{
-			int location = glGetUniformLocation(platform_renderer.programs[e_shader_default], "window_size");
-			s_v2 window_size = v2(g_window.width, g_window.height);
-			glUniform2fv(location, 1, &window_size.x);
-		}
-		{
-			int location = glGetUniformLocation(platform_renderer.programs[e_shader_default], "base_res");
-			glUniform2fv(location, 1, &c_base_res.x);
-		}
-		{
-			static float time = 0;
-			time += time_passed;
-			int location = glGetUniformLocation(platform_renderer.programs[e_shader_default], "time");
-			glUniform1f(location, time);
-		}
-		{
-			int location = glGetUniformLocation(platform_renderer.programs[e_shader_default], "mouse");
-			glUniform2fv(location, 1, &g_platform_data.mouse.x);
-		}
-
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClearDepth(0.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		if(game_renderer->did_we_alloc)
-		{
-			for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
-			{
-				int new_index = (game_renderer->arena_index + 1) % 2;
-				bucket_merge(&game_renderer->transforms[texture_i], &game_renderer->arenas[new_index]);
-			}
-		}
-		if(game_renderer->did_we_alloc)
-		{
-			int old_index = game_renderer->arena_index;
-			int new_index = (game_renderer->arena_index + 1) % 2;
-			game_renderer->arenas[old_index].used = 0;
-			game_renderer->arena_index = new_index;
-			game_renderer->did_we_alloc = false;
-		}
-
-		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
-		{
-			if(game_renderer->transforms[texture_i].element_count[0] > 0)
-			{
-				glBindFramebuffer(GL_FRAMEBUFFER, 0);
-				glBindVertexArray(platform_renderer.default_vao);
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, game_renderer->textures[texture_i].gpu_id);
-
-				// glActiveTexture(GL_TEXTURE1);
-				// glBindTexture(GL_TEXTURE_2D, game->noise.id);
-				// glUniform1i(1, 1);
-
-				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_GREATER);
-				glEnable(GL_BLEND);
-				// if(render_type == 0)
-				{
-					// glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-					// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-				}
-				// else if(render_type == 1)
-				// {
-					glBlendFunc(GL_ONE, GL_ONE);
-				// }
-				// invalid_else;
-
-				int count = game_renderer->transforms[texture_i].element_count[0];
-				int size = sizeof(*game_renderer->transforms[texture_i].elements[0]);
-
-				glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, size * count, game_renderer->transforms[texture_i].elements[0]);
-				glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count);
-				memset(&game_renderer->transforms[texture_i].element_count, 0, sizeof(game_renderer->transforms[texture_i].element_count));
-
-				assert(game_renderer->transforms[texture_i].bucket_count == 1);
-			}
-		}
-
-		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		render end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-		SDL_GL_SwapWindow(gWindow);
-
-		time_passed = (SDL_GetTicks() - start_of_frame_ms) / 1000;
+		s_do_one_frame_data foo = zero;
+		foo.platform_funcs = platform_funcs;
+		foo.game_memory = game_memory;
+		foo.platform_renderer = &platform_renderer;
+		foo.game_renderer = game_renderer;
+		do_one_frame(&foo);
 	}
+	#endif
 
 	return 0;
 
 }
-
-
 
 void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 {
@@ -276,34 +177,46 @@ void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, G
 
 func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
 {
-	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
-	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
+	u32 vertex = gl(glCreateShader(GL_VERTEX_SHADER));
+	u32 fragment = gl(glCreateShader(GL_FRAGMENT_SHADER));
+	#ifdef __EMSCRIPTEN__
+	const char* header = "#version 300 es\nprecision highp float;";
+	#else
 	const char* header = "#version 330 core\n";
+	#endif
 	char* vertex_src = read_file(vertex_path, frame_arena);
 	if(!vertex_src || !vertex_src[0]) { return 0; }
 	char* fragment_src = read_file(fragment_path, frame_arena);
 	if(!fragment_src || !fragment_src[0]) { return 0; }
 
-	#ifdef m_debug
-	const char* vertex_src_arr[] = {header, read_file("src/shader_shared.h", frame_arena), vertex_src};
-	const char* fragment_src_arr[] = {header, read_file("src/shader_shared.h", frame_arena), fragment_src};
-	#else // m_debug
 	const char* vertex_src_arr[] = {header, vertex_src};
 	const char* fragment_src_arr[] = {header, fragment_src};
-	#endif // m_debug
-	glShaderSource(vertex, array_count(vertex_src_arr), (const GLchar * const *)vertex_src_arr, null);
-	glShaderSource(fragment, array_count(fragment_src_arr), (const GLchar * const *)fragment_src_arr, null);
-	glCompileShader(vertex);
+	gl(glShaderSource(vertex, array_count(vertex_src_arr), (const GLchar * const *)vertex_src_arr, null));
+	gl(glShaderSource(fragment, array_count(fragment_src_arr), (const GLchar * const *)fragment_src_arr, null));
+	gl(glCompileShader(vertex));
 	char buffer[1024] = zero;
 	check_for_shader_errors(vertex, buffer);
-	glCompileShader(fragment);
+	gl(glCompileShader(fragment));
 	check_for_shader_errors(fragment, buffer);
-	u32 program = glCreateProgram();
-	glAttachShader(program, vertex);
-	glAttachShader(program, fragment);
-	glLinkProgram(program);
-	glDeleteShader(vertex);
-	glDeleteShader(fragment);
+	u32 program = gl(glCreateProgram());
+	gl(glAttachShader(program, vertex));
+	gl(glAttachShader(program, fragment));
+	gl(glLinkProgram(program));
+
+	{
+		int length = 0;
+		int linked = 0;
+		gl(glGetProgramiv(program, GL_LINK_STATUS, &linked));
+		if(!linked)
+		{
+			gl(glGetProgramInfoLog(program, sizeof(buffer), &length, buffer));
+			printf("FAILED TO LINK: %s\n", buffer);
+		}
+	}
+
+
+	gl(glDeleteShader(vertex));
+	gl(glDeleteShader(fragment));
 	return program;
 }
 
@@ -311,11 +224,11 @@ func b8 check_for_shader_errors(u32 id, char* out_error)
 {
 	int compile_success;
 	char info_log[1024];
-	glGetShaderiv(id, GL_COMPILE_STATUS, &compile_success);
+	gl(glGetShaderiv(id, GL_COMPILE_STATUS, &compile_success));
 
 	if(!compile_success)
 	{
-		glGetShaderInfoLog(id, 1024, null, info_log);
+		gl(glGetShaderInfoLog(id, 1024, null, info_log));
 		log("Failed to compile shader:\n%s", info_log);
 
 		if(out_error)
@@ -359,6 +272,8 @@ func s_texture load_texture_from_file(char* path, u32 filtering)
 {
 	int width, height, num_channels;
 	void* data = stbi_load(path, &width, &height, &num_channels, 4);
+	assert(data);
+
 	s_texture texture = load_texture_from_data(data, width, height, filtering);
 	stbi_image_free(data);
 	return texture;
@@ -388,71 +303,146 @@ func void render()
 
 }
 
-func void printShaderLog( GLuint shader )
-{
-	//Make sure name is shader
-	if( glIsShader( shader ) )
-	{
-		//Shader log length
-		int infoLogLength = 0;
-		int maxLength = infoLogLength;
-
-		//Get info string length
-		glGetShaderiv( shader, GL_INFO_LOG_LENGTH, &maxLength );
-
-		//Allocate string
-		char* infoLog = new char[ maxLength ];
-
-		//Get info log
-		glGetShaderInfoLog( shader, maxLength, &infoLogLength, infoLog );
-		if( infoLogLength > 0 )
-		{
-			//Print Log
-			printf( "%s\n", infoLog );
-		}
-
-		//Deallocate string
-		delete[] infoLog;
-	}
-	else
-	{
-		printf( "Name %d is not a shader\n", shader );
-	}
-}
-
-void printProgramLog( GLuint program )
-{
-	//Make sure name is shader
-	if( glIsProgram( program ) )
-	{
-		//Program log length
-		int infoLogLength = 0;
-		int maxLength = infoLogLength;
-
-		//Get info string length
-		glGetProgramiv( program, GL_INFO_LOG_LENGTH, &maxLength );
-
-		//Allocate string
-		char* infoLog = new char[ maxLength ];
-
-		//Get info log
-		glGetProgramInfoLog( program, maxLength, &infoLogLength, infoLog );
-		if( infoLogLength > 0 )
-		{
-			//Print Log
-			printf( "%s\n", infoLog );
-		}
-
-		//Deallocate string
-		delete[] infoLog;
-	}
-	else
-	{
-		printf( "Name %d is not a program\n", program );
-	}
-}
-
 func void set_vsync(b8 val)
 {
 	SDL_GL_SetSwapInterval(val ? 1 : 0);
+}
+
+func void do_one_frame(void* in_data)
+{
+	s_do_one_frame_data data = *(s_do_one_frame_data*)in_data;
+	// s_do_one_frame_data data = zero;
+	// memcpy(&data, in_data, sizeof(data));
+
+	f64 start_of_frame_ms = SDL_GetTicks();
+	// bool result = true;
+
+	SDL_Event e;
+	while(SDL_PollEvent(&e) != 0)
+	{
+		if(e.type == SDL_QUIT)
+		{
+			// result = false;
+		}
+		else if(e.type == SDL_WINDOWEVENT)
+		{
+			if(e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+			{
+				int width = e.window.data1;
+				int height = e.window.data2;
+				g_window.width = width;
+				g_window.height = height;
+				glViewport(0, 0, width, height);
+			}
+			// result = false;
+		}
+	}
+
+	g_platform_data.input = &g_input;
+	g_platform_data.logic_input = &g_logic_input;
+	// g_platform_data.quit_after_this_frame = !result;
+	g_platform_data.window_width = g_window.width;
+	g_platform_data.window_height = g_window.height;
+	g_platform_data.time_passed = time_passed;
+
+	{
+		int x, y;
+		SDL_GetMouseState(&x, &y);
+		g_platform_data.mouse.x = (float)x;
+		g_platform_data.mouse.y = (float)y;
+	}
+	// g_platform_data.is_window_active = GetActiveWindow() == g_window.handle;
+
+	update_game(&g_platform_data, data.platform_funcs, data.game_memory, data.game_renderer);
+	g_platform_data.recompiled = false;
+
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		render start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	{
+		int location = glGetUniformLocation(data.platform_renderer->programs[e_shader_default], "window_size");
+		s_v2 window_size = v2(g_window.width, g_window.height);
+		glUniform2fv(location, 1, &window_size.x);
+	}
+	{
+		int location = glGetUniformLocation(data.platform_renderer->programs[e_shader_default], "base_res");
+		glUniform2fv(location, 1, &c_base_res.x);
+	}
+	{
+		static float time = 0;
+		time += time_passed;
+		int location = glGetUniformLocation(data.platform_renderer->programs[e_shader_default], "time");
+		glUniform1f(location, time);
+	}
+	{
+		int location = glGetUniformLocation(data.platform_renderer->programs[e_shader_default], "mouse");
+		glUniform2fv(location, 1, &g_platform_data.mouse.x);
+	}
+
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClearDepth(0.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	if(data.game_renderer->did_we_alloc)
+	{
+		for(int texture_i = 0; texture_i < data.game_renderer->textures.count; texture_i++)
+		{
+			int new_index = (data.game_renderer->arena_index + 1) % 2;
+			bucket_merge(&data.game_renderer->transforms[texture_i], &data.game_renderer->arenas[new_index]);
+		}
+	}
+	if(data.game_renderer->did_we_alloc)
+	{
+		int old_index = data.game_renderer->arena_index;
+		int new_index = (data.game_renderer->arena_index + 1) % 2;
+		data.game_renderer->arenas[old_index].used = 0;
+		data.game_renderer->arena_index = new_index;
+		data.game_renderer->did_we_alloc = false;
+	}
+
+	for(int texture_i = 0; texture_i < data.game_renderer->textures.count; texture_i++)
+	{
+		if(data.game_renderer->transforms[texture_i].element_count[0] > 0)
+		{
+			gl(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+			gl(glBindVertexArray(data.platform_renderer->default_vao));
+			gl(glBindBuffer(GL_ARRAY_BUFFER, data.platform_renderer->default_vbo));
+
+			gl(glActiveTexture(GL_TEXTURE0));
+			gl(glBindTexture(GL_TEXTURE_2D, data.game_renderer->textures[texture_i].gpu_id));
+
+
+			// glActiveTexture(GL_TEXTURE1);
+			// glBindTexture(GL_TEXTURE_2D, game->noise.id);
+			// glUniform1i(1, 1);
+
+			gl(glEnable(GL_DEPTH_TEST));
+			gl(glDepthFunc(GL_GREATER));
+			gl(glEnable(GL_BLEND));
+			// if(render_type == 0)
+			{
+				// glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+				// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			}
+			// else if(render_type == 1)
+			// {
+				gl(glBlendFunc(GL_ONE, GL_ONE));
+			// }
+			// invalid_else;
+
+			int count = data.game_renderer->transforms[texture_i].element_count[0];
+			int size = sizeof(*data.game_renderer->transforms[texture_i].elements[0]);
+
+			gl(glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, data.game_renderer->transforms[texture_i].elements[0]));
+			gl(glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count));
+			memset(&data.game_renderer->transforms[texture_i].element_count, 0, sizeof(data.game_renderer->transforms[texture_i].element_count));
+
+			assert(data.game_renderer->transforms[texture_i].bucket_count == 1);
+		}
+	}
+
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		render end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+	SDL_GL_SwapWindow(gWindow);
+
+	time_passed = (SDL_GetTicks() - start_of_frame_ms) / 1000;
+	// return result;
 }

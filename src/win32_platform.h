@@ -27,7 +27,7 @@ struct s_shader_paths
 struct s_platform_renderer
 {
 	u32 default_vao;
-	u32 default_ssbo;
+	u32 default_vbo;
 	u32 programs[e_shader_count];
 };
 
