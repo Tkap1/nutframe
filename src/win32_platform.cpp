@@ -18,11 +18,50 @@
 #include "bucket.h"
 #include "shader_shared.h"
 #include "platform_shared.h"
+#include "common.h"
 #include "win32_platform.h"
 
 #ifdef m_debug
 #include "win32_reload_dll.h"
 #endif // m_debug
+
+#define m_gl_funcs \
+X(PFNGLBUFFERDATAPROC, glBufferData) \
+X(PFNGLBUFFERSUBDATAPROC, glBufferSubData) \
+X(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays) \
+X(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray) \
+X(PFNGLGENBUFFERSPROC, glGenBuffers) \
+X(PFNGLBINDBUFFERPROC, glBindBuffer) \
+X(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer) \
+X(PFNGLVERTEXATTRIBIPOINTERPROC, glVertexAttribIPointer) \
+X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray) \
+X(PFNGLCREATESHADERPROC, glCreateShader) \
+X(PFNGLSHADERSOURCEPROC, glShaderSource) \
+X(PFNGLCREATEPROGRAMPROC, glCreateProgram) \
+X(PFNGLATTACHSHADERPROC, glAttachShader) \
+X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
+X(PFNGLCOMPILESHADERPROC, glCompileShader) \
+X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
+X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
+X(PFNGLDEBUGMESSAGECALLBACKPROC, glDebugMessageCallback) \
+X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
+X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
+X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
+X(PFNGLUSEPROGRAMPROC, glUseProgram) \
+X(PFNGLGETSHADERIVPROC, glGetShaderiv) \
+X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog) \
+X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers) \
+X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer) \
+X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D) \
+X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus) \
+X(PFNGLACTIVETEXTUREPROC, glActiveTexture) \
+X(PFNGLBLENDEQUATIONPROC, glBlendEquation) \
+X(PFNGLDELETEPROGRAMPROC, glDeleteProgram) \
+X(PFNGLDELETESHADERPROC, glDeleteShader) \
+X(PFNGLUNIFORM1IPROC, glUniform1i) \
+X(PFNGLUNIFORM1FPROC, glUniform1f) \
+X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
+
 
 global s_window g_window;
 global s_input g_input;
@@ -172,7 +211,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		}
 		#endif // m_debug
 
-
 		POINT p;
 		GetCursorPos(&p);
 		ScreenToClient(g_window.handle, &p);
@@ -183,92 +221,12 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		update_game(&g_platform_data, platform_funcs, game_memory, game_renderer);
 		g_platform_data.recompiled = false;
 
-		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		render start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-		{
-			int location = glGetUniformLocation(platform_renderer.programs[e_shader_default], "window_size");
-			s_v2 window_size = v2(g_window.width, g_window.height);
-			glUniform2fv(location, 1, &window_size.x);
-		}
-		{
-			int location = glGetUniformLocation(platform_renderer.programs[e_shader_default], "base_res");
-			glUniform2fv(location, 1, &c_base_res.x);
-		}
-		{
-			static float time = 0;
-			time += time_passed;
-			int location = glGetUniformLocation(platform_renderer.programs[e_shader_default], "time");
-			glUniform1f(location, time);
-		}
-		{
-			int location = glGetUniformLocation(platform_renderer.programs[e_shader_default], "mouse");
-			glUniform2fv(location, 1, &g_platform_data.mouse.x);
-		}
-
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClearDepth(0.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		if(game_renderer->did_we_alloc)
-		{
-			for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
-			{
-				int new_index = (game_renderer->arena_index + 1) % 2;
-				bucket_merge(&game_renderer->transforms[texture_i], &game_renderer->arenas[new_index]);
-			}
-		}
-		if(game_renderer->did_we_alloc)
-		{
-			int old_index = game_renderer->arena_index;
-			int new_index = (game_renderer->arena_index + 1) % 2;
-			game_renderer->arenas[old_index].used = 0;
-			game_renderer->arena_index = new_index;
-			game_renderer->did_we_alloc = false;
-		}
-
-		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
-		{
-			if(game_renderer->transforms[texture_i].element_count[0] > 0)
-			{
-				glBindFramebuffer(GL_FRAMEBUFFER, 0);
-				glBindVertexArray(platform_renderer.default_vao);
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, game_renderer->textures[texture_i].gpu_id);
-
-				// glActiveTexture(GL_TEXTURE1);
-				// glBindTexture(GL_TEXTURE_2D, game->noise.id);
-				// glUniform1i(1, 1);
-
-				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_GREATER);
-				glEnable(GL_BLEND);
-				// if(render_type == 0)
-				{
-					// glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-					// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-				}
-				// else if(render_type == 1)
-				// {
-					glBlendFunc(GL_ONE, GL_ONE);
-				// }
-				// invalid_else;
-
-				int count = game_renderer->transforms[texture_i].element_count[0];
-				int size = sizeof(*game_renderer->transforms[texture_i].elements[0]);
-
-				glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, size * count, game_renderer->transforms[texture_i].elements[0]);
-				glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count);
-				memset(&game_renderer->transforms[texture_i].element_count, 0, sizeof(game_renderer->transforms[texture_i].element_count));
-
-				assert(game_renderer->transforms[texture_i].bucket_count == 1);
-			}
-		}
-
-		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		render end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+		gl_render(&platform_renderer, game_renderer);
 
 		SwapBuffers(g_window.dc);
 
 		time_passed = get_seconds() - start_of_frame_seconds;
+		game_renderer->total_time += time_passed;
 	}
 
 	return 0;
@@ -712,19 +670,14 @@ func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_a
 {
 	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
 	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
-	const char* header = "#version 430 core\n";
+	const char* header = "#version 330 core\n";
 	char* vertex_src = read_file(vertex_path, frame_arena);
 	if(!vertex_src || !vertex_src[0]) { return 0; }
 	char* fragment_src = read_file(fragment_path, frame_arena);
 	if(!fragment_src || !fragment_src[0]) { return 0; }
 
-	#ifdef m_debug
-	const char* vertex_src_arr[] = {header, read_file("src/shader_shared.h", frame_arena), vertex_src};
-	const char* fragment_src_arr[] = {header, read_file("src/shader_shared.h", frame_arena), fragment_src};
-	#else // m_debug
 	const char* vertex_src_arr[] = {header, vertex_src};
 	const char* fragment_src_arr[] = {header, fragment_src};
-	#endif // m_debug
 	glShaderSource(vertex, array_count(vertex_src_arr), (const GLchar * const *)vertex_src_arr, null);
 	glShaderSource(fragment, array_count(fragment_src_arr), (const GLchar * const *)fragment_src_arr, null);
 	glCompileShader(vertex);

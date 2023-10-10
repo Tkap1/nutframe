@@ -1,39 +1,3 @@
-#define m_gl_funcs \
-X(PFNGLBUFFERDATAPROC, glBufferData) \
-X(PFNGLBUFFERSUBDATAPROC, glBufferSubData) \
-X(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays) \
-X(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray) \
-X(PFNGLGENBUFFERSPROC, glGenBuffers) \
-X(PFNGLBINDBUFFERPROC, glBindBuffer) \
-X(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer) \
-X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray) \
-X(PFNGLCREATESHADERPROC, glCreateShader) \
-X(PFNGLSHADERSOURCEPROC, glShaderSource) \
-X(PFNGLCREATEPROGRAMPROC, glCreateProgram) \
-X(PFNGLATTACHSHADERPROC, glAttachShader) \
-X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
-X(PFNGLCOMPILESHADERPROC, glCompileShader) \
-X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
-X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
-X(PFNGLDEBUGMESSAGECALLBACKPROC, glDebugMessageCallback) \
-X(PFNGLBINDBUFFERBASEPROC, glBindBufferBase) \
-X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
-X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
-X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
-X(PFNGLUSEPROGRAMPROC, glUseProgram) \
-X(PFNGLGETSHADERIVPROC, glGetShaderiv) \
-X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog) \
-X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers) \
-X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer) \
-X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D) \
-X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus) \
-X(PFNGLACTIVETEXTUREPROC, glActiveTexture) \
-X(PFNGLBLENDEQUATIONPROC, glBlendEquation) \
-X(PFNGLDELETEPROGRAMPROC, glDeleteProgram) \
-X(PFNGLDELETESHADERPROC, glDeleteShader) \
-X(PFNGLUNIFORM1IPROC, glUniform1i) \
-X(PFNGLUNIFORM1FPROC, glUniform1f) \
-X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
 
 global constexpr int c_key_backspace = 0x08;
 global constexpr int c_key_tab = 0x09;
@@ -185,6 +149,7 @@ struct s_game_renderer
 	b8 did_we_alloc;
 	t_set_vsync set_vsync;
 	t_load_texture load_texture;
+	f64 total_time;
 
 	// @Note(tkap, 08/10/2023): We esentially want s_bucket_array<s_transform> transforms[e_texture_count];
 	// but we don't know how many textures there will be at compile time, because the game code may load any amount

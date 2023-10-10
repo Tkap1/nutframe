@@ -81,5 +81,86 @@ func void finish(s_foo* foo)
 		glVertexAttribDivisor(attrib_i, 1);
 		offset += attrib.size * attrib.count;
 	}
+}
 
+func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer)
+{
+	{
+		int location = glGetUniformLocation(platform_renderer->programs[e_shader_default], "window_size");
+		s_v2 window_size = v2(g_window.width, g_window.height);
+		glUniform2fv(location, 1, &window_size.x);
+	}
+	{
+		int location = glGetUniformLocation(platform_renderer->programs[e_shader_default], "base_res");
+		glUniform2fv(location, 1, &c_base_res.x);
+	}
+	{
+		int location = glGetUniformLocation(platform_renderer->programs[e_shader_default], "time");
+		glUniform1f(location, game_renderer->total_time);
+	}
+	{
+		int location = glGetUniformLocation(platform_renderer->programs[e_shader_default], "mouse");
+		glUniform2fv(location, 1, &g_platform_data.mouse.x);
+	}
+
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClearDepth(0.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	if(game_renderer->did_we_alloc)
+	{
+		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
+		{
+			int new_index = (game_renderer->arena_index + 1) % 2;
+			bucket_merge(&game_renderer->transforms[texture_i], &game_renderer->arenas[new_index]);
+		}
+	}
+	if(game_renderer->did_we_alloc)
+	{
+		int old_index = game_renderer->arena_index;
+		int new_index = (game_renderer->arena_index + 1) % 2;
+		game_renderer->arenas[old_index].used = 0;
+		game_renderer->arena_index = new_index;
+		game_renderer->did_we_alloc = false;
+	}
+
+	for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
+	{
+		if(game_renderer->transforms[texture_i].element_count[0] > 0)
+		{
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glBindVertexArray(platform_renderer->default_vao);
+			gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, game_renderer->textures[texture_i].gpu_id);
+
+			// glActiveTexture(GL_TEXTURE1);
+			// glBindTexture(GL_TEXTURE_2D, game->noise.id);
+			// glUniform1i(1, 1);
+
+			glEnable(GL_DEPTH_TEST);
+			glDepthFunc(GL_GREATER);
+			glEnable(GL_BLEND);
+			// if(render_type == 0)
+			{
+				// glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+				// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			}
+			// else if(render_type == 1)
+			// {
+				glBlendFunc(GL_ONE, GL_ONE);
+			// }
+			// invalid_else;
+
+			int count = game_renderer->transforms[texture_i].element_count[0];
+			int size = sizeof(*game_renderer->transforms[texture_i].elements[0]);
+
+			glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, game_renderer->transforms[texture_i].elements[0]);
+			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count);
+			memset(&game_renderer->transforms[texture_i].element_count, 0, sizeof(game_renderer->transforms[texture_i].element_count));
+
+			assert(game_renderer->transforms[texture_i].bucket_count == 1);
+		}
+	}
 }

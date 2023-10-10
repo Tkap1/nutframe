@@ -15,8 +15,8 @@ SETLOCAL ENABLEDELAYEDEXPANSION
 @REM 0 for win32, 1 for SDL
 set platform=1
 
-set build_dll=1
 
+set build_dll=1
 @REM @Fixme(tkap, 05/10/2023): W4
 set comp=-nologo -std:c++20 -Zc:strictStrings- -W0 -FC -Gm- -GR- -EHa- -wd 4324 -wd 4127 -wd 4505 -D_CRT_SECURE_NO_WARNINGS -Dm_app
 set linker=-INCREMENTAL:NO
