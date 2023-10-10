@@ -215,33 +215,6 @@ func s_font load_font(const char* path, float font_size, s_lin_arena* arena)
 	return font;
 }
 
-func s_texture load_texture_from_data(void* data, int width, int height, u32 filtering)
-{
-	// assert(data);
-	// u32 id;
-	// glGenTextures(1, &id);
-	// glBindTexture(GL_TEXTURE_2D, id);
-	// glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
-	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
-
-	s_texture texture = zero;
-	// texture.id = id;
-	// texture.size = v22i(width, height);
-	return texture;
-}
-
-func s_texture load_texture_from_file(char* path, u32 filtering)
-{
-	// int width, height, num_channels;
-	// void* data = stbi_load(path, &width, &height, &num_channels, 4);
-	// s_texture texture = load_texture_from_data(data, width, height, filtering);
-	// stbi_image_free(data);
-	return zero;
-}
-
 func s_v2 get_text_size_with_count(const char* text, e_font font_id, int count)
 {
 	assert(count >= 0);

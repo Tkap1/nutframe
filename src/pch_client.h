@@ -1,8 +1,4 @@
 
-#pragma comment(lib, "user32.lib")
-#pragma comment(lib, "opengl32.lib")
-
-// @Note(tkap, 24/06/2023): We don't want this Madeg
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>

@@ -29,15 +29,6 @@ struct s_platform_renderer
 	u32 programs[e_shader_count];
 };
 
-struct s_do_one_frame_data
-{
-	s_platform_funcs platform_funcs;
-	void* game_memory;
-	s_platform_renderer* platform_renderer;
-	s_game_renderer* game_renderer;
-};
-
-
 func void create_window(int width, int height);
 func b8 init_audio();
 func b8 thread_safe_set_bool_to_true(volatile int* var);
@@ -58,4 +49,4 @@ func void after_loading_texture(s_game_renderer* game_renderer);
 func void render();
 func void printShaderLog( GLuint shader );
 void printProgramLog( GLuint program );
-func void do_one_frame(void* in_data);
+func void do_one_frame();

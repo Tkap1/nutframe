@@ -30,6 +30,11 @@ global GLuint gVBO = 0;
 global GLuint gIBO = 0;
 global f64 time_passed;
 
+global s_platform_funcs g_platform_funcs;
+global void* g_game_memory;
+global s_platform_renderer g_platform_renderer;
+global s_game_renderer* g_game_renderer;
+
 global s_shader_paths shader_paths[e_shader_count] = {
 	{
 		.vertex_path = "shaders/vertex.vertex",
@@ -88,8 +93,6 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	s_platform_renderer platform_renderer = zero;
-	s_game_renderer* game_renderer = null;
 	s_lin_arena platform_frame_arena = zero;
 	s_lin_arena game_frame_arena = zero;
 
@@ -98,12 +101,9 @@ int main(int argc, char** argv)
 	unreferenced(argv);
 	#endif
 
-	s_platform_funcs platform_funcs = zero;
-	// platform_funcs.play_sound = play_sound;
-	// platform_funcs.show_cursor = ShowCursor;
-	// platform_funcs.cycle_between_available_resolutions = cycle_between_available_resolutions;
-
-	void* game_memory = null;
+	// g_platform_funcs.play_sound = play_sound;
+	// g_platform_funcs.show_cursor = ShowCursor;
+	// g_platform_funcs.cycle_between_available_resolutions = cycle_between_available_resolutions;
 
 	{
 		s_lin_arena all = zero;
@@ -113,47 +113,37 @@ int main(int argc, char** argv)
 		all.memory = malloc(all.capacity);
 		memset(all.memory, 0, all.capacity);
 
-		game_renderer = (s_game_renderer*)la_get(&all, sizeof(s_game_renderer));
+		g_game_renderer = (s_game_renderer*)la_get(&all, sizeof(s_game_renderer));
 
-		game_memory = la_get(&all, c_game_memory);
+		g_game_memory = la_get(&all, c_game_memory);
 		platform_frame_arena = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
 		game_frame_arena = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
 		g_platform_data.frame_arena = &game_frame_arena;
 
-		game_renderer->arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		game_renderer->arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		game_renderer->transform_arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		game_renderer->transform_arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		game_renderer->textures.add(zero);
-		after_loading_texture(game_renderer);
+		g_game_renderer->arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		g_game_renderer->arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		g_game_renderer->transform_arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		g_game_renderer->transform_arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		g_game_renderer->textures.add(zero);
+		after_loading_texture(g_game_renderer);
 	}
 
-	game_renderer->set_vsync = set_vsync;
-	game_renderer->load_texture = load_texture;
-	init_opengl(&platform_renderer, &platform_frame_arena);
+	g_game_renderer->set_vsync = set_vsync;
+	g_game_renderer->load_texture = load_texture;
+	init_gl(&g_platform_renderer, &platform_frame_arena);
 
 	b8 running = true;
 	f64 time_passed = 0;
 	g_platform_data.recompiled = true;
 
 	#ifdef __EMSCRIPTEN__
-	s_do_one_frame_data* foo = (s_do_one_frame_data*)calloc(1, sizeof(s_do_one_frame_data));
-	foo->platform_funcs = platform_funcs;
-	foo->game_memory = game_memory;
-	foo->platform_renderer = &platform_renderer;
-	foo->game_renderer = game_renderer;
 	// emscripten_request_animation_frame_loop(do_one_frame, &foo);
-	emscripten_set_main_loop_arg(do_one_frame, foo, -1, 0);
+	emscripten_set_main_loop(do_one_frame, -1, 0);
 	#else
 
 	while(running)
 	{
-		s_do_one_frame_data foo = zero;
-		foo.platform_funcs = platform_funcs;
-		foo.game_memory = game_memory;
-		foo.platform_renderer = &platform_renderer;
-		foo.game_renderer = game_renderer;
-		do_one_frame(&foo);
+		do_one_frame();
 	}
 	#endif
 
@@ -254,13 +244,13 @@ func s_texture load_texture_from_data(void* data, int width, int height, u32 fil
 {
 	assert(data);
 	u32 id;
-	glGenTextures(1, &id);
-	glBindTexture(GL_TEXTURE_2D, id);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
+	gl(glGenTextures(1, &id));
+	gl(glBindTexture(GL_TEXTURE_2D, id));
+	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data));
+	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering));
+	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering));
 
 	s_texture texture = zero;
 	texture.gpu_id = id;
@@ -308,11 +298,8 @@ func void set_vsync(b8 val)
 	SDL_GL_SetSwapInterval(val ? 1 : 0);
 }
 
-func void do_one_frame(void* in_data)
+func void do_one_frame()
 {
-	s_do_one_frame_data data = *(s_do_one_frame_data*)in_data;
-	// s_do_one_frame_data data = zero;
-	// memcpy(&data, in_data, sizeof(data));
 
 	f64 start_of_frame_ms = SDL_GetTicks();
 	// bool result = true;
@@ -332,7 +319,7 @@ func void do_one_frame(void* in_data)
 				int height = e.window.data2;
 				g_window.width = width;
 				g_window.height = height;
-				glViewport(0, 0, width, height);
+				gl(glViewport(0, 0, width, height));
 			}
 			// result = false;
 		}
@@ -353,14 +340,14 @@ func void do_one_frame(void* in_data)
 	}
 	// g_platform_data.is_window_active = GetActiveWindow() == g_window.handle;
 
-	update_game(&g_platform_data, data.platform_funcs, data.game_memory, data.game_renderer);
+	update_game(&g_platform_data, g_platform_funcs, g_game_memory, g_game_renderer);
 	g_platform_data.recompiled = false;
 
-	gl_render(data.platform_renderer, data.game_renderer);
+	gl_render(&g_platform_renderer, g_game_renderer);
 
 	SDL_GL_SwapWindow(gWindow);
 
 	time_passed = (SDL_GetTicks() - start_of_frame_ms) / 1000.0;
-	data.game_renderer->total_time += time_passed;
+	g_game_renderer->total_time += time_passed;
 	// return result;
 }

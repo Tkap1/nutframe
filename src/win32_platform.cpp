@@ -162,7 +162,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	game_renderer->set_vsync = set_vsync;
 	game_renderer->load_texture = load_texture;
 
-	init_opengl(&platform_renderer, &platform_frame_arena);
+	init_gl(&platform_renderer, &platform_frame_arena);
 
 	b8 running = true;
 	f64 time_passed = 0;
@@ -431,13 +431,12 @@ func void create_window(int width, int height)
 		check(DescribePixelFormat(g_window.dc, format, sizeof(pfd), &pfd));
 		SetPixelFormat(g_window.dc, format, &pfd);
 
-		// @Fixme(tkap, 08/10/2023): We need a define for this so we can change the shader version also. We want 4.3 in windows
-		// for debugging reasons.
 		int gl_attribs[] = {
-			WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+			WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
 			WGL_CONTEXT_MINOR_VERSION_ARB, 3,
 			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-			WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+			WGL_CONTEXT_FLAGS_ARB,
+			// WGL_CONTEXT_DEBUG_BIT_ARB,
 			0
 		};
 		HGLRC glrc = wglCreateContextAttribsARB(g_window.dc, null, gl_attribs);

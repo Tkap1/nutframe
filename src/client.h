@@ -153,7 +153,7 @@ struct s_ui_state
 	b8 clicked;
 };
 
-struct s_ui_foo
+struct s_ui_element
 {
 	u32 id;
 	int index;
@@ -161,9 +161,9 @@ struct s_ui_foo
 
 struct s_ui
 {
-	s_ui_foo selected;
-	s_ui_foo hovered;
-	s_ui_foo pressed;
+	s_ui_element selected;
+	s_ui_element hovered;
+	s_ui_element pressed;
 };
 
 struct s_label_group

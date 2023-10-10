@@ -42,3 +42,5 @@ build_clang.bat
 *.html
 *.js
 *.wasm
+*.data
+*.wasm.map
