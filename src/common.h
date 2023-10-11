@@ -1,4 +1,11 @@
 
+
+#ifdef m_debug
+#define gl(...) __VA_ARGS__; {int error = glGetError(); if(error != 0) { on_gl_error(#__VA_ARGS__, error); }}
+#else // m_debug
+#define gl(...) __VA_ARGS__
+#endif // m_debug
+
 struct s_attrib
 {
 	int type;

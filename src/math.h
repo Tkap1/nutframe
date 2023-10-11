@@ -53,27 +53,11 @@ func constexpr s_v2 v2(s_v2i v)
 	return v2(v.x, v.y);
 }
 
-func s_v2 v22i(int x, int y)
-{
-	s_v2 result;
-	result.x = (float)x;
-	result.y = (float)y;
-	return result;
-}
-
 func constexpr s_v2i v2i(int x, int y)
 {
 	s_v2i result;
 	result.x = x;
 	result.y = y;
-	return result;
-}
-
-func s_v2 v2ii(int x, int y)
-{
-	s_v2 result;
-	result.x = (float)x;
-	result.y = (float)y;
 	return result;
 }
 

@@ -35,13 +35,6 @@ global void* g_game_memory;
 global s_platform_renderer g_platform_renderer;
 global s_game_renderer* g_game_renderer;
 
-global s_shader_paths shader_paths[e_shader_count] = {
-	{
-		.vertex_path = "shaders/vertex.vertex",
-		.fragment_path = "shaders/fragment.fragment",
-	},
-};
-
 #include "memory.cpp"
 #include "platform_shared.cpp"
 #include "file.cpp"
@@ -148,68 +141,6 @@ int main(int argc, char** argv)
 	#endif
 
 	return 0;
-
-}
-
-func s_texture load_texture(s_game_renderer* game_renderer, char* path)
-{
-	s_texture result = load_texture_from_file(path, GL_LINEAR);
-	result.game_id = game_renderer->textures.count;
-	game_renderer->textures.add(result);
-	after_loading_texture(game_renderer);
-	return result;
-}
-
-func s_texture load_texture_from_data(void* data, int width, int height, u32 filtering)
-{
-	assert(data);
-	u32 id;
-	gl(glGenTextures(1, &id));
-	gl(glBindTexture(GL_TEXTURE_2D, id));
-	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data));
-	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
-	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering));
-	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering));
-
-	s_texture texture = zero;
-	texture.gpu_id = id;
-	texture.size = v22i(width, height);
-	return texture;
-}
-
-func s_texture load_texture_from_file(char* path, u32 filtering)
-{
-	int width, height, num_channels;
-	void* data = stbi_load(path, &width, &height, &num_channels, 4);
-	assert(data);
-
-	s_texture texture = load_texture_from_data(data, width, height, filtering);
-	stbi_image_free(data);
-	return texture;
-}
-
-func void after_loading_texture(s_game_renderer* game_renderer)
-{
-	int old_index = game_renderer->transform_arena_index;
-	int new_index = (game_renderer->transform_arena_index + 1) % 2;
-	int size = sizeof(*game_renderer->transforms) * game_renderer->textures.count;
-	s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
-		&game_renderer->transform_arenas[new_index], size
-	);
-
-	// @Note(tkap, 08/10/2023): The first time we add a texture, transforms is null, so we can't memcpy from it
-	if(game_renderer->transforms)
-	{
-		memcpy(new_transforms, game_renderer->transforms, size);
-	}
-	game_renderer->transforms = new_transforms;
-	game_renderer->transform_arenas[old_index].used = 0;
-	game_renderer->transform_arena_index = new_index;
-}
-
-func void render()
-{
 
 }
 

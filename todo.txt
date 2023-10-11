@@ -1,0 +1,6 @@
+why doesn't hot reloading break textures??
+	we probably don't want it to allocate tho
+
+make a config.bat
+
+hot shader reloading

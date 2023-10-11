@@ -79,13 +79,6 @@ global volatile int g_file_write = 0;
 global volatile int g_file_read = 0;
 global char g_files[c_max_files][MAX_PATH];
 
-global s_shader_paths shader_paths[e_shader_count] = {
-	{
-		.vertex_path = "shaders/vertex.vertex",
-		.fragment_path = "shaders/fragment.fragment",
-	},
-};
-
 
 #define X(type, name) static type name = null;
 m_gl_funcs
@@ -586,7 +579,6 @@ func f64 get_seconds()
 	return (now - g_start_cycles) / (f64)g_cycle_frequency;
 }
 
-
 func void set_vsync(b8 val)
 {
 	if(wglSwapIntervalEXT)
@@ -659,75 +651,6 @@ func void center_window()
 	int center_x = (info.rcMonitor.left + info.rcMonitor.right) / 2 - window_width / 2;
 	int center_y = (info.rcMonitor.top + info.rcMonitor.bottom) / 2 - window_height / 2;
 	SetWindowPos(g_window.handle, null, center_x, center_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-}
-
-void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
-{
-	unreferenced(userParam);
-	unreferenced(length);
-	unreferenced(id);
-	unreferenced(type);
-	unreferenced(source);
-	if(severity >= GL_DEBUG_SEVERITY_HIGH)
-	{
-		printf("GL ERROR: %s\n", message);
-		assert(false);
-	}
-}
-
-func s_texture load_texture(s_game_renderer* game_renderer, char* path)
-{
-	s_texture result = load_texture_from_file(path, GL_LINEAR);
-	result.game_id = game_renderer->textures.count;
-	game_renderer->textures.add(result);
-	after_loading_texture(game_renderer);
-	return result;
-}
-
-func s_texture load_texture_from_data(void* data, int width, int height, u32 filtering)
-{
-	assert(data);
-	u32 id;
-	glGenTextures(1, &id);
-	glBindTexture(GL_TEXTURE_2D, id);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
-
-	s_texture texture = zero;
-	texture.gpu_id = id;
-	texture.size = v22i(width, height);
-	return texture;
-}
-
-func s_texture load_texture_from_file(char* path, u32 filtering)
-{
-	int width, height, num_channels;
-	void* data = stbi_load(path, &width, &height, &num_channels, 4);
-	s_texture texture = load_texture_from_data(data, width, height, filtering);
-	stbi_image_free(data);
-	return texture;
-}
-
-func void after_loading_texture(s_game_renderer* game_renderer)
-{
-	int old_index = game_renderer->transform_arena_index;
-	int new_index = (game_renderer->transform_arena_index + 1) % 2;
-	int size = sizeof(*game_renderer->transforms) * game_renderer->textures.count;
-	s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
-		&game_renderer->transform_arenas[new_index], size
-	);
-
-	// @Note(tkap, 08/10/2023): The first time we add a texture, transforms is null, so we can't memcpy from it
-	if(game_renderer->transforms)
-	{
-		memcpy(new_transforms, game_renderer->transforms, size);
-	}
-	game_renderer->transforms = new_transforms;
-	game_renderer->transform_arenas[old_index].used = 0;
-	game_renderer->transform_arena_index = new_index;
 }
 
 #ifdef m_debug
