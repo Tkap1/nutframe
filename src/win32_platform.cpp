@@ -43,7 +43,6 @@ X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
 X(PFNGLCOMPILESHADERPROC, glCompileShader) \
 X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
 X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
-X(PFNGLDEBUGMESSAGECALLBACKPROC, glDebugMessageCallback) \
 X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
 X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
 X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
@@ -60,6 +59,9 @@ X(PFNGLDELETEPROGRAMPROC, glDeleteProgram) \
 X(PFNGLDELETESHADERPROC, glDeleteShader) \
 X(PFNGLUNIFORM1IPROC, glUniform1i) \
 X(PFNGLUNIFORM1FPROC, glUniform1f) \
+X(PFNGLDETACHSHADERPROC, glDetachShader) \
+X(PFNGLGETPROGRAMIVPROC, glGetProgramiv) \
+X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
 X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
 
 
@@ -70,6 +72,12 @@ global s_voice voice_arr[c_max_concurrent_sounds];
 global u64 g_cycle_frequency;
 global u64 g_start_cycles;
 global s_platform_data g_platform_data = zero;
+
+// @Note(tkap, 11/10/2023): File watch
+global constexpr int c_max_files = 16;
+global volatile int g_file_write = 0;
+global volatile int g_file_read = 0;
+global char g_files[c_max_files][MAX_PATH];
 
 global s_shader_paths shader_paths[e_shader_count] = {
 	{
@@ -119,6 +127,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		printf("failed to init audio Aware\n");
 	}
 	init_performance();
+
+	CreateThread(null, 0, watch_dir, null, 0, null);
 
 	wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)load_gl_func("wglSwapIntervalEXT");
 	#define X(type, name) name = (type)load_gl_func(#name);
@@ -665,55 +675,6 @@ void gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, G
 	}
 }
 
-func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
-{
-	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
-	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
-	const char* header = "#version 330 core\n";
-	char* vertex_src = read_file(vertex_path, frame_arena);
-	if(!vertex_src || !vertex_src[0]) { return 0; }
-	char* fragment_src = read_file(fragment_path, frame_arena);
-	if(!fragment_src || !fragment_src[0]) { return 0; }
-
-	const char* vertex_src_arr[] = {header, vertex_src};
-	const char* fragment_src_arr[] = {header, fragment_src};
-	glShaderSource(vertex, array_count(vertex_src_arr), (const GLchar * const *)vertex_src_arr, null);
-	glShaderSource(fragment, array_count(fragment_src_arr), (const GLchar * const *)fragment_src_arr, null);
-	glCompileShader(vertex);
-	char buffer[1024] = zero;
-	check_for_shader_errors(vertex, buffer);
-	glCompileShader(fragment);
-	check_for_shader_errors(fragment, buffer);
-	u32 program = glCreateProgram();
-	glAttachShader(program, vertex);
-	glAttachShader(program, fragment);
-	glLinkProgram(program);
-	glDeleteShader(vertex);
-	glDeleteShader(fragment);
-	return program;
-}
-
-func b8 check_for_shader_errors(u32 id, char* out_error)
-{
-	int compile_success;
-	char info_log[1024];
-	glGetShaderiv(id, GL_COMPILE_STATUS, &compile_success);
-
-	if(!compile_success)
-	{
-		glGetShaderInfoLog(id, 1024, null, info_log);
-		log("Failed to compile shader:\n%s", info_log);
-
-		if(out_error)
-		{
-			strcpy(out_error, info_log);
-		}
-
-		return false;
-	}
-	return true;
-}
-
 func s_texture load_texture(s_game_renderer* game_renderer, char* path)
 {
 	s_texture result = load_texture_from_file(path, GL_LINEAR);
@@ -767,4 +728,49 @@ func void after_loading_texture(s_game_renderer* game_renderer)
 	game_renderer->transforms = new_transforms;
 	game_renderer->transform_arenas[old_index].used = 0;
 	game_renderer->transform_arena_index = new_index;
+}
+
+#ifdef m_debug
+func DWORD WINAPI watch_dir(void* arg)
+{
+	HANDLE handle = CreateFile(".", FILE_LIST_DIRECTORY, FILE_SHARE_READ|FILE_SHARE_WRITE, null, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, null);
+	while(true)
+	{
+		DWORD bytes_read;
+		FILE_NOTIFY_INFORMATION buffer[16] = zero;
+		BOOL result = ReadDirectoryChangesW(
+			handle, buffer, sizeof(buffer), true, FILE_NOTIFY_CHANGE_LAST_WRITE,
+			&bytes_read, null, null
+		);
+		assert(result);
+		if(bytes_read <= 0) { continue; }
+
+		int index = 0;
+		while(true)
+		{
+			char filename[MAX_PATH] = zero;
+			wide_to_unicode(buffer[index].FileName, filename);
+			memcpy(g_files[g_file_write], filename, MAX_PATH);
+			InterlockedIncrement((LONG*)&g_file_write);
+			if(buffer[index].NextEntryOffset > index)
+			{
+				assert(buffer[index].NextEntryOffset == sizeof(buffer[0]));
+				index += 1;
+			}
+			else { break; }
+		}
+	}
+	return 0;
+}
+#endif // m_debug
+
+func void wide_to_unicode(wchar_t* wide, char* out)
+{
+	assert(wide);
+	int required_buffer_size = WideCharToMultiByte(CP_UTF8, 0, wide, -1, null, 0, null, null);
+	assert(required_buffer_size > 0);
+	assert(required_buffer_size <= MAX_PATH);
+
+	// char* out_unicode = (char*)la_get(frame_arena, MAX_PATH);
+	WideCharToMultiByte(CP_UTF8, 0, wide, -1, out, required_buffer_size, null, null);
 }

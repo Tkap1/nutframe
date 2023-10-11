@@ -191,3 +191,72 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 		}
 	}
 }
+
+func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
+{
+	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
+	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
+
+	#ifdef __EMSCRIPTEN__
+	const char* header = "#version 300 es\nprecision highp float;";
+	#else
+	const char* header = "#version 330 core\n";
+	#endif
+
+	char* vertex_src = read_file(vertex_path, frame_arena);
+	if(!vertex_src || !vertex_src[0]) { return 0; }
+	char* fragment_src = read_file(fragment_path, frame_arena);
+	if(!fragment_src || !fragment_src[0]) { return 0; }
+
+	const char* vertex_src_arr[] = {header, vertex_src};
+	const char* fragment_src_arr[] = {header, fragment_src};
+	gl(glShaderSource(vertex, array_count(vertex_src_arr), (const GLchar * const *)vertex_src_arr, null));
+	gl(glShaderSource(fragment, array_count(fragment_src_arr), (const GLchar * const *)fragment_src_arr, null));
+	gl(glCompileShader(vertex));
+	char buffer[1024] = zero;
+	check_for_shader_errors(vertex, buffer);
+	gl(glCompileShader(fragment));
+	check_for_shader_errors(fragment, buffer);
+	u32 program = gl(glCreateProgram());
+	gl(glAttachShader(program, vertex));
+	gl(glAttachShader(program, fragment));
+	gl(glLinkProgram(program));
+
+	{
+		int length = 0;
+		int linked = 0;
+		gl(glGetProgramiv(program, GL_LINK_STATUS, &linked));
+		if(!linked)
+		{
+			gl(glGetProgramInfoLog(program, sizeof(buffer), &length, buffer));
+			printf("FAILED TO LINK: %s\n", buffer);
+		}
+	}
+
+	gl(glDetachShader(program, vertex));
+	gl(glDetachShader(program, fragment));
+	gl(glDeleteShader(vertex));
+	gl(glDeleteShader(fragment));
+	return program;
+}
+
+func b8 check_for_shader_errors(u32 id, char* out_error)
+{
+	int compile_success;
+	char info_log[1024];
+	gl(glGetShaderiv(id, GL_COMPILE_STATUS, &compile_success));
+
+	if(!compile_success)
+	{
+		gl(glGetShaderInfoLog(id, 1024, null, info_log));
+		log("Failed to compile shader:\n%s", info_log);
+
+		if(out_error)
+		{
+			strcpy(out_error, info_log);
+		}
+
+		return false;
+	}
+	return true;
+}

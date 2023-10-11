@@ -54,7 +54,6 @@ struct s_voice : IXAudio2VoiceCallback
 };
 
 
-
 func void create_window(int width, int height);
 func WPARAM remap_key_if_necessary(WPARAM vk, LPARAM lparam);
 func PROC load_gl_func(char* name);
@@ -74,3 +73,9 @@ func s_texture load_texture(s_game_renderer* game_renderer, char* path);
 func s_texture load_texture_from_data(void* data, int width, int height, u32 filtering);
 func s_texture load_texture_from_file(char* path, u32 filtering);
 func void after_loading_texture(s_game_renderer* game_renderer);
+
+#ifdef m_debug
+func DWORD WINAPI watch_dir(void* arg);
+#endif // m_debug
+
+func void wide_to_unicode(wchar_t* wide, char* out);
