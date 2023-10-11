@@ -58,7 +58,6 @@ int main(int argc, char** argv)
 	g_start_cycles = SDL_GetPerformanceCounter();
 	g_cycle_frequency = SDL_GetPerformanceFrequency();
 
-
 	gWindow = SDL_CreateWindow(
 		"SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		64*12, 64*12, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE

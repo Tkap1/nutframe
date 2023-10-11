@@ -11,3 +11,10 @@ we can leak shaders if they compile but dont link
 we want shader errors in game. we need text rendering for this!!
 
 need a good way to set window size
+
+
+make a default framebuffer thingie
+we need to give new framebuffers a transforms pointer?
+handle do depth and do additive
+
+test if adding texture and framebuffers in any order breaks things

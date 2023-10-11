@@ -33,7 +33,7 @@ func void on_gl_error(char* expr, int error)
 	printf("GL ERROR: %s - %i (%s)\n", expr, error, error_str);
 }
 
-func void init_gl(s_platform_renderer* platform_renderer, s_lin_arena* arena)
+func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer, s_lin_arena* arena)
 {
 	gl(glGenVertexArrays(1, &platform_renderer->default_vao));
 	gl(glBindVertexArray(platform_renderer->default_vao));
@@ -69,6 +69,12 @@ func void init_gl(s_platform_renderer* platform_renderer, s_lin_arena* arena)
 	}
 
 	gl(glUseProgram(platform_renderer->programs[e_shader_default]));
+
+	s_framebuffer framebuffer = zero;
+	framebuffer.do_depth = true;
+	game_renderer->framebuffers.add(framebuffer);
+	after_making_framebuffer(framebuffer.game_id, game_renderer);
+
 }
 
 func void add_int(s_attrib_handler* handler, int count)
@@ -140,16 +146,15 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	gl(glClearDepth(0.0f));
 	gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
-	if(game_renderer->did_we_alloc)
-	{
-		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
-		{
-			int new_index = (game_renderer->arena_index + 1) % 2;
-			bucket_merge(&game_renderer->transforms[texture_i], &game_renderer->arenas[new_index]);
+	if(game_renderer->did_we_alloc) {
+		foreach(framebuffer_i, framebuffer, game_renderer->framebuffers) {
+			for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++) {
+				int new_index = (game_renderer->arena_index + 1) % 2;
+				bucket_merge(&framebuffer->transforms[texture_i], &game_renderer->arenas[new_index]);
+			}
 		}
 	}
-	if(game_renderer->did_we_alloc)
-	{
+	if(game_renderer->did_we_alloc) {
 		int old_index = game_renderer->arena_index;
 		int new_index = (game_renderer->arena_index + 1) % 2;
 		game_renderer->arenas[old_index].used = 0;
@@ -157,43 +162,51 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 		game_renderer->did_we_alloc = false;
 	}
 
-	for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
-	{
-		if(game_renderer->transforms[texture_i].element_count[0] > 0)
-		{
-			gl(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-			gl(glBindVertexArray(platform_renderer->default_vao));
-			gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
-
-			gl(glActiveTexture(GL_TEXTURE0));
-			gl(glBindTexture(GL_TEXTURE_2D, game_renderer->textures[texture_i].gpu_id));
-
-			// glActiveTexture(GL_TEXTURE1);
-			// glBindTexture(GL_TEXTURE_2D, game->noise.id);
-			// glUniform1i(1, 1);
-
+	foreach(framebuffer_i, framebuffer, game_renderer->framebuffers) {
+		gl(glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->gpu_id));
+		gl(glViewport(0, 0, g_window.width, g_window.height));
+		gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+		if(framebuffer->do_depth) {
 			gl(glEnable(GL_DEPTH_TEST));
 			gl(glDepthFunc(GL_GREATER));
-			gl(glEnable(GL_BLEND));
-			// if(render_type == 0)
+		}
+		else {
+			gl(glDisable(GL_DEPTH_TEST));
+		}
+
+		gl(glEnable(GL_BLEND));
+		if(framebuffer->do_additive) {
+			gl(glBlendFunc(GL_ONE, GL_ONE));
+		}
+		else {
+			gl(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+		}
+
+		gl(glBindVertexArray(platform_renderer->default_vao));
+		gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
+
+		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
+		{
+			if(framebuffer->transforms[texture_i].element_count[0] > 0)
 			{
-				glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+				gl(glActiveTexture(GL_TEXTURE0));
+				gl(glBindTexture(GL_TEXTURE_2D, game_renderer->textures[texture_i].gpu_id));
+
+				// glActiveTexture(GL_TEXTURE1);
+				// glBindTexture(GL_TEXTURE_2D, game->noise.id);
+				// glUniform1i(1, 1);
+
 				// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+				int count = framebuffer->transforms[texture_i].element_count[0];
+				int size = sizeof(*framebuffer->transforms[texture_i].elements[0]);
+
+				gl(glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, framebuffer->transforms[texture_i].elements[0]));
+				gl(glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count));
+				memset(&framebuffer->transforms[texture_i].element_count, 0, sizeof(framebuffer->transforms[texture_i].element_count));
+
+				assert(framebuffer->transforms[texture_i].bucket_count == 1);
 			}
-			// else if(render_type == 1)
-			// {
-				// gl(glBlendFunc(GL_ONE, GL_ONE));
-			// }
-			// invalid_else;
-
-			int count = game_renderer->transforms[texture_i].element_count[0];
-			int size = sizeof(*game_renderer->transforms[texture_i].elements[0]);
-
-			gl(glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, game_renderer->transforms[texture_i].elements[0]));
-			gl(glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count));
-			memset(&game_renderer->transforms[texture_i].element_count, 0, sizeof(game_renderer->transforms[texture_i].element_count));
-
-			assert(game_renderer->transforms[texture_i].bucket_count == 1);
 		}
 	}
 }
@@ -314,17 +327,20 @@ func void after_loading_texture(s_game_renderer* game_renderer)
 {
 	int old_index = game_renderer->transform_arena_index;
 	int new_index = (game_renderer->transform_arena_index + 1) % 2;
-	int size = sizeof(*game_renderer->transforms) * game_renderer->textures.count;
-	s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
-		&game_renderer->transform_arenas[new_index], size
-	);
+	int size = sizeof(*game_renderer->framebuffers[0].transforms) * game_renderer->textures.count;
 
-	// @Note(tkap, 08/10/2023): The first time we add a texture, transforms is null, so we can't memcpy from it
-	if(game_renderer->transforms)
-	{
-		memcpy(new_transforms, game_renderer->transforms, size);
+	foreach(framebuffer_i, framebuffer, game_renderer->framebuffers) {
+		s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
+			&game_renderer->transform_arenas[new_index], size
+		);
+
+		// @Note(tkap, 08/10/2023): The first time we add a texture, transforms is null, so we can't memcpy from it
+		if(framebuffer->transforms) {
+			memcpy(new_transforms, framebuffer->transforms, size);
+		}
+		framebuffer->transforms = new_transforms;
 	}
-	game_renderer->transforms = new_transforms;
+
 	game_renderer->transform_arenas[old_index].used = 0;
 	game_renderer->transform_arena_index = new_index;
 }
@@ -351,7 +367,19 @@ func s_framebuffer make_framebuffer(s_game_renderer* game_renderer, b8 do_depth,
 	gl(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
 	result.game_id = game_renderer->framebuffers.count;
+	result.do_depth = do_depth;
+	result.do_additive = do_additive;
 	game_renderer->framebuffers.add(result);
+	after_making_framebuffer(result.game_id, game_renderer);
 
 	return result;
+}
+
+func void after_making_framebuffer(int index, s_game_renderer* game_renderer)
+{
+	int size = sizeof(*game_renderer->framebuffers[0].transforms) * game_renderer->textures.count;
+	s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
+		&game_renderer->transform_arenas[game_renderer->transform_arena_index], size
+	);
+	game_renderer->framebuffers[index].transforms = new_transforms;
 }

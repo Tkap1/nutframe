@@ -100,15 +100,6 @@ struct s_texture
 };
 
 
-struct s_framebuffer
-{
-	u32 gpu_id;
-	int game_id;
-	u32 texture_id;
-	b8 do_depth;
-	b8 do_additive;
-};
-
 #pragma pack(push, 1)
 struct s_transform
 {
@@ -128,6 +119,19 @@ struct s_transform
 	s_v4 mix_color;
 };
 #pragma pack(pop)
+
+struct s_framebuffer
+{
+	u32 gpu_id;
+	int game_id;
+	u32 texture_id;
+	b8 do_depth;
+	b8 do_additive;
+
+	// @Note(tkap, 08/10/2023): We esentially want s_bucket_array<s_transform> transforms[e_texture_count];
+	// but we don't know how many textures there will be at compile time, because the game code may load any amount
+	s_bucket_array<s_transform>* transforms;
+};
 
 struct s_game_window
 {
@@ -180,7 +184,6 @@ struct s_platform_funcs
 	t_cycle_between_available_resolutions cycle_between_available_resolutions;
 };
 
-struct s_game_renderer;
 typedef s_texture (*t_load_texture)(s_game_renderer*, char*);
 struct s_game_renderer
 {
@@ -189,10 +192,6 @@ struct s_game_renderer
 	t_load_texture load_texture;
 	t_make_framebuffer make_framebuffer;
 	f64 total_time;
-
-	// @Note(tkap, 08/10/2023): We esentially want s_bucket_array<s_transform> transforms[e_texture_count];
-	// but we don't know how many textures there will be at compile time, because the game code may load any amount
-	s_bucket_array<s_transform>* transforms;
 
 	int transform_arena_index;
 	s_lin_arena transform_arenas[2];

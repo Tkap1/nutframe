@@ -7,10 +7,11 @@ enum e_render_flags
 };
 
 
-func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, int framebuffer = 0, s_transform t = zero)
+func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, int framebuffer_index = 0, s_transform t = zero)
 {
-	assert(framebuffer >= 0);
-	assert(framebuffer < g_r->framebuffers.count);
+	assert(framebuffer_index >= 0);
+	assert(framebuffer_index < g_r->framebuffers.count);
+	s_framebuffer* framebuffer = &g_r->framebuffers[framebuffer_index];
 
 	t.pos = pos;
 	t.layer = layer;
@@ -19,7 +20,7 @@ func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, int framebuffer 
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
 	t.mix_color = v41f(1);
-	bucket_add(&g_r->transforms[0], t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
+	bucket_add(&framebuffer->transforms[0], t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
 }
 
 // func void draw_circle(s_v2 pos, int layer, float radius, s_v4 color, s_transform t = zero)
@@ -55,10 +56,11 @@ func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, int framebuffer 
 // 	bucket_add(&g_r->transforms, t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
 // }
 
-func void draw_texture(s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, int framebuffer = 0, s_transform t = zero)
+func void draw_texture(s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, int framebuffer_index = 0, s_transform t = zero)
 {
-	assert(framebuffer >= 0);
-	assert(framebuffer < g_r->framebuffers.count);
+	assert(framebuffer_index >= 0);
+	assert(framebuffer_index < g_r->framebuffers.count);
+	s_framebuffer* framebuffer = &g_r->framebuffers[framebuffer_index];
 
 	t.layer = layer;
 	t.flags |= e_render_flag_use_texture;
@@ -68,7 +70,7 @@ func void draw_texture(s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture tex
 	t.uv_min = v2(0);
 	t.uv_max = v2(1);
 	t.mix_color = v41f(1);
-	bucket_add(&g_r->transforms[texture.game_id], t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
+	bucket_add(&framebuffer->transforms[texture.game_id], t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
 }
 
 // func void draw_fbo(u32 texture, s_transform t = zero)

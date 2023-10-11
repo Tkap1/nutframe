@@ -165,7 +165,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	game_renderer->load_texture = load_texture;
 	game_renderer->make_framebuffer = make_framebuffer;
 
-	init_gl(&platform_renderer, &platform_frame_arena);
+	init_gl(&platform_renderer, game_renderer, &platform_frame_arena);
 
 	b8 running = true;
 
