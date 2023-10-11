@@ -13,7 +13,7 @@ if not exist build\NUL mkdir build
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 @REM 0 for win32, 1 for SDL
-set platform=1
+set platform=0
 
 
 set build_dll=1

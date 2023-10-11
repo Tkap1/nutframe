@@ -9,27 +9,20 @@
 #include "shader_shared.h"
 #include "bucket.h"
 #include "platform_shared.h"
-
-
-
 #include "client.h"
 #include "audio.h"
 
 global s_sarray<s_transform, c_max_entities> text_arr[e_font_count];
-
 global s_lin_arena* frame_arena;
-
 global s_game_window g_window;
 global s_input* g_logic_input;
 global s_input* g_input;
-
 global s_platform_data* g_platform_data;
 global s_platform_funcs g_platform_funcs;
-
 global s_game* game;
-
 global s_v2 previous_mouse;
 global s_ui g_ui;
+global s_game_renderer* g_r;
 
 global s_shader_paths shader_paths[e_shader_count] = {
 	{
@@ -38,7 +31,6 @@ global s_shader_paths shader_paths[e_shader_count] = {
 	},
 };
 
-global s_game_renderer* g_r;
 
 
 #include "draw.cpp"
@@ -86,159 +78,7 @@ func void update()
 
 func void render(float dt)
 {
-	s_camera interpolated_camera = game->camera;
-	switch(game->state)
-	{
-		case e_state_main_menu:
-		{
-			s_v2i res = c_resolutions[game->current_resolution_index];
-		} break;
-
-		case e_state_game:
-		{
-		} break;
-
-		case e_state_victory:
-		{
-			if(game->best_time < game->transient.beat_time)
-			{
-			}
-			else
-			{
-			}
-
-			if(is_key_pressed(g_input, c_key_enter))
-			{
-				game->state = e_state_game;
-				game->transient.winning = false;
-			}
-			if(is_key_pressed(g_input, c_key_r))
-			{
-				game->state = e_state_game;
-			}
-			if(is_key_pressed(g_input, c_key_escape))
-			{
-				// ExitProcess(0);
-			}
-		} break;
-
-		invalid_default_case;
-	}
-
-	#ifdef m_debug
-	hot_reload_shaders();
-	#endif // m_debug
 }
-
-func s_font load_font(const char* path, float font_size, s_lin_arena* arena)
-{
-	s_font font = zero;
-	font.size = font_size;
-
-	u8* file_data = (u8*)read_file(path, arena);
-	assert(file_data);
-
-	stbtt_fontinfo info = zero;
-	stbtt_InitFont(&info, file_data, 0);
-
-	stbtt_GetFontVMetrics(&info, &font.ascent, &font.descent, &font.line_gap);
-
-	font.scale = stbtt_ScaleForPixelHeight(&info, font_size);
-	constexpr int max_chars = 128;
-	int bitmap_count = 0;
-	u8* bitmap_arr[max_chars];
-	const int padding = 10;
-
-	int columns = floorfi(4096 / (font_size + padding));
-	int rows = ceilfi((max_chars - columns) / (float)columns) + 1;
-
-	int total_width = floorfi(columns * (font_size + padding));
-	int total_height = floorfi(rows * (font_size + padding));
-
-	for(int char_i = 0; char_i < max_chars; char_i++)
-	{
-		s_glyph glyph = zero;
-		u8* bitmap = stbtt_GetCodepointBitmap(&info, 0, font.scale, char_i, &glyph.width, &glyph.height, 0, 0);
-		stbtt_GetCodepointBox(&info, char_i, &glyph.x0, &glyph.y0, &glyph.x1, &glyph.y1);
-		stbtt_GetGlyphHMetrics(&info, char_i, &glyph.advance_width, null);
-
-		font.glyph_arr[char_i] = glyph;
-		bitmap_arr[bitmap_count++] = bitmap;
-	}
-
-	// @Fixme(tkap, 23/06/2023): Use arena
-	u8* gl_bitmap = (u8*)calloc(1, sizeof(u8) * 4 * total_width * total_height);
-
-	for(int char_i = 0; char_i < max_chars; char_i++)
-	{
-		s_glyph* glyph = &font.glyph_arr[char_i];
-		u8* bitmap = bitmap_arr[char_i];
-		int column = char_i % columns;
-		int row = char_i / columns;
-		for(int y = 0; y < glyph->height; y++)
-		{
-			for(int x = 0; x < glyph->width; x++)
-			{
-				int current_x = floorfi(column * (font_size + padding));
-				int current_y = floorfi(row * (font_size + padding));
-				u8 src_pixel = bitmap[x + y * glyph->width];
-				u8* dst_pixel = &gl_bitmap[((current_x + x) + (current_y + y) * total_width) * 4];
-				dst_pixel[0] = 255;
-				dst_pixel[1] = 255;
-				dst_pixel[2] = 255;
-				dst_pixel[3] = src_pixel;
-			}
-		}
-
-		glyph->uv_min.x = column / (float)columns;
-		glyph->uv_max.x = glyph->uv_min.x + (glyph->width / (float)total_width);
-
-		glyph->uv_min.y = row / (float)rows;
-
-		// @Note(tkap, 17/05/2023): For some reason uv_max.y is off by 1 pixel (checked the texture in renderoc), which causes the text to be slightly miss-positioned
-		// in the Y axis. "glyph->height - 1" fixes it.
-		glyph->uv_max.y = glyph->uv_min.y + (glyph->height / (float)total_height);
-
-		// @Note(tkap, 17/05/2023): Otherwise the line above makes the text be cut off at the bottom by 1 pixel...
-		// glyph->uv_max.y += 0.01f;
-	}
-
-	// font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR);
-
-	for(int bitmap_i = 0; bitmap_i < bitmap_count; bitmap_i++)
-	{
-		stbtt_FreeBitmap(bitmap_arr[bitmap_i], null);
-	}
-
-	free(gl_bitmap);
-
-	return font;
-}
-
-func s_v2 get_text_size_with_count(const char* text, e_font font_id, int count)
-{
-	assert(count >= 0);
-	if(count <= 0) { return zero; }
-	s_font* font = &game->font_arr[font_id];
-
-	s_v2 size = zero;
-	size.y = font->size;
-
-	for(int char_i = 0; char_i < count; char_i++)
-	{
-		char c = text[char_i];
-		s_glyph glyph = font->glyph_arr[c];
-		size.x += glyph.advance_width * font->scale;
-	}
-
-	return size;
-}
-
-func s_v2 get_text_size(const char* text, e_font font_id)
-{
-	return get_text_size_with_count(text, font_id, (int)strlen(text));
-}
-
 
 #ifdef m_debug
 func void hot_reload_shaders(void)
