@@ -314,3 +314,51 @@ func constexpr s_v4 rgba(int hex)
 	result.w = ((hex & 0x000000FF) >> 0) / 255.0f;
 	return result;
 }
+
+func int str_find_from_left(char* haystack, int haystack_len, char* needle, int needle_len)
+{
+	if(needle_len > haystack_len) { return -1; }
+
+	for(int haystack_i = 0; haystack_i < haystack_len - (needle_len - 1); haystack_i++)
+	{
+		b8 found = true;
+		for(int needle_i = 0; needle_i < needle_len; needle_i++)
+		{
+			char haystack_c = haystack[haystack_i + needle_i];
+			char needle_c = needle[needle_i];
+			if(haystack_c != needle_c)
+			{
+				found = false;
+				break;
+			}
+		}
+		if(found)
+		{
+			return haystack_i;
+		}
+	}
+	return -1;
+}
+
+func b8 str_replace(char* str, char* needle, char* replacement)
+{
+	int str_len = (int)strlen(str);
+	int needle_len = (int)strlen(needle);
+	int replacement_len = (int)strlen(replacement);
+
+	if(needle_len > str_len) { return false; }
+
+	int index = str_find_from_left(str, str_len, needle, needle_len);
+	if(index == -1) { return false; }
+
+	int to_copy = str_len - (index + 1);
+	if(to_copy > 0 && needle_len != replacement_len)
+	{
+		memmove(&str[index + replacement_len], &str[index + needle_len], str_len - index);
+	}
+	memmove(&str[index], replacement, replacement_len);
+	str[str_len + to_copy] = 0;
+
+	return true;
+
+}

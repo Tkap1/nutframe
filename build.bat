@@ -17,10 +17,10 @@ set platform=0
 
 
 set build_dll=1
-@REM @Fixme(tkap, 05/10/2023): W4
-set comp=-nologo -std:c++20 -Zc:strictStrings- -W0 -FC -Gm- -GR- -EHa- -wd 4324 -wd 4127 -wd 4505 -D_CRT_SECURE_NO_WARNINGS -Dm_app
+set comp=-nologo -std:c++20 -Zc:strictStrings- -W4 -FC -Gm- -GR- -EHa- -wd 4324 -wd 4127 -wd 4505 -D_CRT_SECURE_NO_WARNINGS -Dm_app
 set linker=-INCREMENTAL:NO
 set comp=!comp! -wd4201
+set comp=!comp! -wd4100
 
 if !platform!==0 (
 	set platform_file=..\src\win32_platform.cpp

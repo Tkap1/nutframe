@@ -128,7 +128,7 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	}
 	{
 		int location = gl(glGetUniformLocation(platform_renderer->programs[e_shader_default], "time"));
-		gl(glUniform1f(location, game_renderer->total_time));
+		gl(glUniform1f(location, (float)game_renderer->total_time));
 	}
 	{
 		int location = gl(glGetUniformLocation(platform_renderer->programs[e_shader_default], "mouse"));

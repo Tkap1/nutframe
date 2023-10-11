@@ -481,6 +481,7 @@ struct s_game
 	u32 programs[e_shader_count];
 
 	s_texture noise;
+	s_texture dude;
 };
 
 func void update();

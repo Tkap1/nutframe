@@ -55,6 +55,7 @@ m_update_game(update_game)
 		game->initialized = true;
 		g_r->set_vsync(true);
 		game->noise = g_r->load_texture(rendering, "assets/noise.png");
+		game->dude = g_r->load_texture(rendering, "assets/dude.png");
 	}
 
 	g_input = platform_data->input;
@@ -65,6 +66,7 @@ m_update_game(update_game)
 
 	draw_rect(c_half_res, 0, c_base_res, make_color(121/255.0f * 0.2f, 241/255.0f * 0.2f, 255/255.0f * 0.2f));
 	draw_texture(platform_data->mouse, 1, v2(1024), make_color(1), game->noise, {.effect_id = 1});
+	draw_texture(platform_data->mouse, 2, v2(128), make_color(1), game->dude);
 }
 
 #ifdef m_build_dll

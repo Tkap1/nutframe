@@ -270,8 +270,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 							// @Note(tkap, 11/10/2023): We successfully loaded the shader files, but they don't compile/link, so we want to advance file
 							if(!program) { break; }
 
-							glUseProgram(0);
-							glDeleteProgram(platform_renderer.programs[shader_i]);
+							gl(glUseProgram(0));
+							gl(glDeleteProgram(platform_renderer.programs[shader_i]));
 							platform_renderer.programs[shader_i] = program;
 
 							log_info("Reloaded %s", file_path);
@@ -290,6 +290,20 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 						if(strcmp(texture.path, file_path) == 0)
 						{
+							int width, height, num_channels;
+							void* data = stbi_load(file_path, &width, &height, &num_channels, 4);
+							if(!data)
+							{
+								advance_file = false;
+								break;
+							}
+							gl(glDeleteTextures(1, &texture.gpu_id));
+							s_texture new_texture = load_texture_from_data(data, width, height, GL_LINEAR);
+							new_texture.game_id = texture_i;
+							new_texture.path = file_path;
+							stbi_image_free(data);
+							game_renderer->textures[texture_i] = new_texture;
+							log_info("Reloaded %s", file_path);
 							break;
 						}
 					}
@@ -743,12 +757,14 @@ func DWORD WINAPI watch_dir(void* arg)
 		assert(result);
 		if(bytes_read <= 0) { continue; }
 
-		int index = 0;
+		u32 index = 0;
 		while(true)
 		{
-			char filename[MAX_PATH] = zero;
-			wide_to_unicode(buffer[index].FileName, filename);
-			memcpy(g_files[g_file_write % c_max_files], filename, MAX_PATH);
+			char file_path[MAX_PATH] = zero;
+			wide_to_unicode(buffer[index].FileName, file_path);
+			str_replace(file_path, "\\", "/");
+
+			memcpy(g_files[g_file_write % c_max_files], file_path, MAX_PATH);
 			InterlockedIncrement((LONG*)&g_file_write);
 			if(buffer[index].NextEntryOffset > index)
 			{
