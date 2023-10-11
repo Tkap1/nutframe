@@ -9,3 +9,7 @@ we can leak shaders if they compile but dont link
 	we need some flags of what to free/delete in the load shader func
 
 we want shader errors in game. we need text rendering for this!!
+
+do input on sdl
+
+need a good way to set window size

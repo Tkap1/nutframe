@@ -1,5 +1,5 @@
 
-global constexpr float pi =  3.1415926f;
+global constexpr float pi = 3.1415926f;
 global constexpr float tau = 6.283185f;
 global constexpr float epsilon = 0.000001f;
 
@@ -39,6 +39,11 @@ func constexpr s_v2 v2(T x, T y)
 	return result;
 }
 
+func constexpr s_v2 v2(s_v2i v)
+{
+	return v2(v.x, v.y);
+}
+
 template <typename T>
 func constexpr s_v2 v2(T v)
 {
@@ -46,11 +51,6 @@ func constexpr s_v2 v2(T v)
 	result.x = (float)v;
 	result.y = (float)v;
 	return result;
-}
-
-func constexpr s_v2 v2(s_v2i v)
-{
-	return v2(v.x, v.y);
 }
 
 func constexpr s_v2i v2i(int x, int y)
@@ -291,6 +291,14 @@ func s_v2 operator*(s_v2 a, float b)
 	return result;
 }
 
+func s_v2i operator*(s_v2i a, int b)
+{
+	s_v2i result;
+	result.x = a.x * b;
+	result.y = a.y * b;
+	return result;
+}
+
 func s_v2 operator/(s_v2 a, float b)
 {
 	s_v2 result;
@@ -402,6 +410,13 @@ func void operator+=(s_v2& left, s_v2 right)
 	left.x += right.x;
 	left.y += right.y;
 }
+
+func void operator+=(s_v2i& left, s_v2i right)
+{
+	left.x += right.x;
+	left.y += right.y;
+}
+
 
 func b8 circle_collides_circle(s_v2 center1, float radius1, s_v2 center2, float radius2)
 {

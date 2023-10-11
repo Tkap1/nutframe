@@ -62,9 +62,9 @@ func s_texture load_texture(s_game_renderer* game_renderer, char* path);
 func s_texture load_texture_from_data(void* data, int width, int height, u32 filtering);
 func s_texture load_texture_from_file(char* path, u32 filtering);
 func void after_loading_texture(s_game_renderer* game_renderer);
+func void wide_to_unicode(wchar_t* wide, char* out);
+func u32 get_random_seed();
 
 #ifdef m_debug
 func DWORD WINAPI watch_dir(void* arg);
 #endif // m_debug
-
-func void wide_to_unicode(wchar_t* wide, char* out);

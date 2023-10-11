@@ -5,14 +5,15 @@ layout (location = 1) in int in_layer;
 layout (location = 2) in int in_sublayer;
 layout (location = 3) in int in_effect_id;
 layout (location = 4) in float in_mix_weight;
-layout (location = 5) in vec2 in_pos;
-layout (location = 6) in vec2 in_origin_offset;
-layout (location = 7) in vec2 in_draw_size;
-layout (location = 8) in vec2 in_texture_size;
-layout (location = 9) in vec2 in_uv_min;
-layout (location = 10) in vec2 in_uv_max;
-layout (location = 11) in vec4 in_color;
-layout (location = 12) in vec4 in_mix_color;
+layout (location = 5) in float in_rotation;
+layout (location = 6) in vec2 in_pos;
+layout (location = 7) in vec2 in_origin_offset;
+layout (location = 8) in vec2 in_draw_size;
+layout (location = 9) in vec2 in_texture_size;
+layout (location = 10) in vec2 in_uv_min;
+layout (location = 11) in vec2 in_uv_max;
+layout (location = 12) in vec4 in_color;
+layout (location = 13) in vec4 in_mix_color;
 
 
 flat out int v_flags;
@@ -20,6 +21,7 @@ flat out int v_layer;
 flat out int v_sublayer;
 flat out int v_effect_id;
 out float v_mix_weight;
+out float v_rotation;
 out vec2 v_pos;
 out vec2 v_origin_offset;
 out vec2 v_draw_size;
@@ -34,6 +36,13 @@ out vec2 v_uv;
 
 uniform vec2 base_res;
 uniform vec2 window_size;
+
+mat2 rot(float angle)
+{
+	float c = cos(-angle);
+	float s = sin(-angle);
+	return mat2(c, -s, s, c);
+}
 
 void main()
 {
@@ -87,6 +96,7 @@ void main()
 	v_sublayer = in_sublayer;
 	v_effect_id = in_effect_id;
 	v_mix_weight = in_mix_weight;
+	v_rotation = in_rotation;
 	v_pos = in_pos;
 	v_origin_offset = in_origin_offset;
 	v_draw_size = in_draw_size;
@@ -105,5 +115,6 @@ void main()
 
 	v_uv = uvs[gl_VertexID];
 	v_local_uv = local_uv[gl_VertexID];
-	gl_Position = vec4((vertices[gl_VertexID] + in_origin_offset) * size + pos, z, 1.0);
+	mat2 rotation = rot(in_rotation);
+	gl_Position = vec4((vertices[gl_VertexID] * rotation + in_origin_offset) * size + pos, z, 1.0);
 }

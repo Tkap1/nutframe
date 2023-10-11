@@ -16,7 +16,6 @@
 #include "memory.h"
 #include "config.h"
 #include "bucket.h"
-#include "shader_shared.h"
 #include "platform_shared.h"
 #include "common.h"
 #include "win32_platform.h"
@@ -114,10 +113,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	unreferenced(cmdshow);
 	#endif
 
-	create_window(c_resolutions[c_base_resolution_index].x, c_resolutions[c_base_resolution_index].y);
+	create_window(64*12, 64*12);
 	if(!init_audio())
 	{
-		printf("failed to init audio Aware\n");
+		printf("failed to init audio\n");
 	}
 	init_performance();
 
@@ -194,7 +193,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.quit_after_this_frame = !running;
 		g_platform_data.window_width = g_window.width;
 		g_platform_data.window_height = g_window.height;
-		g_platform_data.time_passed = time_passed;
+		g_platform_data.get_random_seed = get_random_seed;
 
 		#ifdef m_debug
 		if(need_to_reload_dll("build/DigHard.dll"))
@@ -209,7 +208,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			dll = load_dll("DigHard.dll");
 			update_game = (t_update_game*)GetProcAddress(dll, "update_game");
 			assert(update_game);
-			printf("Reloaded DLL!\n");
+			log_info("Reloaded DLL!\n");
 			g_platform_data.recompiled = true;
 		}
 		#endif // m_debug
@@ -234,7 +233,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			while(g_file_read < g_file_write)
 			{
 				char* file_path = g_files[g_file_read % c_max_files];
-				printf("%s\n", file_path);
 				b8 is_vertex = strstr(file_path, ".vertex") != null;
 				b8 is_fragment = strstr(file_path, ".fragment") != null;
 				b8 advance_file = true;
@@ -318,6 +316,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		#endif // m_debug
 
 		time_passed = get_seconds() - start_of_frame_seconds;
+		g_platform_data.frame_time = time_passed;
 		game_renderer->total_time += time_passed;
 	}
 
@@ -787,4 +786,9 @@ func void wide_to_unicode(wchar_t* wide, char* out)
 
 	// char* out_unicode = (char*)la_get(frame_arena, MAX_PATH);
 	WideCharToMultiByte(CP_UTF8, 0, wide, -1, out, required_buffer_size, null, null);
+}
+
+func u32 get_random_seed()
+{
+	return (u32)__rdtsc();
 }

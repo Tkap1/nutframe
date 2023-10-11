@@ -13,8 +13,8 @@ if not exist build\NUL mkdir build
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 @REM 0 for win32, 1 for SDL
-set platform=0
-
+set platform=1
+set client_file=..\examples\snake.cpp
 
 set build_dll=1
 set comp=-nologo -std:c++20 -Zc:strictStrings- -W4 -FC -Gm- -GR- -EHa- -wd 4324 -wd 4127 -wd 4505 -D_CRT_SECURE_NO_WARNINGS -Dm_app
@@ -62,7 +62,7 @@ pushd build
 	)
 
 	if !build_dll!==0 (
-		cl !platform_file! ..\src\client.cpp -FeDigHard.exe !comp! -link !linker! -PDB:platform_client.pdb ..\icon.res > temp_compiler_output.txt
+		cl !platform_file! !client_file! -FeDigHard.exe !comp! -link !linker! -PDB:platform_client.pdb ..\icon.res > temp_compiler_output.txt
 		if NOT !ErrorLevel! == 0 (
 			type temp_compiler_output.txt
 			popd
@@ -70,7 +70,7 @@ pushd build
 		)
 		type temp_compiler_output.txt
 	) else (
-		cl ..\src\client.cpp /Yupch_client.h -LD -FeDigHard.dll !comp! -link !linker! pch_client.obj -PDB:client.pdb > temp_compiler_output.txt
+		cl !client_file! /Yupch_client.h -LD -FeDigHard.dll !comp! -link !linker! pch_client.obj -PDB:client.pdb > temp_compiler_output.txt
 		if NOT !ErrorLevel! == 0 (
 			type temp_compiler_output.txt
 			popd

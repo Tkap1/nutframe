@@ -47,6 +47,7 @@ func void init_gl(s_platform_renderer* platform_renderer, s_lin_arena* arena)
 	add_int(&handler, 1);
 	add_int(&handler, 1);
 	add_float(&handler, 1);
+	add_float(&handler, 1);
 	add_float(&handler, 2);
 	add_float(&handler, 2);
 	add_float(&handler, 2);

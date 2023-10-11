@@ -71,6 +71,7 @@ func char* format_text(const char* text, ...)
 func void on_failed_assert(const char* cond, const char* file, int line)
 {
 	printf("FAILED ASSERT: %s\n", cond);
+	__debugbreak();
 	printf("Press ENTER to exit...");
 	// *(char*)1 = 0;
 	getchar();

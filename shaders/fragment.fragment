@@ -29,8 +29,8 @@ uniform sampler2D noise;
 
 mat2 rot(float angle)
 {
-	float c = cos(angle);
-	float s = sin(angle);
+	float c = cos(-angle);
+	float s = sin(-angle);
 	return mat2(c, -s, s, c);
 }
 

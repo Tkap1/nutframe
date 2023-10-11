@@ -82,6 +82,7 @@ typedef b8 (*t_play_sound)(s_sound);
 typedef void (*t_set_vsync)(b8);
 typedef int (*t_show_cursor)(b8);
 typedef int (*t_cycle_between_available_resolutions)(int);
+typedef u32 (*t_get_random_seed)();
 
 struct s_texture
 {
@@ -92,6 +93,25 @@ struct s_texture
 	char* path;
 };
 
+#pragma pack(push, 1)
+struct s_transform
+{
+	int flags;
+	int layer;
+	int sublayer;
+	int effect_id;
+	float mix_weight;
+	float rotation;
+	s_v2 pos;
+	s_v2 origin_offset;
+	s_v2 draw_size;
+	s_v2 texture_size;
+	s_v2 uv_min;
+	s_v2 uv_max;
+	s_v4 color;
+	s_v4 mix_color;
+};
+#pragma pack(pop)
 
 struct s_game_window
 {
@@ -129,11 +149,12 @@ struct s_platform_data
 	b8 window_resized;
 	int window_width;
 	int window_height;
-	f64 time_passed;
 	s_input* input;
 	s_input* logic_input;
 	s_lin_arena* frame_arena;
 	s_v2 mouse;
+	f64 frame_time;
+	t_get_random_seed get_random_seed;
 };
 
 struct s_platform_funcs

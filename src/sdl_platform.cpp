@@ -10,7 +10,6 @@
 #include "resource.h"
 #include "memory.h"
 #include "config.h"
-#include "shader_shared.h"
 #include "bucket.h"
 #include "common.h"
 #include "platform_shared.h"
@@ -24,11 +23,6 @@ global u64 g_start_cycles;
 global s_platform_data g_platform_data = zero;
 global SDL_GLContext gContext;
 global SDL_Window* gWindow = null;
-global GLuint gProgramID = 0;
-global GLint gVertexPos2DLocation = -1;
-global GLuint gVBO = 0;
-global GLuint gIBO = 0;
-global f64 time_passed;
 
 global s_platform_funcs g_platform_funcs;
 global void* g_game_memory;
@@ -55,15 +49,15 @@ int main(int argc, char** argv)
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 	#else
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 3 );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	#endif
 
 
 	gWindow = SDL_CreateWindow(
 		"SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		c_resolutions[c_base_resolution_index].x, c_resolutions[c_base_resolution_index].y, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
+		64*12, 64*12, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
 	);
 	if(gWindow == NULL)
 	{
@@ -71,18 +65,18 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	gContext = SDL_GL_CreateContext( gWindow );
-	if( gContext == NULL )
+	gContext = SDL_GL_CreateContext(gWindow);
+	if(gContext == NULL)
 	{
-		printf( "OpenGL context could not be created! SDL Error: %s\n", SDL_GetError() );
+		printf("OpenGL context could not be created! SDL Error: %s\n", SDL_GetError());
 		return 1;
 	}
 
 	glewExperimental = GL_TRUE;
 	GLenum glewError = glewInit();
-	if( glewError != GLEW_OK )
+	if(glewError != GLEW_OK)
 	{
-		printf( "Error initializing GLEW! %s\n", glewGetErrorString( glewError ) );
+		printf("Error initializing GLEW! %s\n", glewGetErrorString(glewError));
 		return 1;
 	}
 
@@ -126,8 +120,8 @@ int main(int argc, char** argv)
 	init_gl(&g_platform_renderer, &platform_frame_arena);
 
 	b8 running = true;
-	f64 time_passed = 0;
 	g_platform_data.recompiled = true;
+	g_platform_data.get_random_seed = get_random_seed;
 
 	#ifdef __EMSCRIPTEN__
 	// emscripten_request_animation_frame_loop(do_one_frame, &foo);
@@ -181,7 +175,6 @@ func void do_one_frame()
 	// g_platform_data.quit_after_this_frame = !result;
 	g_platform_data.window_width = g_window.width;
 	g_platform_data.window_height = g_window.height;
-	g_platform_data.time_passed = time_passed;
 
 	{
 		int x, y;
@@ -198,7 +191,13 @@ func void do_one_frame()
 
 	SDL_GL_SwapWindow(gWindow);
 
-	time_passed = (SDL_GetTicks() - start_of_frame_ms) / 1000.0;
+	f64	time_passed = (SDL_GetTicks() - start_of_frame_ms) / 1000.0;
+	g_platform_data.frame_time = time_passed;
 	g_game_renderer->total_time += time_passed;
 	// return result;
+}
+
+func u32 get_random_seed()
+{
+	return (u32)SDL_GetPerformanceCounter();
 }

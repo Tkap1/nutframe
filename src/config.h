@@ -1,7 +1,7 @@
 
 
-global constexpr s_v2 c_base_res = {1366, 768};
-global constexpr s_v2 c_half_res = {1366 / 2.0f, 768 / 2.0f};
+global constexpr s_v2 c_base_res = {64*12, 64*12};
+global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
 
 global constexpr int c_num_channels = 2;
 global constexpr int c_sample_rate = 44100;
@@ -33,30 +33,4 @@ global constexpr s_v2i c_resolutions[] = {
 	v2i(3840, 2160),
 	v2i(5120, 2880),
 	v2i(7680, 4320),
-};
-
-global constexpr float c_gravity = 1500;
-global constexpr s_v2 c_player_size = v2(32 * 0.8f, 64 * 0.8f);
-global constexpr int c_tile_size = 64;
-global constexpr int c_atlas_size = 256;
-global constexpr int c_tiles_right = 64;
-global constexpr int c_tiles_down = 512;
-global constexpr float c_player_speed = 100;
-global constexpr float c_dig_delay = 0.15f;
-global constexpr float c_dig_range = 150;
-global constexpr float c_kill_area_delay = 1;
-global constexpr int c_player_health = 3;
-global constexpr int c_portal_distance = 10;
-global constexpr float c_portal_size = c_tile_size;
-global constexpr float c_tile_brightness = 0.6f;
-global constexpr float c_player_brightness = 0.6f;
-global constexpr float c_light_brightness = 0.15f;
-global constexpr float c_portal_brightness = 0.25f;
-global constexpr float c_dash_duration = 0.5f;
-global constexpr float c_dash_speed = 1000;
-global constexpr float c_dash_cd = 3;
-global constexpr int c_tile_pieces = 6;
-
-global constexpr char* debug_text[] = {
-	"High speed", "Super dig", "Player bounds", "Camera bounds", "High gravity", "No kill area",
 };
