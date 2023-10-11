@@ -197,8 +197,17 @@ func b8 is_key_released(s_input* input, int key) {
 }
 
 func s_v2i spawn_apple() {
-	return v2i(
-		game->rng.randu() % c_tile_count,
-		game->rng.randu() % c_tile_count
-	);
+	s_v2i pos;
+	while(true) {
+		pos = v2i(game->rng.randu() % c_tile_count, game->rng.randu() % c_tile_count);
+		b8 collision = false;
+		for(int snake_i = 0; snake_i < game->snake_len; snake_i++) {
+			if(game->snake[snake_i].pos == pos) {
+				collision = true;
+				break;
+			}
+		}
+		if(!collision) { break; }
+	}
+	return pos;
 }
