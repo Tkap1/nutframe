@@ -10,6 +10,4 @@ we can leak shaders if they compile but dont link
 
 we want shader errors in game. we need text rendering for this!!
 
-do input on sdl
-
 need a good way to set window size

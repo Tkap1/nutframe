@@ -8,6 +8,10 @@
 #define check(cond) do { if(!(cond)) { error(false); }} while(0)
 #define unreferenced(thing) (void)thing;
 
+#define breakable_block__(a, b) for(int a##b = 1; a##b--;)
+#define breakable_block_(a) breakable_block__(tkinternal_condblock, a)
+#define breakable_block breakable_block_(__LINE__)
+
 #define c_kb (1024)
 #define c_mb (1024 * 1024)
 

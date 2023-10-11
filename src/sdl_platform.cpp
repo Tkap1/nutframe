@@ -72,7 +72,6 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	glewExperimental = GL_TRUE;
 	GLenum glewError = glewInit();
 	if(glewError != GLEW_OK)
 	{
@@ -152,21 +151,33 @@ func void do_one_frame()
 	SDL_Event e;
 	while(SDL_PollEvent(&e) != 0)
 	{
-		if(e.type == SDL_QUIT)
-		{
-			// result = false;
-		}
-		else if(e.type == SDL_WINDOWEVENT)
-		{
-			if(e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
-			{
-				int width = e.window.data1;
-				int height = e.window.data2;
-				g_window.width = width;
-				g_window.height = height;
-				gl(glViewport(0, 0, width, height));
-			}
-			// result = false;
+		switch(e.type) {
+			case SDL_QUIT: {
+			exit(0);
+			} break;
+
+			case SDL_WINDOWEVENT: {
+				if(e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+				{
+					int width = e.window.data1;
+					int height = e.window.data2;
+					g_window.width = width;
+					g_window.height = height;
+					gl(glViewport(0, 0, width, height));
+				}
+			} break;
+
+			case SDL_KEYDOWN:
+			case SDL_KEYUP: {
+				int key = sdl_key_to_windows_key(e.key.keysym.sym);
+				if(key == -1) { break; }
+				b8 is_down = e.type == SDL_KEYDOWN;
+				s_stored_input si = zero;
+				si.key = key;
+				si.is_down = is_down;
+				apply_event_to_input(&g_input, si);
+				apply_event_to_input(&g_logic_input, si);
+			} break;
 		}
 	}
 
@@ -197,7 +208,56 @@ func void do_one_frame()
 	// return result;
 }
 
-func u32 get_random_seed()
-{
+func u32 get_random_seed() {
 	return (u32)SDL_GetPerformanceCounter();
+}
+
+func int sdl_key_to_windows_key(int key) {
+
+	breakable_block {
+		if(key >= SDLK_a && key <= SDLK_z) {
+			key -= 'a' - 'A';
+			break;
+		}
+
+		if(key >= SDLK_F1 && key <= SDLK_F12) {
+			key = key - SDLK_F1 + c_key_f1;
+			break;
+		}
+
+		struct s_key_map
+		{
+			int sdl;
+			int win;
+		};
+		constexpr s_key_map map[] = {
+			{.sdl = SDLK_UP, .win = c_key_up},
+			{.sdl = SDLK_DOWN, .win = c_key_down},
+			{.sdl = SDLK_LEFT, .win = c_key_left},
+			{.sdl = SDLK_RIGHT, .win = c_key_right},
+			{.sdl = SDLK_LALT, .win = c_key_left_alt},
+			{.sdl = SDLK_RALT, .win = c_key_right_alt},
+			{.sdl = SDLK_LCTRL, .win = c_key_left_ctrl},
+			{.sdl = SDLK_RCTRL, .win = c_key_right_ctrl},
+			{.sdl = SDLK_LSHIFT, .win = c_key_left_shift},
+			{.sdl = SDLK_RSHIFT, .win = c_key_right_shift},
+			{.sdl = SDLK_ESCAPE, .win = c_key_escape},
+			{.sdl = SDLK_RETURN, .win = c_key_enter},
+		};
+
+		b8 handled = false;
+		for(int key_i = 0; key_i < array_count(map); key_i++)
+		{
+			if(map[key_i].sdl == key) {
+				key = map[key_i].win;
+				handled = true;
+				break;
+			}
+		}
+		if(handled) { break; }
+
+		printf("Untranslated key %i\n", key);
+		key = -1;
+	}
+	return key;
 }
