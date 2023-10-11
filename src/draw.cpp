@@ -7,8 +7,11 @@ enum e_render_flags
 };
 
 
-func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, s_transform t = zero)
+func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, int framebuffer = 0, s_transform t = zero)
 {
+	assert(framebuffer >= 0);
+	assert(framebuffer < g_r->framebuffers.count);
+
 	t.pos = pos;
 	t.layer = layer;
 	t.draw_size = size;
@@ -52,8 +55,11 @@ func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, s_transform t = 
 // 	bucket_add(&g_r->transforms, t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
 // }
 
-func void draw_texture(s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_transform t = zero)
+func void draw_texture(s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, int framebuffer = 0, s_transform t = zero)
 {
+	assert(framebuffer >= 0);
+	assert(framebuffer < g_r->framebuffers.count);
+
 	t.layer = layer;
 	t.flags |= e_render_flag_use_texture;
 	t.pos = pos;

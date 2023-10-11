@@ -120,6 +120,7 @@ int main(int argc, char** argv)
 
 	g_game_renderer->set_vsync = set_vsync;
 	g_game_renderer->load_texture = load_texture;
+	g_game_renderer->make_framebuffer = make_framebuffer;
 	init_gl(&g_platform_renderer, &platform_frame_arena);
 
 	b8 running = true;

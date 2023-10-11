@@ -20,6 +20,7 @@ struct s_snake
 struct s_game
 {
 	b8 initialized;
+	s_framebuffer particle_framebuffer;
 	s_texture snake_head;
 	s_texture snake_body;
 	s_texture snake_tail;
@@ -63,16 +64,17 @@ m_update_game(update_game) {
 	static_assert(sizeof(s_game) <= c_game_memory);
 
 	game = (s_game*)game_memory;
-	g_r = rendering;
+	g_r = renderer;
 	g_input = platform_data->input;
 	if(!game->initialized) {
 		game->initialized = true;
 		game->rng.seed = platform_data->get_random_seed();
 		g_r->set_vsync(true);
-		game->snake_head = g_r->load_texture(rendering, "examples/snake_head.png");
-		game->snake_body = g_r->load_texture(rendering, "examples/snake_body.png");
-		game->snake_tail = g_r->load_texture(rendering, "examples/snake_tail.png");
-		game->apple_texture = g_r->load_texture(rendering, "examples/apple.png");
+		game->snake_head = g_r->load_texture(renderer, "examples/snake_head.png");
+		game->snake_body = g_r->load_texture(renderer, "examples/snake_body.png");
+		game->snake_tail = g_r->load_texture(renderer, "examples/snake_tail.png");
+		game->apple_texture = g_r->load_texture(renderer, "examples/apple.png");
+		game->particle_framebuffer = g_r->make_framebuffer(renderer, false, true);
 		game->reset_level = true;
 	}
 
@@ -155,10 +157,17 @@ m_update_game(update_game) {
 		else if(snake_i == game->snake_len - 1) { texture = game->snake_tail; }
 		else { texture = game->snake_body; }
 		s_snake s = game->snake[snake_i];
-		draw_texture(v2(s.pos * c_tile_size), 1, v2(c_tile_size), make_color(1), texture, {.rotation = s.rotation, .origin_offset = c_origin_topleft});
+		draw_texture(
+			v2(s.pos * c_tile_size), 1, v2(c_tile_size), make_color(1), texture, 0, {.rotation = s.rotation, .origin_offset = c_origin_topleft}
+		);
 	}
 
-	draw_texture(v2(game->apple * c_tile_size), 0, v2(c_tile_size), make_color(1), game->apple_texture, {.origin_offset = c_origin_topleft});
+	draw_texture(
+		v2(game->apple * c_tile_size), 0, v2(c_tile_size), make_color(1), game->apple_texture, 0, {.origin_offset = c_origin_topleft}
+	);
+
+	draw_rect(platform_data->mouse, 1, v2(128), make_color(0, 1, 0), 1);
+	draw_rect(platform_data->mouse + v2(32), 1, v2(128), make_color(1, 0, 0), 1);
 
 	for(int i = 0; i < c_max_keys; i++) {
 		g_input->keys[i].count = 0;

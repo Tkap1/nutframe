@@ -177,12 +177,12 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 			gl(glEnable(GL_BLEND));
 			// if(render_type == 0)
 			{
-				// glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+				glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 				// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			}
 			// else if(render_type == 1)
 			// {
-				gl(glBlendFunc(GL_ONE, GL_ONE));
+				// gl(glBlendFunc(GL_ONE, GL_ONE));
 			// }
 			// invalid_else;
 
@@ -327,4 +327,31 @@ func void after_loading_texture(s_game_renderer* game_renderer)
 	game_renderer->transforms = new_transforms;
 	game_renderer->transform_arenas[old_index].used = 0;
 	game_renderer->transform_arena_index = new_index;
+}
+
+func s_framebuffer make_framebuffer(s_game_renderer* game_renderer, b8 do_depth, b8 do_additive)
+{
+	// @Fixme(tkap, 11/10/2023): handle this
+	assert(!do_depth);
+
+	s_framebuffer result = zero;
+
+	gl(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+	gl(glGenFramebuffers(1, &result.gpu_id));
+	gl(glBindFramebuffer(GL_FRAMEBUFFER, result.gpu_id));
+
+	gl(glGenTextures(1, &result.texture_id));
+	gl(glBindTexture(GL_TEXTURE_2D, result.texture_id));
+	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_window.width, g_window.height, 0, GL_RGB, GL_UNSIGNED_BYTE, null));
+	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	gl(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, result.texture_id, 0));
+
+	assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+	gl(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
+	result.game_id = game_renderer->framebuffers.count;
+	game_renderer->framebuffers.add(result);
+
+	return result;
 }

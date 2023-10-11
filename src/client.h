@@ -94,12 +94,6 @@ struct s_font
 	s_glyph glyph_arr[1024];
 };
 
-enum e_shader
-{
-	e_shader_default,
-	e_shader_count,
-};
-
 struct s_shader_paths
 {
 	char* vertex_path;
@@ -477,8 +471,6 @@ struct s_game
 	u32 particle_texture;
 
 	s_sprite_data sprite_data[e_sprite_count];
-
-	u32 programs[e_shader_count];
 
 	s_texture noise;
 	s_texture dude;

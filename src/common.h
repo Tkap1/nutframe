@@ -6,6 +6,13 @@
 #define gl(...) __VA_ARGS__
 #endif // m_debug
 
+
+enum e_shader
+{
+	e_shader_default,
+	e_shader_count
+};
+
 struct s_attrib
 {
 	int type;
@@ -23,6 +30,14 @@ struct s_shader_paths
 	char* vertex_path;
 	char* fragment_path;
 };
+
+struct s_platform_renderer
+{
+	u32 default_vao;
+	u32 default_vbo;
+	u32 programs[e_shader_count];
+};
+
 
 func void add_int(s_attrib_handler* handler, int count);
 func void add_float(s_attrib_handler* handler, int count);

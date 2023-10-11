@@ -7,19 +7,6 @@ struct s_window
 	int height;
 };
 
-enum e_shader
-{
-	e_shader_default,
-	e_shader_count
-};
-
-struct s_platform_renderer
-{
-	u32 default_vao;
-	u32 default_vbo;
-	u32 programs[e_shader_count];
-};
-
 func void create_window(int width, int height);
 func b8 init_audio();
 func b8 thread_safe_set_bool_to_true(volatile int* var);

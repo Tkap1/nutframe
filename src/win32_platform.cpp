@@ -163,6 +163,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	game_renderer->set_vsync = set_vsync;
 	game_renderer->load_texture = load_texture;
+	game_renderer->make_framebuffer = make_framebuffer;
 
 	init_gl(&platform_renderer, &platform_frame_arena);
 

@@ -80,11 +80,15 @@ struct s_sound
 	s16* samples;
 };
 
+struct s_framebuffer;
+struct s_game_renderer;
+
 typedef b8 (*t_play_sound)(s_sound);
 typedef void (*t_set_vsync)(b8);
 typedef int (*t_show_cursor)(b8);
 typedef int (*t_cycle_between_available_resolutions)(int);
 typedef u32 (*t_get_random_seed)();
+typedef s_framebuffer (*t_make_framebuffer)(s_game_renderer*, b8, b8);
 
 struct s_texture
 {
@@ -93,6 +97,16 @@ struct s_texture
 	s_v2 size;
 	s_v2 sub_size;
 	char* path;
+};
+
+
+struct s_framebuffer
+{
+	u32 gpu_id;
+	int game_id;
+	u32 texture_id;
+	b8 do_depth;
+	b8 do_additive;
 };
 
 #pragma pack(push, 1)
@@ -173,6 +187,7 @@ struct s_game_renderer
 	b8 did_we_alloc;
 	t_set_vsync set_vsync;
 	t_load_texture load_texture;
+	t_make_framebuffer make_framebuffer;
 	f64 total_time;
 
 	// @Note(tkap, 08/10/2023): We esentially want s_bucket_array<s_transform> transforms[e_texture_count];
@@ -184,11 +199,12 @@ struct s_game_renderer
 	int arena_index;
 	s_lin_arena arenas[2];
 	s_sarray<s_texture, 16> textures;
+	s_sarray<s_framebuffer, 4> framebuffers;
 };
 
 
 
-#define m_update_game(name) void name(s_platform_data* platform_data, s_platform_funcs platform_funcs, void* game_memory, s_game_renderer* rendering)
+#define m_update_game(name) void name(s_platform_data* platform_data, s_platform_funcs platform_funcs, void* game_memory, s_game_renderer* renderer)
 #ifdef m_build_dll
 typedef m_update_game(t_update_game);
 #else // m_build_dll
