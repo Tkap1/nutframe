@@ -43,3 +43,4 @@ void printProgramLog( GLuint program );
 func void do_one_frame();
 func u32 get_random_seed();
 func int sdl_key_to_windows_key(int key);
+func f64 get_seconds();

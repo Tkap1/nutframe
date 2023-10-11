@@ -23,6 +23,7 @@ global u64 g_start_cycles;
 global s_platform_data g_platform_data = zero;
 global SDL_GLContext gContext;
 global SDL_Window* gWindow = null;
+global f64 g_start_of_frame_seconds = 0;
 
 global s_platform_funcs g_platform_funcs;
 global void* g_game_memory;
@@ -53,6 +54,9 @@ int main(int argc, char** argv)
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	#endif
+
+	g_start_cycles = SDL_GetPerformanceCounter();
+	g_cycle_frequency = SDL_GetPerformanceFrequency();
 
 
 	gWindow = SDL_CreateWindow(
@@ -144,9 +148,11 @@ func void set_vsync(b8 val)
 
 func void do_one_frame()
 {
-
-	f64 start_of_frame_ms = SDL_GetTicks();
-	// bool result = true;
+	f64 seconds = get_seconds();
+	f64 time_passed = seconds - g_start_of_frame_seconds;
+	g_platform_data.frame_time = time_passed;
+	g_game_renderer->total_time += time_passed;
+	g_start_of_frame_seconds = seconds;
 
 	SDL_Event e;
 	while(SDL_PollEvent(&e) != 0)
@@ -201,10 +207,6 @@ func void do_one_frame()
 	gl_render(&g_platform_renderer, g_game_renderer);
 
 	SDL_GL_SwapWindow(gWindow);
-
-	f64	time_passed = (SDL_GetTicks() - start_of_frame_ms) / 1000.0;
-	g_platform_data.frame_time = time_passed;
-	g_game_renderer->total_time += time_passed;
 	// return result;
 }
 
@@ -260,4 +262,10 @@ func int sdl_key_to_windows_key(int key) {
 		key = -1;
 	}
 	return key;
+}
+
+func f64 get_seconds()
+{
+	u64 now =	SDL_GetPerformanceCounter();
+	return (now - g_start_cycles) / (f64)g_cycle_frequency;
 }

@@ -167,15 +167,20 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	init_gl(&platform_renderer, &platform_frame_arena);
 
 	b8 running = true;
-	f64 time_passed = 0;
 
 	#ifndef m_debug
 	g_platform_data.recompiled = true;
 	#endif // m_debug
 
+	f64 start_of_frame_seconds = 0;
 	while(running)
 	{
-		f64 start_of_frame_seconds = get_seconds();
+
+		f64 seconds = get_seconds();
+		f64 time_passed = seconds - start_of_frame_seconds;
+		g_platform_data.frame_time = time_passed;
+		game_renderer->total_time += time_passed;
+		start_of_frame_seconds = seconds;
 
 		MSG msg = zero;
 		while(PeekMessage(&msg, null, 0, 0, PM_REMOVE) > 0)
@@ -314,10 +319,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		}
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hot reload shaders and textures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 		#endif // m_debug
-
-		time_passed = get_seconds() - start_of_frame_seconds;
-		g_platform_data.frame_time = time_passed;
-		game_renderer->total_time += time_passed;
 	}
 
 	return 0;

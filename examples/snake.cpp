@@ -1,6 +1,6 @@
 
-// #include "pch_client.h"
-#include "../src/pch_client.h"
+#include "pch_client.h"
+// #include "../src/pch_client.h"
 
 #include "../src/config.h"
 #include "../src/bucket.h"
@@ -53,6 +53,7 @@ func void reset_level();
 #include "../src/draw.cpp"
 #include "../src/memory.cpp"
 #include "../src/bucket.cpp"
+#include "../src/platform_shared.cpp"
 
 #ifdef m_build_dll
 extern "C" {
@@ -174,26 +175,6 @@ func void update() {
 }
 
 func void render(float dt) {
-}
-
-func b8 is_key_down(s_input* input, int key) {
-	assert(key < c_max_keys);
-	return input->keys[key].is_down || input->keys[key].count >= 2;
-}
-
-func b8 is_key_up(s_input* input, int key) {
-	assert(key < c_max_keys);
-	return !input->keys[key].is_down;
-}
-
-func b8 is_key_pressed(s_input* input, int key) {
-	assert(key < c_max_keys);
-	return (input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
-}
-
-func b8 is_key_released(s_input* input, int key) {
-	assert(key < c_max_keys);
-	return (!input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
 }
 
 func s_v2i spawn_apple() {
