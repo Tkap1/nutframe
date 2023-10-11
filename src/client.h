@@ -496,8 +496,6 @@ func void draw_circle_system(int start, int count, float dt);
 func void collision_system(int start, int count);
 func s_font load_font(const char* path, float font_size, s_lin_arena* arena);
 func s_texture load_texture_from_data(void* data, int width, int height, u32 filtering);
-func s_v2 get_text_size(const char* text, e_font font_id);
-func s_v2 get_text_size_with_count(const char* text, e_font font_id, int count);
 func u32 load_shader(const char* vertex_path, const char* fragment_path);
 func void handle_instant_movement_(int entity);
 func void handle_instant_resize_(int entity);
