@@ -76,7 +76,7 @@ global s_platform_data g_platform_data = zero;
 // @Note(tkap, 11/10/2023): File watch
 global constexpr int c_max_files = 16;
 global volatile int g_file_write = 0;
-global volatile int g_file_read = 0;
+global int g_file_read = 0;
 global char g_files[c_max_files][MAX_PATH];
 
 
@@ -227,6 +227,81 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		gl_render(&platform_renderer, game_renderer);
 
 		SwapBuffers(g_window.dc);
+
+		#ifdef m_debug
+		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hot reload shaders and textures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+		{
+			while(g_file_read < g_file_write)
+			{
+				char* file_path = g_files[g_file_read % c_max_files];
+				printf("%s\n", file_path);
+				b8 is_vertex = strstr(file_path, ".vertex") != null;
+				b8 is_fragment = strstr(file_path, ".fragment") != null;
+				b8 advance_file = true;
+				if(is_vertex || is_fragment)
+				{
+					for(int shader_i = 0; shader_i < e_shader_count; shader_i++)
+					{
+						s_shader_paths paths = c_shader_paths[shader_i];
+						b8 do_load = false;
+						if(is_vertex)
+						{
+							if(strcmp(file_path, paths.vertex_path))
+							{
+								do_load = true;
+							}
+						}
+						else if(is_fragment)
+						{
+							if(strcmp(file_path, paths.fragment_path))
+							{
+								do_load = true;
+							}
+						}
+						invalid_else;
+
+						if(do_load)
+						{
+							char* vertex_src = read_file(paths.vertex_path, &platform_frame_arena);
+							char* fragment_src = read_file(paths.fragment_path, &platform_frame_arena);
+							if(!vertex_src || !vertex_src[0] || !fragment_src || !fragment_src[0]) { advance_file = false; }
+							u32 program =  load_shader_from_str(vertex_src, fragment_src);
+
+							// @Note(tkap, 11/10/2023): We successfully loaded the shader files, but they don't compile/link, so we want to advance file
+							if(!program) { break; }
+
+							glUseProgram(0);
+							glDeleteProgram(platform_renderer.programs[shader_i]);
+							platform_renderer.programs[shader_i] = program;
+
+							log_info("Reloaded %s", file_path);
+
+							break;
+						}
+					}
+				}
+				else
+				{
+					// @Fixme(tkap, 11/10/2023):
+					foreach_raw(texture_i, texture, game_renderer->textures)
+					{
+						// @Note(tkap, 11/10/2023): Our first texture is a "fake texture", so let's not try to read it's path (it doesn't have any)
+						if(texture_i == 0) { continue; }
+
+						if(strcmp(texture.path, file_path) == 0)
+						{
+							break;
+						}
+					}
+				}
+				if(advance_file)
+				{
+					g_file_read += 1;
+				}
+			}
+		}
+		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hot reload shaders and textures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+		#endif // m_debug
 
 		time_passed = get_seconds() - start_of_frame_seconds;
 		game_renderer->total_time += time_passed;
@@ -673,7 +748,7 @@ func DWORD WINAPI watch_dir(void* arg)
 		{
 			char filename[MAX_PATH] = zero;
 			wide_to_unicode(buffer[index].FileName, filename);
-			memcpy(g_files[g_file_write], filename, MAX_PATH);
+			memcpy(g_files[g_file_write % c_max_files], filename, MAX_PATH);
 			InterlockedIncrement((LONG*)&g_file_write);
 			if(buffer[index].NextEntryOffset > index)
 			{

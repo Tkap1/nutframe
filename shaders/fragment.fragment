@@ -88,7 +88,6 @@ void main()
 		color.rgb = mix(color.rgb, v_mix_color.rgb, v_mix_weight);
 	}
 
-	// @Note(tkap, 01/10/2023): kill area
 	if(v_effect_id == 1)
 	{
 		vec2 uv = v_local_uv;

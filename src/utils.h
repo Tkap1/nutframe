@@ -23,11 +23,8 @@
 #endif
 #define STUB(X) printf("STUBBED: %s\n", X)
 
-#ifdef m_server
-#define log(...) printf("Server: "  __VA_ARGS__); printf("\n")
-#else // m_server
-#define log(...) printf("Client: " __VA_ARGS__); printf("\n")
-#endif
+#define log(...) printf(__VA_ARGS__); printf("\n")
+#define log_info(...) printf(__VA_ARGS__); printf("\n")
 
 func void on_failed_assert(const char* cond, const char* file, int line);
 

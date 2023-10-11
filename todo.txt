@@ -4,3 +4,6 @@ why doesn't hot reloading break textures??
 make a config.bat
 
 hot shader reloading
+
+we can leak shaders if they compile but dont link
+	we need some flags of what to free/delete in the load shader func

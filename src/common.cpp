@@ -1,5 +1,5 @@
 
-global s_shader_paths shader_paths[e_shader_count] = {
+global constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 	{
 		.vertex_path = "shaders/vertex.vertex",
 		.fragment_path = "shaders/fragment.fragment",
@@ -62,7 +62,9 @@ func void init_gl(s_platform_renderer* platform_renderer, s_lin_arena* arena)
 
 	for(int shader_i = 0; shader_i < e_shader_count; shader_i++)
 	{
-		platform_renderer->programs[shader_i] = load_shader(shader_paths[shader_i].vertex_path, shader_paths[shader_i].fragment_path, arena);
+		u32 program = load_shader_from_file(c_shader_paths[shader_i].vertex_path, c_shader_paths[shader_i].fragment_path, arena);
+		assert(program);
+		platform_renderer->programs[shader_i] = program;
 	}
 
 	gl(glUseProgram(platform_renderer->programs[e_shader_default]));
@@ -113,6 +115,7 @@ func void finish(s_attrib_handler* handler)
 
 func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer)
 {
+	glUseProgram(platform_renderer->programs[e_shader_default]);
 
 	{
 		int location = gl(glGetUniformLocation(platform_renderer->programs[e_shader_default], "window_size"));
@@ -194,7 +197,17 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	}
 }
 
-func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
+func u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
+{
+	char* vertex_src = read_file(vertex_path, frame_arena);
+	if(!vertex_src || !vertex_src[0]) { return 0; }
+	char* fragment_src = read_file(fragment_path, frame_arena);
+	if(!fragment_src || !fragment_src[0]) { return 0; }
+
+	return load_shader_from_str(vertex_src, fragment_src);
+}
+
+func u32 load_shader_from_str(const char* vertex_src, const char* fragment_src)
 {
 	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
 	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -204,11 +217,6 @@ func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_a
 	#else
 	const char* header = "#version 330 core\n";
 	#endif
-
-	char* vertex_src = read_file(vertex_path, frame_arena);
-	if(!vertex_src || !vertex_src[0]) { return 0; }
-	char* fragment_src = read_file(fragment_path, frame_arena);
-	if(!fragment_src || !fragment_src[0]) { return 0; }
 
 	const char* vertex_src_arr[] = {header, vertex_src};
 	const char* fragment_src_arr[] = {header, fragment_src};
@@ -267,6 +275,7 @@ func s_texture load_texture(s_game_renderer* game_renderer, char* path)
 {
 	s_texture result = load_texture_from_file(path, GL_LINEAR);
 	result.game_id = game_renderer->textures.count;
+	result.path = path;
 	game_renderer->textures.add(result);
 	after_loading_texture(game_renderer);
 	return result;

@@ -89,6 +89,7 @@ struct s_texture
 	int game_id;
 	s_v2 size;
 	s_v2 sub_size;
+	char* path;
 };
 
 

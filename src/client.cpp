@@ -80,44 +80,6 @@ func void render(float dt)
 {
 }
 
-#ifdef m_debug
-func void hot_reload_shaders(void)
-{
-	// for(int shader_i = 0; shader_i < e_shader_count; shader_i++)
-	// {
-	// 	s_shader_paths* sp = &shader_paths[shader_i];
-
-	// 	WIN32_FIND_DATAA find_data = zero;
-	// 	HANDLE handle = FindFirstFileA(sp->fragment_path, &find_data);
-	// 	if(handle == INVALID_HANDLE_VALUE) { continue; }
-
-	// 	if(CompareFileTime(&sp->last_write_time, &find_data.ftLastWriteTime) == -1)
-	// 	{
-	// 		// @Note(tkap, 23/06/2023): This can fail because text editor may be locking the file, so we check if it worked
-	// 		u32 new_program = load_shader(sp->vertex_path, sp->fragment_path);
-	// 		if(new_program)
-	// 		{
-	// 			if(game->programs[shader_i])
-	// 			{
-	// 				glUseProgram(0);
-	// 				glDeleteProgram(game->programs[shader_i]);
-	// 			}
-	// 			game->programs[shader_i] = load_shader(sp->vertex_path, sp->fragment_path);
-	// 			sp->last_write_time = find_data.ftLastWriteTime;
-	// 		}
-	// 	}
-
-	// 	FindClose(handle);
-	// }
-
-}
-#endif // m_debug
-
-func u32 load_shader(const char* vertex_path, const char* fragment_path)
-{
-	return 0;
-}
-
 func b8 is_key_down(s_input* input, int key)
 {
 	assert(key < c_max_keys);

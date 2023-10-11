@@ -1,6 +1,4 @@
 
-
-
 struct s_window
 {
 	HDC dc;
@@ -13,15 +11,6 @@ enum e_shader
 {
 	e_shader_default,
 	e_shader_count
-};
-
-struct s_shader_paths
-{
-	#ifdef m_debug
-	u64 last_write_time;
-	#endif // m_debug
-	char* vertex_path;
-	char* fragment_path;
 };
 
 struct s_platform_renderer

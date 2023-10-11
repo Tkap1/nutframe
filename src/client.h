@@ -102,9 +102,6 @@ enum e_shader
 
 struct s_shader_paths
 {
-	#ifdef m_debug
-	u64 last_write_time;
-	#endif // m_debug
 	char* vertex_path;
 	char* fragment_path;
 };
