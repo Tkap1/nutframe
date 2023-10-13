@@ -42,21 +42,21 @@ func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_
 	gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
 
 	s_attrib_handler handler = zero;
-	add_int(&handler, 1);
-	add_int(&handler, 1);
-	add_int(&handler, 1);
-	add_int(&handler, 1);
-	add_float(&handler, 1);
-	add_float(&handler, 1);
-	add_float(&handler, 2);
-	add_float(&handler, 2);
-	add_float(&handler, 2);
-	add_float(&handler, 2);
-	add_float(&handler, 2);
-	add_float(&handler, 2);
-	add_float(&handler, 4);
-	add_float(&handler, 4);
-	finish(&handler);
+	add_int_attrib(&handler, 1);
+	add_int_attrib(&handler, 1);
+	add_int_attrib(&handler, 1);
+	add_int_attrib(&handler, 1);
+	add_float_attrib(&handler, 1);
+	add_float_attrib(&handler, 1);
+	add_float_attrib(&handler, 2);
+	add_float_attrib(&handler, 2);
+	add_float_attrib(&handler, 2);
+	add_float_attrib(&handler, 2);
+	add_float_attrib(&handler, 2);
+	add_float_attrib(&handler, 2);
+	add_float_attrib(&handler, 4);
+	add_float_attrib(&handler, 4);
+	finish_attribs(&handler);
 
 	platform_renderer->max_elements = 64;
 	gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * platform_renderer->max_elements, null, GL_DYNAMIC_DRAW));
@@ -77,7 +77,7 @@ func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_
 
 }
 
-func void add_int(s_attrib_handler* handler, int count)
+func void add_int_attrib(s_attrib_handler* handler, int count)
 {
 	s_attrib attrib = zero;
 	attrib.type = GL_INT;
@@ -86,7 +86,7 @@ func void add_int(s_attrib_handler* handler, int count)
 	handler->attribs.add(attrib);
 }
 
-func void add_float(s_attrib_handler* handler, int count)
+func void add_float_attrib(s_attrib_handler* handler, int count)
 {
 	s_attrib attrib = zero;
 	attrib.type = GL_FLOAT;
@@ -95,7 +95,7 @@ func void add_float(s_attrib_handler* handler, int count)
 	handler->attribs.add(attrib);
 }
 
-func void finish(s_attrib_handler* handler)
+func void finish_attribs(s_attrib_handler* handler)
 {
 	u8* offset = 0;
 	int stride = 0;
