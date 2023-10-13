@@ -33,6 +33,7 @@ struct s_shader_paths
 
 struct s_platform_renderer
 {
+	int max_elements;
 	u32 default_vao;
 	u32 default_vbo;
 	u32 programs[e_shader_count];

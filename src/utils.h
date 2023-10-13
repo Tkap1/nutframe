@@ -370,3 +370,11 @@ func b8 str_replace(char* str, const char* needle, const char* replacement)
 	return true;
 
 }
+
+func int double_until_greater_or_equal(int current, int target)
+{
+	assert(target > 0);
+	if(current <= 0) { current = 1; }
+	while(current < target) { current *= 2; }
+	return current;
+}

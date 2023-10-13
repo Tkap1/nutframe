@@ -164,17 +164,14 @@ m_update_game(update_game)
 
 	static int count = 0;
 	int seed = 0;
-	count += 4;
+	count += 1;
 	s_rng rng = zero;
 	rng.seed = seed;
-	if(count >= 16384) {
-		count = 0;
-	}
 	for(int i = 0; i < count; i++) {
 		float angle = rng.randf32() * tau;
 		float foo = 1-i/(float)count;
-		s_v2 vel = v2_from_angle(angle) * (count / 1.0f) * (rng.randf32() + 0.01f) * foo;
-		float r = foo * 5;
+		s_v2 vel = v2_from_angle(angle) * (count / 10.0f) * (rng.randf32() + 0.01f) * foo;
+		float r = foo * 1;
 		draw_rect(
 			c_half_res + vel, 1, v2(4 * r), make_color(powf(rng.randf32(), 4), powf(rng.randf32(), 1), powf(rng.randf32(), 8)),
 			{.framebuffer_index = 1, .blend_mode = e_blend_mode_additive}

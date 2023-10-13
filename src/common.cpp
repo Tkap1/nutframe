@@ -58,8 +58,8 @@ func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_
 	add_float(&handler, 4);
 	finish(&handler);
 
-	// @Fixme(tkap, 07/10/2023): proper size. we have to basically set this to the maximum of things that we have ever drawn
-	gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * 16384, null, GL_DYNAMIC_DRAW));
+	platform_renderer->max_elements = 64;
+	gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * platform_renderer->max_elements, null, GL_DYNAMIC_DRAW));
 
 	for(int shader_i = 0; shader_i < e_shader_count; shader_i++)
 	{
@@ -190,7 +190,14 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 			if(game_renderer->textures[texture_i].comes_from_framebuffer) { continue; }
 			for(int blend_i = 0; blend_i < e_blend_mode_count; blend_i++) {
 				int offset = get_render_offset(texture_i, blend_i);
-				if(framebuffer->transforms[offset].element_count[0] <= 0) { continue; }
+				int count = framebuffer->transforms[offset].element_count[0];
+
+				if(count > platform_renderer->max_elements) {
+					platform_renderer->max_elements = double_until_greater_or_equal(platform_renderer->max_elements, count);
+					gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * platform_renderer->max_elements, null, GL_DYNAMIC_DRAW));
+				}
+
+				if(count <= 0) { continue; }
 
 				if(blend_i == e_blend_mode_normal) {
 						gl(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
@@ -206,7 +213,6 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 
 				// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-				int count = framebuffer->transforms[offset].element_count[0];
 				int size = sizeof(*framebuffer->transforms[offset].elements[0]);
 
 				gl(glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, framebuffer->transforms[offset].elements[0]));
