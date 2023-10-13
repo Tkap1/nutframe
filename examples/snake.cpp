@@ -20,7 +20,8 @@ struct s_snake
 struct s_game
 {
 	b8 initialized;
-	s_framebuffer particle_framebuffer;
+	s_framebuffer* particle_framebuffer;
+	s_framebuffer* text_framebuffer;
 	s_texture snake_head;
 	s_texture snake_body;
 	s_texture snake_tail;
@@ -73,6 +74,7 @@ m_update_game(update_game)
 		game->apple_texture = g_r->load_texture(renderer, "examples/apple.png");
 		game->font = g_r->load_font(renderer, "examples/consola.ttf", 64, platform_data->frame_arena);
 		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
+		game->text_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->reset_level = true;
 	}
 
@@ -176,18 +178,24 @@ m_update_game(update_game)
 		float r = foo * 1;
 		draw_rect(
 			c_half_res + vel, 1, v2(4 * r), make_color(powf(rng.randf32(), 4), powf(rng.randf32(), 1), powf(rng.randf32(), 8)),
-			{.framebuffer_index = 1, .blend_mode = e_blend_mode_additive}
+			{.framebuffer = game->particle_framebuffer, .blend_mode = e_blend_mode_additive}
 		);
 	}
 	draw_texture(
-		c_half_res, 5, c_base_res * 8, make_color(1), game->particle_framebuffer.texture,
+		c_half_res, 5, c_base_res * 8, make_color(1), game->particle_framebuffer->texture,
 		{.blend_mode = e_blend_mode_additive}, {.rotation = (float)renderer->total_time}
 	);
 
 	// draw_rect(c_half_res, 0, c_base_res, make_color(0, 1, 0));
 	draw_text(
-		"AAAAAAAAAA", c_half_res, 10, 64.0f, make_color(1), true, game->font
+		"AAAAAAAAAA", c_half_res, 10, 64.0f, make_color(1), true, game->font,
 		// {.blend_mode = e_blend_mode_additive}
+		{.framebuffer = game->text_framebuffer}
+	);
+
+	draw_texture(
+		c_half_res, 10, c_base_res, make_color(1), game->text_framebuffer->texture,
+		{.blend_mode = e_blend_mode_additive}
 	);
 
 	for(int i = 0; i < c_max_keys; i++) {

@@ -429,7 +429,7 @@ func void after_loading_texture(s_game_renderer* game_renderer)
 	game_renderer->transform_arena_index = new_index;
 }
 
-func s_framebuffer make_framebuffer(s_game_renderer* game_renderer, b8 do_depth)
+func s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, b8 do_depth)
 {
 	// @Fixme(tkap, 11/10/2023): handle this
 	assert(!do_depth);
@@ -456,10 +456,10 @@ func s_framebuffer make_framebuffer(s_game_renderer* game_renderer, b8 do_depth)
 
 	result.game_id = game_renderer->framebuffers.count;
 	result.do_depth = do_depth;
-	game_renderer->framebuffers.add(result);
+	int index = game_renderer->framebuffers.add(result);
 	after_making_framebuffer(result.game_id, game_renderer);
 
-	return result;
+	return &game_renderer->framebuffers[index];
 }
 
 func void after_making_framebuffer(int index, s_game_renderer* game_renderer)

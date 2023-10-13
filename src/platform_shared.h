@@ -88,7 +88,7 @@ typedef void (*t_set_vsync)(b8);
 typedef int (*t_show_cursor)(b8);
 typedef int (*t_cycle_between_available_resolutions)(int);
 typedef u32 (*t_get_random_seed)();
-typedef s_framebuffer (*t_make_framebuffer)(s_game_renderer*, b8);
+typedef s_framebuffer* (*t_make_framebuffer)(s_game_renderer*, b8);
 
 struct s_texture
 {
@@ -152,7 +152,7 @@ struct s_framebuffer
 	s_texture texture;
 	b8 do_depth;
 
-	// @Note(tkap, 08/10/2023): We esentially want s_bucket_array<s_transform> transforms[e_texture_count];
+	// @Note(tkap, 08/10/2023): We esentially want s_bucket_array<s_transform> transforms[e_texture_count][e_blend_mode_count];
 	// but we don't know how many textures there will be at compile time, because the game code may load any amount
 	s_bucket_array<s_transform>* transforms;
 };
@@ -193,7 +193,7 @@ enum e_blend_mode
 
 struct s_render_data
 {
-	int framebuffer_index;
+	s_framebuffer* framebuffer;
 	e_blend_mode blend_mode;
 };
 
