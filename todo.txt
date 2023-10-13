@@ -26,3 +26,5 @@ why hot code reloading broken??
 hot reloading shoudl break when we allocate something in the game layer and then reload
 
 remove blend mode from framebuffer
+
+embed assets in exe
