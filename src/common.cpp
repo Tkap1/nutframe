@@ -1,4 +1,8 @@
 
+#ifndef m_debug
+#include "embed.h"
+#endif // m_debug
+
 global constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 	{
 		.vertex_path = "shaders/vertex.vertex",
@@ -6,6 +10,9 @@ global constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 	},
 };
 
+global b8 g_do_embed = false;
+global s_sarray<const char*, 128> g_to_embed;
+global int g_load_texture_index = 0;
 
 func void on_gl_error(const char* expr, int error)
 {
@@ -349,7 +356,22 @@ func b8 check_for_shader_errors(u32 id, char* out_error)
 
 func s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 {
+	if(g_do_embed) {
+		g_to_embed.add(path);
+	}
+
+	#ifndef m_debug
+
+	int width, height, num_channels;
+	void* data = stbi_load_from_memory(embed_data[g_load_texture_index], embed_sizes[g_load_texture_index], &width, &height, &num_channels, 4);
+	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR);
+	g_load_texture_index += 1;
+
+	#else // m_debug
+
 	s_texture result = load_texture_from_file(path, GL_LINEAR);
+	#endif
+
 	result.game_id = game_renderer->textures.count;
 	result.path = path;
 	game_renderer->textures.add(result);
@@ -451,4 +473,52 @@ func void after_making_framebuffer(int index, s_game_renderer* game_renderer)
 
 	after_loading_texture(game_renderer);
 
+}
+
+func void write_embed_file()
+{
+	assert(g_do_embed);
+	s_str_builder* builder = (s_str_builder*)malloc(sizeof(s_str_builder));
+	builder->tab_count = 0;
+	builder->len = 0;
+	foreach_val(embed_i, embed, g_to_embed) {
+		FILE* file = fopen(embed, "rb");
+		assert(file);
+		fseek(file, 0, SEEK_END);
+		u64 file_size = ftell(file);
+		fseek(file, 0, SEEK_SET);
+		u8* data = (u8*)malloc(file_size);
+		fread(data, 1, file_size, file);
+		u8* cursor = data;
+
+		builder_add_line(builder, "global constexpr u8 embed%i[%u] = {", embed_i, file_size);
+		for(int i = 0; i < file_size; i++) {
+			builder_add(builder, "%u,", *cursor);
+			cursor++;
+		}
+		builder_add_line(builder, "\n};");
+
+		fclose(file);
+		free(data);
+	}
+
+	builder_add_line(builder, "global constexpr u8* embed_data[%i] = {", g_to_embed.count);
+	foreach_val(embed_i, embed, g_to_embed) {
+		builder_add(builder, "(u8*)embed%i,", embed_i);
+	}
+	builder_add_line(builder, "\n};");
+
+	builder_add_line(builder, "global constexpr int embed_sizes[%i] = {", g_to_embed.count);
+	foreach_val(embed_i, embed, g_to_embed) {
+		builder_add(builder, "array_count(embed%i),", embed_i);
+	}
+	builder_add_line(builder, "\n};");
+
+	{
+		FILE* file = fopen("src/embed.h", "wb");
+		fwrite(builder->data, 1, builder->len, file);
+		fclose(file);
+	}
+
+	exit(0);
 }

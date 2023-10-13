@@ -22,6 +22,13 @@
 #include <stdint.h>
 
 #ifdef m_sdl
+
+#if !defined(m_debug) && defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "GL\glew.h"

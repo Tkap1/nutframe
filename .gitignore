@@ -44,3 +44,4 @@ build_clang.bat
 *.wasm
 *.data
 *.wasm.map
+embed.h

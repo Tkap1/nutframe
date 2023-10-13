@@ -1,3 +1,3 @@
 @echo off
 
-start "DigHard" DigHard.exe
+start "DigHard" DigHard.exe %1

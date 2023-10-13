@@ -18,6 +18,7 @@
 #include "bucket.h"
 #include "platform_shared.h"
 #include "common.h"
+#include "str_builder.h"
 #include "win32_platform.h"
 
 #ifdef m_debug
@@ -90,6 +91,7 @@ static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 #include "file.cpp"
 #include "bucket.cpp"
 #include "common.cpp"
+#include "str_builder.cpp"
 
 #ifdef m_debug
 int main(int argc, char** argv)
@@ -97,6 +99,16 @@ int main(int argc, char** argv)
 int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmdshow)
 #endif
 {
+
+	#ifdef m_debug
+	if(argc > 1 && strcmp(argv[1], "embed") == 0) {
+		g_do_embed = true;
+	}
+	#else // m_debug
+	if(__argc > 1 && strcmp(__argv[1], "embed") == 0) {
+		g_do_embed = true;
+	}
+	#endif // m_debug
 
 	s_platform_renderer platform_renderer = zero;
 	s_game_renderer* game_renderer = null;
@@ -123,7 +135,9 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	}
 	init_performance();
 
+	#ifdef m_debug
 	CreateThread(null, 0, watch_dir, null, 0, null);
+	#endif // m_debug
 
 	wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)load_gl_func("wglSwapIntervalEXT");
 	#define X(type, name) name = (type)load_gl_func(#name);
@@ -134,7 +148,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	platform_funcs.play_sound = play_sound;
 	// platform_funcs.show_cursor = ShowCursor;
 	platform_funcs.cycle_between_available_resolutions = cycle_between_available_resolutions;
-
 
 	#ifdef m_debug
 	t_update_game* update_game = null;
@@ -231,6 +244,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 		update_game(&g_platform_data, platform_funcs, game_memory, game_renderer);
 		g_platform_data.recompiled = false;
+
+		if(g_do_embed) {
+			write_embed_file();
+		}
 
 		gl_render(&platform_renderer, game_renderer);
 
@@ -760,19 +777,18 @@ func DWORD WINAPI watch_dir(void* arg)
 		assert(result);
 		if(bytes_read <= 0) { continue; }
 
-		u32 index = 0;
 		while(true)
 		{
+			FILE_NOTIFY_INFORMATION* current = &buffer[0];
 			char file_path[MAX_PATH] = zero;
-			wide_to_unicode(buffer[index].FileName, file_path);
+			wide_to_unicode(current->FileName, file_path);
 			str_replace(file_path, "\\", "/");
 
 			memcpy(g_files[g_file_write % c_max_files], file_path, MAX_PATH);
 			InterlockedIncrement((LONG*)&g_file_write);
-			if(buffer[index].NextEntryOffset > index)
+			if(current->NextEntryOffset > 0)
 			{
-				assert(buffer[index].NextEntryOffset == sizeof(buffer[0]));
-				index += 1;
+				current = (FILE_NOTIFY_INFORMATION*)((u8*)current + current->NextEntryOffset);
 			}
 			else { break; }
 		}

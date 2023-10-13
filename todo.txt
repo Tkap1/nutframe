@@ -22,6 +22,7 @@ handle do depth and do additive
 test if adding texture and framebuffers in any order breaks things
 
 why hot code reloading broken??
+	is it because load_texture allocates? but it also frees in the same call, i dont think this is it
 
 hot reloading shoudl break when we allocate something in the game layer and then reload
 

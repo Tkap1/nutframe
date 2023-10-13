@@ -14,6 +14,7 @@
 #include "platform_shared.h"
 #include "common.h"
 #include "sdl_platform.h"
+#include "str_builder.h"
 
 global s_window g_window;
 global s_input g_input;
@@ -35,8 +36,13 @@ global s_game_renderer* g_game_renderer;
 #include "file.cpp"
 #include "bucket.cpp"
 #include "common.cpp"
+#include "str_builder.cpp"
 
+#if defined(m_debug) || !defined(_WIN32)
 int main(int argc, char** argv)
+#else
+int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmdshow)
+#endif
 {
 	SDL_SetMainReady();
 	if(SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -44,6 +50,16 @@ int main(int argc, char** argv)
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		return 1;
 	}
+
+	#if defined(m_debug) || !defined(_WIN32)
+	if(argc > 1 && strcmp(argv[1], "embed") == 0) {
+		g_do_embed = true;
+	}
+	#else
+	if(__argc > 1 && strcmp(__argv[1], "embed") == 0) {
+		g_do_embed = true;
+	}
+	#endif
 
 	g_window.width = (int)c_base_res.x;
 	g_window.height = (int)c_base_res.y;
@@ -206,6 +222,10 @@ func void do_one_frame()
 
 	update_game(&g_platform_data, g_platform_funcs, g_game_memory, g_game_renderer);
 	g_platform_data.recompiled = false;
+
+	if(g_do_embed) {
+		write_embed_file();
+	}
 
 	gl_render(&g_platform_renderer, g_game_renderer);
 
