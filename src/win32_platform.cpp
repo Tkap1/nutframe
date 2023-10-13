@@ -9,6 +9,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ASSERT assert
 #include "external/stb_image.h"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_assert assert
+#include "external/stb_truetype.h"
+
 #pragma warning(pop)
 
 
@@ -179,6 +184,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	game_renderer->set_vsync = set_vsync;
 	game_renderer->load_texture = load_texture;
+	game_renderer->load_font = load_font;
 	game_renderer->make_framebuffer = make_framebuffer;
 
 	init_gl(&platform_renderer, game_renderer, &platform_frame_arena);

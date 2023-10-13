@@ -29,3 +29,27 @@ func int get_render_offset(int texture, int blend_mode)
 {
 	return texture * e_blend_mode_count + blend_mode;
 }
+
+func s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count)
+{
+	assert(count >= 0);
+	if(count <= 0) { return zero; }
+
+	s_v2 size = zero;
+	size.y = font->size;
+	float scale = font->scale * (font_size / font->size);
+
+	for(int char_i = 0; char_i < count; char_i++)
+	{
+		char c = text[char_i];
+		s_glyph glyph = font->glyph_arr[c];
+		size.x += glyph.advance_width * scale;
+	}
+
+	return size;
+}
+
+func s_v2 get_text_size(const char* text, s_font* font, float font_size)
+{
+	return get_text_size_with_count(text, font, font_size, (int)strlen(text));
+}

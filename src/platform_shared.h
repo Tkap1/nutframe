@@ -100,6 +100,30 @@ struct s_texture
 	const char* path;
 };
 
+struct s_glyph
+{
+	int advance_width;
+	int width;
+	int height;
+	int x0;
+	int y0;
+	int x1;
+	int y1;
+	s_v2 uv_min;
+	s_v2 uv_max;
+};
+
+struct s_font
+{
+	float size;
+	float scale;
+	int ascent;
+	int descent;
+	int line_gap;
+	s_texture texture;
+	s_glyph glyph_arr[1024];
+};
+
 
 #pragma pack(push, 1)
 struct s_transform
@@ -198,11 +222,13 @@ struct s_platform_funcs
 };
 
 typedef s_texture (*t_load_texture)(s_game_renderer*, const char*);
+typedef s_font* (*t_load_font)(s_game_renderer*, const char*, int, s_lin_arena*);
 struct s_game_renderer
 {
 	b8 did_we_alloc;
 	t_set_vsync set_vsync;
 	t_load_texture load_texture;
+	t_load_font load_font;
 	t_make_framebuffer make_framebuffer;
 	f64 total_time;
 
@@ -212,6 +238,7 @@ struct s_game_renderer
 	s_lin_arena arenas[2];
 	s_sarray<s_texture, 16> textures;
 	s_sarray<s_framebuffer, 4> framebuffers;
+	s_sarray<s_font, 4> fonts;
 };
 
 #define m_update_game(name) void name(s_platform_data* platform_data, s_platform_funcs platform_funcs, void* game_memory, s_game_renderer* renderer)
@@ -223,3 +250,5 @@ m_update_game(update_game);
 
 
 func int get_render_offset(int texture, int blend_mode);
+func s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count);
+func s_v2 get_text_size(const char* text, s_font* font, float font_size);

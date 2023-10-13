@@ -33,6 +33,7 @@ struct s_game
 	s_v2i apple;
 	s_rng rng;
 	b8 reset_level;
+	s_font* font;
 };
 
 global s_input* g_input;
@@ -70,6 +71,7 @@ m_update_game(update_game)
 		game->snake_body = g_r->load_texture(renderer, "examples/snake_body.png");
 		game->snake_tail = g_r->load_texture(renderer, "examples/snake_tail.png");
 		game->apple_texture = g_r->load_texture(renderer, "examples/apple.png");
+		game->font = g_r->load_font(renderer, "examples/consola.ttf", 64, platform_data->frame_arena);
 		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->reset_level = true;
 	}
@@ -180,6 +182,12 @@ m_update_game(update_game)
 	draw_texture(
 		c_half_res, 5, c_base_res * 8, make_color(1), game->particle_framebuffer.texture,
 		{.blend_mode = e_blend_mode_additive}, {.rotation = (float)renderer->total_time}
+	);
+
+	// draw_rect(c_half_res, 0, c_base_res, make_color(0, 1, 0));
+	draw_text(
+		"AAAAAAAAAA", c_half_res, 10, 64.0f, make_color(1), true, game->font
+		// {.blend_mode = e_blend_mode_additive}
 	);
 
 	for(int i = 0; i < c_max_keys; i++) {

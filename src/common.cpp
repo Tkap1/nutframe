@@ -522,3 +522,89 @@ func void write_embed_file()
 
 	exit(0);
 }
+
+func s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena)
+{
+	s_font font = zero;
+	font.size = (float)font_size;
+
+	u8* file_data = (u8*)read_file(path, arena);
+	assert(file_data);
+
+	stbtt_fontinfo info = zero;
+	stbtt_InitFont(&info, file_data, 0);
+
+	stbtt_GetFontVMetrics(&info, &font.ascent, &font.descent, &font.line_gap);
+
+	font.scale = stbtt_ScaleForPixelHeight(&info, (float)font_size);
+	constexpr int max_chars = 128;
+	int bitmap_count = 0;
+	u8* bitmap_arr[max_chars];
+	const int padding = 10;
+
+	int columns = floorfi((float)(4096 / (font_size + padding)));
+	int rows = ceilfi((max_chars - columns) / (float)columns) + 1;
+
+	int total_width = floorfi((float)(columns * (font_size + padding)));
+	int total_height = floorfi((float)(rows * (font_size + padding)));
+
+	for(int char_i = 0; char_i < max_chars; char_i++)
+	{
+		s_glyph glyph = zero;
+		u8* bitmap = stbtt_GetCodepointBitmap(&info, 0, font.scale, char_i, &glyph.width, &glyph.height, 0, 0);
+		stbtt_GetCodepointBox(&info, char_i, &glyph.x0, &glyph.y0, &glyph.x1, &glyph.y1);
+		stbtt_GetGlyphHMetrics(&info, char_i, &glyph.advance_width, null);
+
+		font.glyph_arr[char_i] = glyph;
+		bitmap_arr[bitmap_count++] = bitmap;
+	}
+
+	u8* gl_bitmap = (u8*)la_get_zero(arena, sizeof(u8) * 4 * total_width * total_height);
+
+	for(int char_i = 0; char_i < max_chars; char_i++)
+	{
+		s_glyph* glyph = &font.glyph_arr[char_i];
+		u8* bitmap = bitmap_arr[char_i];
+		int column = char_i % columns;
+		int row = char_i / columns;
+		for(int y = 0; y < glyph->height; y++)
+		{
+			for(int x = 0; x < glyph->width; x++)
+			{
+				int current_x = floorfi((float)(column * (font_size + padding)));
+				int current_y = floorfi((float)(row * (font_size + padding)));
+				u8 src_pixel = bitmap[x + y * glyph->width];
+				u8* dst_pixel = &gl_bitmap[((current_x + x) + (current_y + y) * total_width) * 4];
+				dst_pixel[0] = 255;
+				dst_pixel[1] = 255;
+				dst_pixel[2] = 255;
+				dst_pixel[3] = src_pixel;
+			}
+		}
+
+		glyph->uv_min.x = column / (float)columns;
+		glyph->uv_max.x = glyph->uv_min.x + (glyph->width / (float)total_width);
+
+		glyph->uv_min.y = row / (float)rows;
+
+		// @Note(tkap, 17/05/2023): For some reason uv_max.y is off by 1 pixel (checked the texture in renderoc), which causes the text to be slightly miss-positioned
+		// in the Y axis. "glyph->height - 1" fixes it.
+		glyph->uv_max.y = glyph->uv_min.y + (glyph->height / (float)total_height);
+
+		// @Note(tkap, 17/05/2023): Otherwise the line above makes the text be cut off at the bottom by 1 pixel...
+		// glyph->uv_max.y += 0.01f;
+	}
+
+	for(int bitmap_i = 0; bitmap_i < bitmap_count; bitmap_i++)
+	{
+		stbtt_FreeBitmap(bitmap_arr[bitmap_i], null);
+	}
+
+	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR);
+	font.texture.game_id = game_renderer->textures.count;
+	game_renderer->textures.add(font.texture);
+	after_loading_texture(game_renderer);
+
+	int index = game_renderer->fonts.add(font);
+	return &game_renderer->fonts[index];
+}
