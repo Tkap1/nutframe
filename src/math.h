@@ -61,29 +61,12 @@ func constexpr s_v2i v2i(int x, int y)
 	return result;
 }
 
-func s_v2 v2_mul(s_v2 a, float b)
-{
-	s_v2 result;
-	result.x = a.x * b;
-	result.y = a.y * b;
-	return result;
-}
-
 func s_v3 v3(float x, float y, float z)
 {
 	s_v3 result;
 	result.x = x;
 	result.y = y;
 	result.z = z;
-	return result;
-}
-
-func s_v3 v3_mul(s_v3 a, float b)
-{
-	s_v3 result;
-	result.x = a.x * b;
-	result.y = a.y * b;
-	result.z = a.z * b;
 	return result;
 }
 

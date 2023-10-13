@@ -3,8 +3,6 @@ why doesn't hot reloading break textures??
 
 make a config.bat
 
-hot shader reloading
-
 we can leak shaders if they compile but dont link
 	we need some flags of what to free/delete in the load shader func
 
@@ -18,3 +16,7 @@ we need to give new framebuffers a transforms pointer?
 handle do depth and do additive
 
 test if adding texture and framebuffers in any order breaks things
+
+why hot code reloading broken??
+
+hot reloading shoudl break when we allocate something in the game layer and then reload
