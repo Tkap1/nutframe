@@ -35,12 +35,7 @@ struct s_game
 	b8 reset_level;
 };
 
-global s_lin_arena* frame_arena;
-global s_game_window g_window;
-global s_input* g_logic_input;
 global s_input* g_input;
-global s_platform_data* g_platform_data;
-global s_platform_funcs g_platform_funcs;
 global s_game* game;
 global s_game_renderer* g_r;
 
@@ -60,7 +55,8 @@ func void reset_level();
 extern "C" {
 __declspec(dllexport)
 #endif // m_build_dll
-m_update_game(update_game) {
+m_update_game(update_game)
+{
 	static_assert(sizeof(s_game) <= c_game_memory);
 
 	game = (s_game*)game_memory;
@@ -74,7 +70,7 @@ m_update_game(update_game) {
 		game->snake_body = g_r->load_texture(renderer, "examples/snake_body.png");
 		game->snake_tail = g_r->load_texture(renderer, "examples/snake_tail.png");
 		game->apple_texture = g_r->load_texture(renderer, "examples/apple.png");
-		game->particle_framebuffer = g_r->make_framebuffer(renderer, false, true);
+		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->reset_level = true;
 	}
 
@@ -105,7 +101,7 @@ m_update_game(update_game) {
 	if(game->move_timer >= c_move_delay) {
 		game->move_timer -= c_move_delay;
 		s_v2i dir = game->last_dir;
-		foreach_raw(input_i, input, game->inputs)
+		foreach_val(input_i, input, game->inputs)
 		{
 			if(input.x != 0 && game->last_dir.x != 0) {
 				game->inputs.remove_and_shift(input_i--);
@@ -158,16 +154,36 @@ m_update_game(update_game) {
 		else { texture = game->snake_body; }
 		s_snake s = game->snake[snake_i];
 		draw_texture(
-			v2(s.pos * c_tile_size), 1, v2(c_tile_size), make_color(1), texture, 0, {.rotation = s.rotation, .origin_offset = c_origin_topleft}
+			v2(s.pos * c_tile_size), 1, v2(c_tile_size), make_color(1), texture, zero, {.rotation = s.rotation, .origin_offset = c_origin_topleft}
 		);
 	}
 
 	draw_texture(
-		v2(game->apple * c_tile_size), 0, v2(c_tile_size), make_color(1), game->apple_texture, 0, {.origin_offset = c_origin_topleft}
+		v2(game->apple * c_tile_size), 0, v2(c_tile_size), make_color(1), game->apple_texture, zero, {.origin_offset = c_origin_topleft}
 	);
 
-	draw_rect(platform_data->mouse, 1, v2(128), make_color(0, 1, 0), 1);
-	draw_rect(platform_data->mouse + v2(32), 1, v2(128), make_color(1, 0, 0), 1);
+	static int count = 0;
+	int seed = 0;
+	count += 4;
+	s_rng rng = zero;
+	rng.seed = seed;
+	if(count >= 16384) {
+		count = 0;
+	}
+	for(int i = 0; i < count; i++) {
+		float angle = rng.randf32() * tau;
+		float foo = 1-i/(float)count;
+		s_v2 vel = v2_from_angle(angle) * (count / 1.0f) * (rng.randf32() + 0.01f) * foo;
+		float r = foo * 5;
+		draw_rect(
+			c_half_res + vel, 1, v2(4 * r), make_color(powf(rng.randf32(), 4), powf(rng.randf32(), 1), powf(rng.randf32(), 8)),
+			{.framebuffer_index = 1, .blend_mode = e_blend_mode_additive}
+		);
+	}
+	draw_texture(
+		c_half_res, 5, c_base_res * 8, make_color(1), game->particle_framebuffer.texture,
+		{.blend_mode = e_blend_mode_additive}, {.rotation = (float)renderer->total_time}
+	);
 
 	for(int i = 0; i < c_max_keys; i++) {
 		g_input->keys[i].count = 0;
@@ -179,14 +195,16 @@ m_update_game(update_game) {
 }
 #endif // m_build_dll
 
-func void update() {
-
+func void update()
+{
 }
 
-func void render(float dt) {
+func void render(float dt)
+{
 }
 
-func s_v2i spawn_apple() {
+func s_v2i spawn_apple()
+{
 	s_v2i pos;
 	while(true) {
 		pos = v2i(game->rng.randu() % c_tile_count, game->rng.randu() % c_tile_count);

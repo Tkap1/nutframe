@@ -24,3 +24,8 @@ func b8 is_key_released(s_input* input, int key) {
 	assert(key < c_max_keys);
 	return (!input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
 }
+
+func int get_render_offset(int texture, int blend_mode)
+{
+	return texture * e_blend_mode_count + blend_mode;
+}

@@ -1,7 +1,7 @@
 
 global FILETIME last_dll_write_time;
 
-func b8 need_to_reload_dll(char* path)
+func b8 need_to_reload_dll(const char* path)
 {
 	WIN32_FIND_DATAA find_data = zero;
 	HANDLE handle = FindFirstFileA(path, &find_data);
@@ -16,7 +16,7 @@ func b8 need_to_reload_dll(char* path)
 	return result;
 }
 
-func HMODULE load_dll(char* path)
+func HMODULE load_dll(const char* path)
 {
 	HMODULE result = LoadLibrary(path);
 	assert(result);

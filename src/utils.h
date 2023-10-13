@@ -12,8 +12,10 @@
 #define breakable_block_(a) breakable_block__(tkinternal_condblock, a)
 #define breakable_block breakable_block_(__LINE__)
 
-#define c_kb (1024)
-#define c_mb (1024 * 1024)
+global constexpr s64 c_kb = 1024;
+global constexpr s64 c_mb = 1024 * c_kb;
+global constexpr s64 c_gb = 1024 * c_mb;
+global constexpr s64 c_tb = 1024 * c_gb;
 
 #ifndef _WIN32
 #define _declspec(x)
@@ -25,21 +27,20 @@
 #define max(a,b) (a)<(b)?(b):(a)
 #define min(a,b) (a)<(b)?(a):(b)
 #endif
-#define STUB(X) printf("STUBBED: %s\n", X)
 
 #define log(...) printf(__VA_ARGS__); printf("\n")
 #define log_info(...) printf(__VA_ARGS__); printf("\n")
 
 func void on_failed_assert(const char* cond, const char* file, int line);
 
-func void* buffer_read(u8** cursor, size_t size)
+func void* buffer_read(u8** cursor, u64 size)
 {
 	void* result = *cursor;
 	*cursor += size;
 	return result;
 }
 
-func void buffer_write(u8** cursor, void* data, size_t size)
+func void buffer_write(u8** cursor, void* data, u64 size)
 {
 	memcpy(*cursor, data, size);
 	*cursor += size;
@@ -47,8 +48,8 @@ func void buffer_write(u8** cursor, void* data, size_t size)
 
 func char* format_text(const char* text, ...)
 {
-	#define max_format_text_buffers 16
-	#define max_text_buffer_length 256
+	global constexpr int max_format_text_buffers = 16;
+	global constexpr int max_text_buffer_length = 256;
 
 	static char buffers[max_format_text_buffers][max_text_buffer_length] = {};
 	static int index = 0;
@@ -100,13 +101,13 @@ func void on_failed_assert(const char* cond, const char* file, int line)
 }
 
 
-#define foreach__(a, index_name, element_name, array) if(0) finished##a: ; else for(auto element_name = &(array).elements[0];;) if(1) goto body##a; else while(1) if(1) goto finished##a; else body##a: for(int index_name = 0; index_name < (array).count && (bool)(element_name = &(array)[index_name]); index_name++)
-#define foreach_(a, index_name, element_name, array) foreach__(a, index_name, element_name, array)
-#define foreach(index_name, element_name, array) foreach_(__LINE__, index_name, element_name, array)
+#define foreach_ptr__(a, index_name, element_name, array) if(0) finished##a: ; else for(auto element_name = &(array).elements[0];;) if(1) goto body##a; else while(1) if(1) goto finished##a; else body##a: for(int index_name = 0; index_name < (array).count && (bool)(element_name = &(array)[index_name]); index_name++)
+#define foreach_ptr_(a, index_name, element_name, array) foreach_ptr__(a, index_name, element_name, array)
+#define foreach_ptr(index_name, element_name, array) foreach_ptr_(__LINE__, index_name, element_name, array)
 
-#define foreach_raw__(a, index_name, element_name, array) if(0) finished##a: ; else for(auto element_name = (array).elements[0];;) if(1) goto body##a; else while(1) if(1) goto finished##a; else body##a: for(int index_name = 0; index_name < (array).count && (void*)&(element_name = (array)[index_name]); index_name++)
-#define foreach_raw_(a, index_name, element_name, array) foreach_raw__(a, index_name, element_name, array)
-#define foreach_raw(index_name, element_name, array) foreach_raw_(__LINE__, index_name, element_name, array)
+#define foreach_val__(a, index_name, element_name, array) if(0) finished##a: ; else for(auto element_name = (array).elements[0];;) if(1) goto body##a; else while(1) if(1) goto finished##a; else body##a: for(int index_name = 0; index_name < (array).count && (void*)&(element_name = (array)[index_name]); index_name++)
+#define foreach_val_(a, index_name, element_name, array) foreach_val__(a, index_name, element_name, array)
+#define foreach_val(index_name, element_name, array) foreach_val_(__LINE__, index_name, element_name, array)
 
 template <typename T, int N>
 struct s_sarray
@@ -322,7 +323,7 @@ func constexpr s_v4 rgba(int hex)
 	return result;
 }
 
-func int str_find_from_left(char* haystack, int haystack_len, char* needle, int needle_len)
+func int str_find_from_left(const char* haystack, int haystack_len, const char* needle, int needle_len)
 {
 	if(needle_len > haystack_len) { return -1; }
 
@@ -347,7 +348,7 @@ func int str_find_from_left(char* haystack, int haystack_len, char* needle, int 
 	return -1;
 }
 
-func b8 str_replace(char* str, char* needle, char* replacement)
+func b8 str_replace(char* str, const char* needle, const char* replacement)
 {
 	int str_len = (int)strlen(str);
 	int needle_len = (int)strlen(needle);

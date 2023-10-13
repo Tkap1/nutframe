@@ -1,3 +1,7 @@
+we want the equivalent of
+s_transforms transforms[texture_count][blend_mode_count];
+
+
 why doesn't hot reloading break textures??
 	we probably don't want it to allocate tho
 
@@ -20,3 +24,5 @@ test if adding texture and framebuffers in any order breaks things
 why hot code reloading broken??
 
 hot reloading shoudl break when we allocate something in the game layer and then reload
+
+remove blend mode from framebuffer

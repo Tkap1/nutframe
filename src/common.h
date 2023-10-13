@@ -27,8 +27,8 @@ struct s_attrib_handler
 
 struct s_shader_paths
 {
-	char* vertex_path;
-	char* fragment_path;
+	const char* vertex_path;
+	const char* fragment_path;
 };
 
 struct s_platform_renderer

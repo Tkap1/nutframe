@@ -22,6 +22,7 @@ set comp=-nologo -std:c++20 -Zc:strictStrings- -W4 -FC -Gm- -GR- -EHa- -wd 4324 
 set linker=-INCREMENTAL:NO
 set comp=!comp! -wd4201
 set comp=!comp! -wd4100
+@REM set comp=!comp! -fsanitize=address
 
 if !platform!==0 (
 	set platform_file=..\src\win32_platform.cpp
@@ -46,9 +47,11 @@ if !debug!==0 (
 )
 if !debug!==1 (
 	set comp=!comp! -O2 -Dm_debug -MTd
+	set linker=!linker! -DYNAMICBASE:NO
 )
 if !debug!==2 (
 	set comp=!comp! -Od -Dm_debug -Zi -MTd
+	set linker=!linker! -DYNAMICBASE:NO
 )
 
 if !build_dll!==1 (

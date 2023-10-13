@@ -7,7 +7,7 @@ global constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 };
 
 
-func void on_gl_error(char* expr, int error)
+func void on_gl_error(const char* expr, int error)
 {
 	#define m_gl_errors \
 	X(GL_INVALID_ENUM, "GL_INVALID_ENUM") \
@@ -18,7 +18,7 @@ func void on_gl_error(char* expr, int error)
 	X(GL_OUT_OF_MEMORY, "GL_STACK_OUT_OF_MEMORY") \
 	X(GL_INVALID_FRAMEBUFFER_OPERATION, "GL_STACK_INVALID_FRAME_BUFFER_OPERATION")
 
-	char* error_str;
+	const char* error_str;
 	#define X(a, b) case a: { error_str = b; } break;
 	switch(error)
 	{
@@ -59,7 +59,7 @@ func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_
 	finish(&handler);
 
 	// @Fixme(tkap, 07/10/2023): proper size. we have to basically set this to the maximum of things that we have ever drawn
-	gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * 1024, null, GL_DYNAMIC_DRAW));
+	gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * 16384, null, GL_DYNAMIC_DRAW));
 
 	for(int shader_i = 0; shader_i < e_shader_count; shader_i++)
 	{
@@ -99,12 +99,12 @@ func void finish(s_attrib_handler* handler)
 {
 	u8* offset = 0;
 	int stride = 0;
-	foreach_raw(attrib_i, attrib, handler->attribs)
+	foreach_val(attrib_i, attrib, handler->attribs)
 	{
 		stride += attrib.size * attrib.count;
 	}
 	assert(stride == sizeof(s_transform));
-	foreach_raw(attrib_i, attrib, handler->attribs)
+	foreach_val(attrib_i, attrib, handler->attribs)
 	{
 		if(attrib.type == GL_FLOAT)
 		{
@@ -122,7 +122,7 @@ func void finish(s_attrib_handler* handler)
 
 func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer)
 {
-	glUseProgram(platform_renderer->programs[e_shader_default]);
+	gl(glUseProgram(platform_renderer->programs[e_shader_default]));
 
 	{
 		int location = gl(glGetUniformLocation(platform_renderer->programs[e_shader_default], "window_size"));
@@ -147,13 +147,17 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
 	if(game_renderer->did_we_alloc) {
-		foreach(framebuffer_i, framebuffer, game_renderer->framebuffers) {
+		foreach_ptr(framebuffer_i, framebuffer, game_renderer->framebuffers) {
 			for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++) {
-				int new_index = (game_renderer->arena_index + 1) % 2;
-				bucket_merge(&framebuffer->transforms[texture_i], &game_renderer->arenas[new_index]);
+				for(int blend_i = 0; blend_i < e_blend_mode_count; blend_i++) {
+					int new_index = (game_renderer->arena_index + 1) % 2;
+					int offset = get_render_offset(texture_i, blend_i);
+					bucket_merge(&framebuffer->transforms[offset], &game_renderer->arenas[new_index]);
+				}
 			}
 		}
 	}
+
 	if(game_renderer->did_we_alloc) {
 		int old_index = game_renderer->arena_index;
 		int new_index = (game_renderer->arena_index + 1) % 2;
@@ -162,7 +166,7 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 		game_renderer->did_we_alloc = false;
 	}
 
-	foreach(framebuffer_i, framebuffer, game_renderer->framebuffers) {
+	foreach_ptr(framebuffer_i, framebuffer, game_renderer->framebuffers) {
 		gl(glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->gpu_id));
 		gl(glViewport(0, 0, g_window.width, g_window.height));
 		gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
@@ -175,22 +179,26 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 		}
 
 		gl(glEnable(GL_BLEND));
-		if(framebuffer->do_additive) {
-			gl(glBlendFunc(GL_ONE, GL_ONE));
-		}
-		else {
-			gl(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-		}
 
 		gl(glBindVertexArray(platform_renderer->default_vao));
 		gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
 
-		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++)
-		{
-			if(framebuffer->transforms[texture_i].element_count[0] > 0)
-			{
-				gl(glActiveTexture(GL_TEXTURE0));
-				gl(glBindTexture(GL_TEXTURE_2D, game_renderer->textures[texture_i].gpu_id));
+		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++) {
+			gl(glActiveTexture(GL_TEXTURE0));
+			gl(glBindTexture(GL_TEXTURE_2D, game_renderer->textures[texture_i].gpu_id));
+
+			if(game_renderer->textures[texture_i].comes_from_framebuffer) { continue; }
+			for(int blend_i = 0; blend_i < e_blend_mode_count; blend_i++) {
+				int offset = get_render_offset(texture_i, blend_i);
+				if(framebuffer->transforms[offset].element_count[0] <= 0) { continue; }
+
+				if(blend_i == e_blend_mode_normal) {
+						gl(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+				}
+				else if(blend_i == e_blend_mode_additive) {
+					gl(glBlendFunc(GL_ONE, GL_ONE));
+				}
+				invalid_else;
 
 				// glActiveTexture(GL_TEXTURE1);
 				// glBindTexture(GL_TEXTURE_2D, game->noise.id);
@@ -198,14 +206,64 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 
 				// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-				int count = framebuffer->transforms[texture_i].element_count[0];
-				int size = sizeof(*framebuffer->transforms[texture_i].elements[0]);
+				int count = framebuffer->transforms[offset].element_count[0];
+				int size = sizeof(*framebuffer->transforms[offset].elements[0]);
 
-				gl(glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, framebuffer->transforms[texture_i].elements[0]));
+				gl(glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, framebuffer->transforms[offset].elements[0]));
 				gl(glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count));
-				memset(&framebuffer->transforms[texture_i].element_count, 0, sizeof(framebuffer->transforms[texture_i].element_count));
+				memset(&framebuffer->transforms[offset].element_count, 0, sizeof(framebuffer->transforms[offset].element_count));
 
-				assert(framebuffer->transforms[texture_i].bucket_count == 1);
+				assert(framebuffer->transforms[offset].bucket_count == 1);
+			}
+		}
+	}
+
+	foreach_ptr(framebuffer_i, framebuffer, game_renderer->framebuffers) {
+		gl(glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->gpu_id));
+		if(framebuffer->do_depth) {
+			gl(glEnable(GL_DEPTH_TEST));
+			gl(glDepthFunc(GL_GREATER));
+		}
+		else {
+			gl(glDisable(GL_DEPTH_TEST));
+		}
+
+		gl(glEnable(GL_BLEND));
+
+		gl(glBindVertexArray(platform_renderer->default_vao));
+		gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
+
+		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++) {
+			gl(glActiveTexture(GL_TEXTURE0));
+			gl(glBindTexture(GL_TEXTURE_2D, game_renderer->textures[texture_i].gpu_id));
+
+			if(!game_renderer->textures[texture_i].comes_from_framebuffer) { continue; }
+			for(int blend_i = 0; blend_i < e_blend_mode_count; blend_i++) {
+				int offset = get_render_offset(texture_i, blend_i);
+				if(framebuffer->transforms[offset].element_count[0] <= 0) { continue; }
+
+				if(blend_i == e_blend_mode_normal) {
+						gl(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+				}
+				else if(blend_i == e_blend_mode_additive) {
+					gl(glBlendFunc(GL_ONE, GL_ONE));
+				}
+				invalid_else;
+
+				// glActiveTexture(GL_TEXTURE1);
+				// glBindTexture(GL_TEXTURE_2D, game->noise.id);
+				// glUniform1i(1, 1);
+
+				// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+				int count = framebuffer->transforms[offset].element_count[0];
+				int size = sizeof(*framebuffer->transforms[offset].elements[0]);
+
+				gl(glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, framebuffer->transforms[offset].elements[0]));
+				gl(glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count));
+				memset(&framebuffer->transforms[offset].element_count, 0, sizeof(framebuffer->transforms[offset].element_count));
+
+				assert(framebuffer->transforms[offset].bucket_count == 1);
 			}
 		}
 	}
@@ -250,8 +308,7 @@ func u32 load_shader_from_str(const char* vertex_src, const char* fragment_src)
 		int length = 0;
 		int linked = 0;
 		gl(glGetProgramiv(program, GL_LINK_STATUS, &linked));
-		if(!linked)
-		{
+		if(!linked) {
 			gl(glGetProgramInfoLog(program, sizeof(buffer), &length, buffer));
 			printf("FAILED TO LINK: %s\n", buffer);
 		}
@@ -270,8 +327,7 @@ func b8 check_for_shader_errors(u32 id, char* out_error)
 	char info_log[1024];
 	gl(glGetShaderiv(id, GL_COMPILE_STATUS, &compile_success));
 
-	if(!compile_success)
-	{
+	if(!compile_success) {
 		gl(glGetShaderInfoLog(id, 1024, null, info_log));
 		log("Failed to compile shader:\n%s", info_log);
 
@@ -285,7 +341,7 @@ func b8 check_for_shader_errors(u32 id, char* out_error)
 	return true;
 }
 
-func s_texture load_texture(s_game_renderer* game_renderer, char* path)
+func s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 {
 	s_texture result = load_texture_from_file(path, GL_LINEAR);
 	result.game_id = game_renderer->textures.count;
@@ -313,7 +369,7 @@ func s_texture load_texture_from_data(void* data, int width, int height, u32 fil
 	return texture;
 }
 
-func s_texture load_texture_from_file(char* path, u32 filtering)
+func s_texture load_texture_from_file(const char* path, u32 filtering)
 {
 	int width, height, num_channels;
 	void* data = stbi_load(path, &width, &height, &num_channels, 4);
@@ -327,9 +383,9 @@ func void after_loading_texture(s_game_renderer* game_renderer)
 {
 	int old_index = game_renderer->transform_arena_index;
 	int new_index = (game_renderer->transform_arena_index + 1) % 2;
-	int size = sizeof(*game_renderer->framebuffers[0].transforms) * game_renderer->textures.count;
+	int size = sizeof(*game_renderer->framebuffers[0].transforms) * game_renderer->textures.count * e_blend_mode_count;
 
-	foreach(framebuffer_i, framebuffer, game_renderer->framebuffers) {
+	foreach_ptr(framebuffer_i, framebuffer, game_renderer->framebuffers) {
 		s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
 			&game_renderer->transform_arenas[new_index], size
 		);
@@ -345,7 +401,7 @@ func void after_loading_texture(s_game_renderer* game_renderer)
 	game_renderer->transform_arena_index = new_index;
 }
 
-func s_framebuffer make_framebuffer(s_game_renderer* game_renderer, b8 do_depth, b8 do_additive)
+func s_framebuffer make_framebuffer(s_game_renderer* game_renderer, b8 do_depth)
 {
 	// @Fixme(tkap, 11/10/2023): handle this
 	assert(!do_depth);
@@ -356,19 +412,22 @@ func s_framebuffer make_framebuffer(s_game_renderer* game_renderer, b8 do_depth,
 	gl(glGenFramebuffers(1, &result.gpu_id));
 	gl(glBindFramebuffer(GL_FRAMEBUFFER, result.gpu_id));
 
-	gl(glGenTextures(1, &result.texture_id));
-	gl(glBindTexture(GL_TEXTURE_2D, result.texture_id));
-	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, g_window.width, g_window.height, 0, GL_RGB, GL_UNSIGNED_BYTE, null));
+	gl(glGenTextures(1, &result.texture.gpu_id));
+	gl(glBindTexture(GL_TEXTURE_2D, result.texture.gpu_id));
+	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_window.width, g_window.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, null));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-	gl(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, result.texture_id, 0));
+	gl(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, result.texture.gpu_id, 0));
 
 	assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 	gl(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 
+	result.texture.game_id = game_renderer->textures.count;
+	result.texture.comes_from_framebuffer = true;
+	game_renderer->textures.add(result.texture);
+
 	result.game_id = game_renderer->framebuffers.count;
 	result.do_depth = do_depth;
-	result.do_additive = do_additive;
 	game_renderer->framebuffers.add(result);
 	after_making_framebuffer(result.game_id, game_renderer);
 
@@ -377,9 +436,13 @@ func s_framebuffer make_framebuffer(s_game_renderer* game_renderer, b8 do_depth,
 
 func void after_making_framebuffer(int index, s_game_renderer* game_renderer)
 {
-	int size = sizeof(*game_renderer->framebuffers[0].transforms) * game_renderer->textures.count;
+	int size = sizeof(*game_renderer->framebuffers[0].transforms) * game_renderer->textures.count * e_blend_mode_count;
 	s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
 		&game_renderer->transform_arenas[game_renderer->transform_arena_index], size
 	);
-	game_renderer->framebuffers[index].transforms = new_transforms;
+	s_framebuffer* framebuffer = &game_renderer->framebuffers[index];
+	framebuffer->transforms = new_transforms;
+
+	after_loading_texture(game_renderer);
+
 }

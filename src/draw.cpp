@@ -7,11 +7,11 @@ enum e_render_flags
 };
 
 
-func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, int framebuffer_index = 0, s_transform t = zero)
+func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, s_render_data render_data = zero, s_transform t = zero)
 {
-	assert(framebuffer_index >= 0);
-	assert(framebuffer_index < g_r->framebuffers.count);
-	s_framebuffer* framebuffer = &g_r->framebuffers[framebuffer_index];
+	assert(render_data.framebuffer_index >= 0);
+	assert(render_data.framebuffer_index < g_r->framebuffers.count);
+	s_framebuffer* framebuffer = &g_r->framebuffers[render_data.framebuffer_index];
 
 	t.pos = pos;
 	t.layer = layer;
@@ -20,7 +20,7 @@ func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, int framebuffer_
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
 	t.mix_color = v41f(1);
-	bucket_add(&framebuffer->transforms[0], t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
+	bucket_add(&framebuffer->transforms[get_render_offset(0, render_data.blend_mode)], t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
 }
 
 // func void draw_circle(s_v2 pos, int layer, float radius, s_v4 color, s_transform t = zero)
@@ -56,21 +56,27 @@ func void draw_rect(s_v2 pos, int layer, s_v2 size, s_v4 color, int framebuffer_
 // 	bucket_add(&g_r->transforms, t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
 // }
 
-func void draw_texture(s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, int framebuffer_index = 0, s_transform t = zero)
+func void draw_texture(s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_render_data render_data = zero, s_transform t = zero)
 {
-	assert(framebuffer_index >= 0);
-	assert(framebuffer_index < g_r->framebuffers.count);
-	s_framebuffer* framebuffer = &g_r->framebuffers[framebuffer_index];
+	assert(render_data.framebuffer_index >= 0);
+	assert(render_data.framebuffer_index < g_r->framebuffers.count);
+	s_framebuffer* framebuffer = &g_r->framebuffers[render_data.framebuffer_index];
 
 	t.layer = layer;
 	t.flags |= e_render_flag_use_texture;
 	t.pos = pos;
 	t.draw_size = size;
 	t.color = color;
-	t.uv_min = v2(0);
-	t.uv_max = v2(1);
+	if(texture.comes_from_framebuffer) {
+		t.uv_min = v2(0, 1);
+		t.uv_max = v2(1, 0);
+	}
+	else {
+		t.uv_min = v2(0);
+		t.uv_max = v2(1);
+	}
 	t.mix_color = v41f(1);
-	bucket_add(&framebuffer->transforms[texture.game_id], t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
+	bucket_add(&framebuffer->transforms[get_render_offset(texture.game_id, render_data.blend_mode)], t, &g_r->arenas[g_r->arena_index], &g_r->did_we_alloc);
 }
 
 // func void draw_fbo(u32 texture, s_transform t = zero)

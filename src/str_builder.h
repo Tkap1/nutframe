@@ -1,5 +1,5 @@
 
-#define c_str_builder_size 1024
+global constexpr int = c_str_builder_size = 1024;
 
 struct s_str_builder
 {

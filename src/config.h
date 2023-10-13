@@ -10,9 +10,9 @@ global constexpr int c_max_concurrent_sounds = 32;
 global constexpr int c_updates_per_second = 60;
 global constexpr f64 c_update_delay = 1.0 / c_updates_per_second;
 
-#define c_origin_topleft {1.0f, -1.0f}
-#define c_origin_bottomleft {1.0f, 1.0f}
-#define c_origin_center {0, 0}
+global constexpr s_v2 c_origin_topleft = {1.0f, -1.0f};
+global constexpr s_v2 c_origin_bottomleft = {1.0f, 1.0f};
+global constexpr s_v2 c_origin_center = {0, 0};
 
 global constexpr int c_max_entities = 4096;
 

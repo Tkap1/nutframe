@@ -13,26 +13,26 @@ struct s_voice : IXAudio2VoiceCallback
 
 	volatile int playing;
 
-	void OnStreamEnd()
+	void OnStreamEnd() noexcept
 	{
 		voice->Stop();
 		InterlockedExchange((LONG*)&playing, false);
 	}
 
 	#pragma warning(push, 0)
-	void OnBufferStart(void * pBufferContext) {}
-	void OnVoiceProcessingPassEnd() { }
-	void OnVoiceProcessingPassStart(UINT32 SamplesRequired) { unreferenced(SamplesRequired); }
-	void OnBufferEnd(void * pBufferContext) { unreferenced(pBufferContext); }
-	void OnLoopEnd(void * pBufferContext) { unreferenced(pBufferContext); }
-	void OnVoiceError(void * pBufferContext, HRESULT Error) { unreferenced(pBufferContext); unreferenced(Error);}
+	void OnBufferStart(void * pBufferContext) noexcept {}
+	void OnVoiceProcessingPassEnd() noexcept { }
+	void OnVoiceProcessingPassStart(UINT32 SamplesRequired) noexcept { unreferenced(SamplesRequired); }
+	void OnBufferEnd(void * pBufferContext) noexcept { unreferenced(pBufferContext); }
+	void OnLoopEnd(void * pBufferContext) noexcept { unreferenced(pBufferContext); }
+	void OnVoiceError(void * pBufferContext, HRESULT Error) noexcept { unreferenced(pBufferContext); unreferenced(Error);}
 	#pragma warning(pop)
 };
 
 
 func void create_window(int width, int height);
 func WPARAM remap_key_if_necessary(WPARAM vk, LPARAM lparam);
-func PROC load_gl_func(char* name);
+func PROC load_gl_func(const char* name);
 func b8 init_audio();
 func b8 thread_safe_set_bool_to_true(volatile int* var);
 func b8 play_sound(s_sound sound);
@@ -47,7 +47,7 @@ func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_a
 func b8 check_for_shader_errors(u32 id, char* out_error);
 func s_texture load_texture(s_game_renderer* game_renderer, char* path);
 func s_texture load_texture_from_data(void* data, int width, int height, u32 filtering);
-func s_texture load_texture_from_file(char* path, u32 filtering);
+func s_texture load_texture_from_file(const char* path, u32 filtering);
 func void after_loading_texture(s_game_renderer* game_renderer);
 func void wide_to_unicode(wchar_t* wide, char* out);
 func u32 get_random_seed();

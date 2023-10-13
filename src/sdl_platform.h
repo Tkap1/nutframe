@@ -22,7 +22,7 @@ func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_a
 func b8 check_for_shader_errors(u32 id, char* out_error);
 func s_texture load_texture(s_game_renderer* game_renderer, char* path);
 func s_texture load_texture_from_data(void* data, int width, int height, u32 filtering);
-func s_texture load_texture_from_file(char* path, u32 filtering);
+func s_texture load_texture_from_file(const char* path, u32 filtering);
 func void after_loading_texture(s_game_renderer* game_renderer);
 func void render();
 func void printShaderLog( GLuint shader );

@@ -144,7 +144,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		all.capacity = 100 * c_mb;
 
 		// @Note(tkap, 26/06/2023): We expect this memory to be zero'd
-		all.memory = VirtualAlloc(null, all.capacity, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+		all.memory = VirtualAlloc((void*)(4 * c_tb), all.capacity, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
 		game_renderer = (s_game_renderer*)la_get(&all, sizeof(s_game_renderer));
 
@@ -286,11 +286,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				}
 				else
 				{
-					// @Fixme(tkap, 11/10/2023):
-					foreach_raw(texture_i, texture, game_renderer->textures)
+					foreach_val(texture_i, texture, game_renderer->textures)
 					{
 						// @Note(tkap, 11/10/2023): Our first texture is a "fake texture", so let's not try to read it's path (it doesn't have any)
-						if(texture_i == 0) { continue; }
+						if(!texture.path) { continue; }
 
 						if(strcmp(texture.path, file_path) == 0)
 						{
@@ -410,7 +409,7 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 
 func void create_window(int width, int height)
 {
-	char* class_name = "DigHard_CLASS";
+	const char* class_name = "DigHard_CLASS";
 	HINSTANCE instance = GetModuleHandle(null);
 
 	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = null;
@@ -538,7 +537,7 @@ func void create_window(int width, int height)
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		window end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 }
 
-func PROC load_gl_func(char* name)
+func PROC load_gl_func(const char* name)
 {
 	PROC result = wglGetProcAddress(name);
 	if(!result)

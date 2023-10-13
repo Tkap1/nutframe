@@ -1,10 +1,10 @@
-func char* read_file(const char* path, s_lin_arena* arena, size_t* out_file_size = null)
+func char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = null)
 {
 	FILE* file = fopen(path, "rb");
 	if(!file) { return null; }
 
 	fseek(file, 0, SEEK_END);
-	size_t file_size = ftell(file);
+	u64 file_size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
 	char* data = (char*)la_get(arena, file_size + 1);
@@ -17,7 +17,7 @@ func char* read_file(const char* path, s_lin_arena* arena, size_t* out_file_size
 	return data;
 }
 
-func b8 write_file(const char* path, void* data, size_t size)
+func b8 write_file(const char* path, void* data, u64 size)
 {
 	assert(size > 0);
 	FILE* file = fopen(path, "wb");

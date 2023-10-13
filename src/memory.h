@@ -1,12 +1,12 @@
 
-#define c_max_arena_push 16
+global constexpr int c_max_arena_push = 16;
 
 struct s_lin_arena
 {
 	int push_count;
-	size_t push[c_max_arena_push];
-	size_t used;
-	size_t capacity;
+	u64 push[c_max_arena_push];
+	u64 used;
+	u64 capacity;
 	void* memory;
 };
 

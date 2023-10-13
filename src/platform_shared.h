@@ -88,15 +88,16 @@ typedef void (*t_set_vsync)(b8);
 typedef int (*t_show_cursor)(b8);
 typedef int (*t_cycle_between_available_resolutions)(int);
 typedef u32 (*t_get_random_seed)();
-typedef s_framebuffer (*t_make_framebuffer)(s_game_renderer*, b8, b8);
+typedef s_framebuffer (*t_make_framebuffer)(s_game_renderer*, b8);
 
 struct s_texture
 {
+	b8 comes_from_framebuffer;
 	u32 gpu_id;
 	int game_id;
 	s_v2 size;
 	s_v2 sub_size;
-	char* path;
+	const char* path;
 };
 
 
@@ -124,9 +125,8 @@ struct s_framebuffer
 {
 	u32 gpu_id;
 	int game_id;
-	u32 texture_id;
+	s_texture texture;
 	b8 do_depth;
-	b8 do_additive;
 
 	// @Note(tkap, 08/10/2023): We esentially want s_bucket_array<s_transform> transforms[e_texture_count];
 	// but we don't know how many textures there will be at compile time, because the game code may load any amount
@@ -160,6 +160,19 @@ struct s_input
 	s_key keys[c_max_keys];
 };
 
+enum e_blend_mode
+{
+	e_blend_mode_normal,
+	e_blend_mode_additive,
+	e_blend_mode_count,
+};
+
+struct s_render_data
+{
+	int framebuffer_index;
+	e_blend_mode blend_mode;
+};
+
 struct s_platform_data
 {
 	b8 recompiled;
@@ -184,7 +197,7 @@ struct s_platform_funcs
 	t_cycle_between_available_resolutions cycle_between_available_resolutions;
 };
 
-typedef s_texture (*t_load_texture)(s_game_renderer*, char*);
+typedef s_texture (*t_load_texture)(s_game_renderer*, const char*);
 struct s_game_renderer
 {
 	b8 did_we_alloc;
@@ -201,11 +214,12 @@ struct s_game_renderer
 	s_sarray<s_framebuffer, 4> framebuffers;
 };
 
-
-
 #define m_update_game(name) void name(s_platform_data* platform_data, s_platform_funcs platform_funcs, void* game_memory, s_game_renderer* renderer)
 #ifdef m_build_dll
 typedef m_update_game(t_update_game);
 #else // m_build_dll
 m_update_game(update_game);
 #endif
+
+
+func int get_render_offset(int texture, int blend_mode);
