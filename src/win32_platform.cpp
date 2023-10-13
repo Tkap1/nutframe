@@ -103,6 +103,9 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	s_lin_arena platform_frame_arena = zero;
 	s_lin_arena game_frame_arena = zero;
 
+	g_window.width = (int)c_base_res.x;
+	g_window.height = (int)c_base_res.y;
+
 	#ifdef m_debug
 	unreferenced(argc);
 	unreferenced(argv);

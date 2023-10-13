@@ -11,8 +11,8 @@
 #include "memory.h"
 #include "config.h"
 #include "bucket.h"
-#include "common.h"
 #include "platform_shared.h"
+#include "common.h"
 #include "sdl_platform.h"
 
 global s_window g_window;
@@ -44,6 +44,9 @@ int main(int argc, char** argv)
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		return 1;
 	}
+
+	g_window.width = (int)c_base_res.x;
+	g_window.height = (int)c_base_res.y;
 
 	#ifdef __EMSCRIPTEN__
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -120,7 +123,7 @@ int main(int argc, char** argv)
 	g_game_renderer->set_vsync = set_vsync;
 	g_game_renderer->load_texture = load_texture;
 	g_game_renderer->make_framebuffer = make_framebuffer;
-	init_gl(&g_platform_renderer, &platform_frame_arena);
+	init_gl(&g_platform_renderer, g_game_renderer, &platform_frame_arena);
 
 	b8 running = true;
 	g_platform_data.recompiled = true;
