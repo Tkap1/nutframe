@@ -608,3 +608,4 @@ func s_font* load_font(s_game_renderer* game_renderer, const char* path, int fon
 	int index = game_renderer->fonts.add(font);
 	return &game_renderer->fonts[index];
 }
+

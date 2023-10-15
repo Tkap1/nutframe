@@ -35,6 +35,8 @@ global s_platform_funcs g_platform_funcs;
 global void* g_game_memory;
 global s_platform_renderer g_platform_renderer;
 global s_game_renderer* g_game_renderer;
+global s_sarray<Mix_Chunk*, 16> g_sdl_audio;
+s_lin_arena g_game_frame_arena = zero;
 
 #include "memory.cpp"
 #include "platform_shared.cpp"
@@ -50,9 +52,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 #endif
 {
 	SDL_SetMainReady();
-	if(SDL_Init(SDL_INIT_VIDEO) < 0)
-	{
+	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+		return 1;
+	}
+
+	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
+		printf("Failed to initialize SDL audio\n");
 		return 1;
 	}
 
@@ -107,7 +113,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	}
 
 	s_lin_arena platform_frame_arena = zero;
-	s_lin_arena game_frame_arena = zero;
 
 	#ifdef m_debug
 	unreferenced(argc);
@@ -120,7 +125,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	{
 		s_lin_arena all = zero;
-		all.capacity = 10 * c_mb;
+		all.capacity = 20 * c_mb;
 
 		// @Note(tkap, 26/06/2023): We expect this memory to be zero'd
 		all.memory = malloc(all.capacity);
@@ -130,8 +135,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 		g_game_memory = la_get(&all, c_game_memory);
 		platform_frame_arena = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		game_frame_arena = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		g_platform_data.frame_arena = &game_frame_arena;
+		g_game_frame_arena = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
+		g_platform_data.frame_arena = &g_game_frame_arena;
 
 		g_game_renderer->arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
 		g_game_renderer->arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
@@ -150,6 +155,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	b8 running = true;
 	g_platform_data.recompiled = true;
 	g_platform_data.get_random_seed = get_random_seed;
+	g_platform_data.load_sound = load_sound;
+	g_platform_data.play_sound = play_sound;
 
 	#ifdef __EMSCRIPTEN__
 	// emscripten_request_animation_frame_loop(do_one_frame, &foo);
@@ -297,4 +304,33 @@ func f64 get_seconds()
 {
 	u64 now =	SDL_GetPerformanceCounter();
 	return (now - g_start_cycles) / (f64)g_cycle_frequency;
+}
+
+// @Fixme(tkap, 15/10/2023): This may be fucked
+func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
+{
+	Mix_Chunk* chunk = Mix_LoadWAV(path);
+	assert(chunk);
+
+	s_sound sound = zero;
+
+	// @Note(tkap, 15/10/2023): Not really sample count
+	// @Fixme(tkap, 15/10/2023):
+	// sound.sample_count = (int)audio_len;
+	// sound.samples = (s16*)audio_buffer;
+
+	g_sdl_audio.add(chunk);
+
+	sound.index = platform_data->sounds.count;
+	int index = platform_data->sounds.add(sound);
+	return &platform_data->sounds[index];
+}
+
+func b8 play_sound(s_sound* sound)
+{
+	Mix_Chunk* chunk = g_sdl_audio[sound->index];
+	if(Mix_PlayChannel(-1, chunk, 0) == -1) {
+		return false;
+	}
+	return true;
 }

@@ -1,6 +1,6 @@
 
-#include "pch_client.h"
-// #include "../src/pch_client.h"
+// #include "pch_client.h"
+#include "../src/pch_client.h"
 
 #include "../src/config.h"
 #include "../src/bucket.h"
@@ -35,6 +35,7 @@ struct s_game
 	s_rng rng;
 	b8 reset_level;
 	s_font* font;
+	s_sound* sound;
 };
 
 global s_input* g_input;
@@ -78,7 +79,12 @@ m_update_game(update_game)
 		game->font = g_r->load_font(renderer, "examples/consola.ttf", 64, platform_data->frame_arena);
 		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->text_framebuffer = g_r->make_framebuffer(renderer, false);
+		game->sound = platform_data->load_sound(platform_data, "examples/sound.wav", platform_data->frame_arena);
 		game->reset_level = true;
+	}
+
+	if(is_key_pressed(g_input, c_key_f)) {
+		platform_data->play_sound(game->sound);
 	}
 
 	if(game->reset_level) {
@@ -189,6 +195,7 @@ m_update_game(update_game)
 		{.blend_mode = e_blend_mode_additive}, {.rotation = (float)renderer->total_time}
 	);
 
+	draw_text("ATHANO BITCH", mouse, 50, 64, make_color(1), true, game->font);
 	draw_texture(
 		c_half_res, 10, c_base_res, make_color(1), game->text_framebuffer->texture,
 		{.blend_mode = e_blend_mode_additive}

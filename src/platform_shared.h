@@ -90,19 +90,22 @@ global constexpr int c_game_memory = 1 * c_mb;
 
 struct s_sound
 {
+	int index;
 	int sample_count;
 	s16* samples;
 };
 
 struct s_framebuffer;
 struct s_game_renderer;
+struct s_platform_data;
 
-typedef b8 (*t_play_sound)(s_sound);
+typedef b8 (*t_play_sound)(s_sound*);
 typedef void (*t_set_vsync)(b8);
 typedef int (*t_show_cursor)(b8);
 typedef int (*t_cycle_between_available_resolutions)(int);
 typedef u32 (*t_get_random_seed)();
 typedef s_framebuffer* (*t_make_framebuffer)(s_game_renderer*, b8);
+typedef s_sound* (*t_load_sound)(s_platform_data*, const char*, s_lin_arena*);
 
 struct s_texture
 {
@@ -226,11 +229,13 @@ struct s_platform_data
 	s_v2 mouse;
 	f64 frame_time;
 	t_get_random_seed get_random_seed;
+	t_load_sound load_sound;
+	t_play_sound play_sound;
+	s_sarray<s_sound, 16> sounds;
 };
 
 struct s_platform_funcs
 {
-	t_play_sound play_sound;
 	t_show_cursor show_cursor;
 	t_cycle_between_available_resolutions cycle_between_available_resolutions;
 };

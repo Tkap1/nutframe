@@ -13,7 +13,7 @@ if not exist build\NUL mkdir build
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 @REM 0 for win32, 1 for SDL
-set platform=0
+set platform=1
 set client_file=..\examples\snake.cpp
 set exe_name=DigHard
 
@@ -31,9 +31,12 @@ if !platform!==0 (
 if !platform!==1 (
 	set platform_file=..\src\sdl_platform.cpp
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl"
+	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl\SDL2"
+	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
 	set comp=!comp! -Dm_sdl
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\glew\include"
 	set linker=!linker! "C:\Users\34687\Desktop\Dev\C\sdl\VisualC\x64\Release\SDL2.lib"
+	set linker=!linker! "C:\Users\34687\Desktop\Dev\C\SDL_mixer\VisualC\x64\Release\SDL2_mixer.lib"
 	set linker=!linker! "C:\Users\34687\Desktop\Dev\C\glew\lib\Release\x64\glew32.lib"
 	set build_dll=0
 )

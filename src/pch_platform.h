@@ -31,6 +31,7 @@
 
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
+#include "SDL_mixer.h"
 #include "GL\glew.h"
 #endif // m_sdl
 

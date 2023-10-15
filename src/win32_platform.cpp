@@ -150,7 +150,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	#undef X
 
 	s_platform_funcs platform_funcs = zero;
-	platform_funcs.play_sound = play_sound;
 	// platform_funcs.show_cursor = ShowCursor;
 	platform_funcs.cycle_between_available_resolutions = cycle_between_available_resolutions;
 
@@ -222,6 +221,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.window_width = g_window.width;
 		g_platform_data.window_height = g_window.height;
 		g_platform_data.get_random_seed = get_random_seed;
+		g_platform_data.load_sound = load_sound;
+		g_platform_data.play_sound = play_sound;
 
 		#ifdef m_debug
 		if(need_to_reload_dll("build/DigHard.dll"))
@@ -635,16 +636,16 @@ func b8 init_audio()
 
 }
 
-func b8 play_sound(s_sound sound)
+func b8 play_sound(s_sound* sound)
 {
 	if(!g_platform_data.is_window_active) { return false; }
-	assert(sound.sample_count > 0);
-	assert(sound.samples);
+	assert(sound->sample_count > 0);
+	assert(sound->samples);
 
 	XAUDIO2_BUFFER buffer = zero;
 	buffer.Flags = XAUDIO2_END_OF_STREAM;
-	buffer.AudioBytes = sound.sample_count * c_num_channels * sizeof(s16);
-	buffer.pAudioData = (BYTE*)sound.samples;
+	buffer.AudioBytes = sound->sample_count * c_num_channels * sizeof(s16);
+	buffer.pAudioData = (BYTE*)sound->samples;
 
 	s_voice* curr_voice = null;
 	for(int voice_i = 0; voice_i < c_max_concurrent_sounds; voice_i++)
@@ -812,4 +813,30 @@ func void wide_to_unicode(wchar_t* wide, char* out)
 func u32 get_random_seed()
 {
 	return (u32)__rdtsc();
+}
+
+func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
+{
+	s_sound sound = zero;
+	u8* data = (u8*)read_file(path, arena);
+	if(!data) { return zero; }
+
+	s_riff_chunk riff = *(s_riff_chunk*)data;
+	data += sizeof(riff);
+	s_fmt_chunk fmt = *(s_fmt_chunk*)data;
+	assert(fmt.num_channels == c_num_channels);
+	assert(fmt.sample_rate == c_sample_rate);
+	data += sizeof(fmt);
+	s_data_chunk data_chunk = *(s_data_chunk*)data;
+	assert(memcmp(&data_chunk.sub_chunk2_id, "data", 4) == 0);
+	data += 8;
+
+	sound.sample_count = data_chunk.sub_chunk2_size / c_num_channels / sizeof(s16);
+	// @TODO(tkap, 15/10/2023): Think of a way to not need malloc
+	sound.samples = (s16*)malloc(c_num_channels * sizeof(s16) * sound.sample_count);
+	memcpy(sound.samples, data, sound.sample_count * c_num_channels * sizeof(s16));
+
+	sound.index = platform_data->sounds.count;
+	int index = platform_data->sounds.add(sound);
+	return &platform_data->sounds[index];
 }

@@ -10,7 +10,7 @@ struct s_window
 func void create_window(int width, int height);
 func b8 init_audio();
 func b8 thread_safe_set_bool_to_true(volatile int* var);
-func b8 play_sound(s_sound sound);
+func b8 play_sound(s_sound* sound);
 func void init_performance();
 func f64 get_seconds();
 func void set_vsync(b8 val);
@@ -31,3 +31,4 @@ func void do_one_frame();
 func u32 get_random_seed();
 func int sdl_key_to_windows_key(int key);
 func f64 get_seconds();
+func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);

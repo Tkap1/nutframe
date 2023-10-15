@@ -35,7 +35,7 @@ func WPARAM remap_key_if_necessary(WPARAM vk, LPARAM lparam);
 func PROC load_gl_func(const char* name);
 func b8 init_audio();
 func b8 thread_safe_set_bool_to_true(volatile int* var);
-func b8 play_sound(s_sound sound);
+func b8 play_sound(s_sound* sound);
 func void init_performance();
 func f64 get_seconds();
 func void set_vsync(b8 val);
@@ -51,6 +51,7 @@ func s_texture load_texture_from_file(const char* path, u32 filtering);
 func void after_loading_texture(s_game_renderer* game_renderer);
 func void wide_to_unicode(wchar_t* wide, char* out);
 func u32 get_random_seed();
+func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
 
 #ifdef m_debug
 func DWORD WINAPI watch_dir(void* arg);
