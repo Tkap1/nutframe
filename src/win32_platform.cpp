@@ -274,24 +274,19 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					{
 						s_shader_paths paths = c_shader_paths[shader_i];
 						b8 do_load = false;
-						if(is_vertex)
-						{
-							if(strcmp(file_path, paths.vertex_path))
-							{
+						if(is_vertex) {
+							if(strcmp(file_path, paths.vertex_path) == 0) {
 								do_load = true;
 							}
 						}
-						else if(is_fragment)
-						{
-							if(strcmp(file_path, paths.fragment_path))
-							{
+						else if(is_fragment) {
+							if(strcmp(file_path, paths.fragment_path) == 0) {
 								do_load = true;
 							}
 						}
 						invalid_else;
 
-						if(do_load)
-						{
+						if(do_load) {
 							char* vertex_src = read_file(paths.vertex_path, &platform_frame_arena);
 							char* fragment_src = read_file(paths.fragment_path, &platform_frame_arena);
 							if(!vertex_src || !vertex_src[0] || !fragment_src || !fragment_src[0]) { advance_file = false; }

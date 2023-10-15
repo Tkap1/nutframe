@@ -520,3 +520,25 @@ func s_v2 random_point_in_rect_topleft(s_v2 pos, s_v2 size, s_rng* rng)
 		pos.y + rng->randf32() * size.y
 	);
 }
+
+func s_v2 v2_rotate_around(s_v2 v, s_v2 pivot, float angle)
+{
+	s_v2 p = v;
+
+	float s = sinf(angle);
+	float c = cosf(angle);
+
+	// translate point back to origin
+	p.x -= pivot.x;
+	p.y -= pivot.y;
+
+	// rotate point
+	float xnew = p.x * c - p.y * s;
+	float ynew = p.x * s + p.y * c;
+
+	// translate point back
+	p.x = xnew + pivot.x;
+	p.y = ynew + pivot.y;
+
+	return p;
+}

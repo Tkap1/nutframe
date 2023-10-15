@@ -1,4 +1,18 @@
 
+#ifdef _WIN32
+#define m_dll_export __declspec(dllexport)
+#endif // _WIN32
+
+#ifdef __GNUC__
+// @TODO(tkap, 13/10/2023): stackoverflow copy paste
+#define m_dll_export __attribute__((visibility("default")))
+#endif // __linux__
+
+#ifdef __linux__
+// @TODO(tkap, 13/10/2023): I don't know. Nothing??
+#define m_dll_export
+#endif // __linux__
+
 global constexpr int c_key_backspace = 0x08;
 global constexpr int c_key_tab = 0x09;
 global constexpr int c_key_enter = 0x0D;
@@ -193,8 +207,8 @@ enum e_blend_mode
 
 struct s_render_data
 {
-	s_framebuffer* framebuffer;
 	e_blend_mode blend_mode;
+	s_framebuffer* framebuffer;
 };
 
 struct s_platform_data

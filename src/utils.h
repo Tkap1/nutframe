@@ -152,7 +152,8 @@ struct s_sarray
 		int to_move = count - index;
 		if(to_move > 0)
 		{
-			memcpy(elements + index, elements + index + 1, to_move * sizeof(T));
+			// @Note(tkap, 13/10/2023): memcpy is good enough here, but the sanitizer complains.
+			memmove(elements + index, elements + index + 1, to_move * sizeof(T));
 		}
 		return result;
 	}

@@ -115,6 +115,7 @@ void main()
 
 	v_uv = uvs[gl_VertexID];
 	v_local_uv = local_uv[gl_VertexID];
+
 	mat2 rotation = rot(in_rotation);
-	gl_Position = vec4((vertices[gl_VertexID] * rotation + in_origin_offset) * size + pos, z, 1.0);
+	gl_Position = vec4((vertices[gl_VertexID] * size * rotation + in_origin_offset * size) + pos, z, 1.0);
 }

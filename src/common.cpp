@@ -492,7 +492,7 @@ func void write_embed_file()
 		u8* cursor = data;
 
 		builder_add_line(builder, "global constexpr u8 embed%i[%u] = {", embed_i, file_size);
-		for(int i = 0; i < file_size; i++) {
+		for(u64 i = 0; i < file_size; i++) {
 			builder_add(builder, "%u,", *cursor);
 			cursor++;
 		}

@@ -14,8 +14,6 @@ global constexpr s_v2 c_origin_topleft = {1.0f, -1.0f};
 global constexpr s_v2 c_origin_bottomleft = {1.0f, 1.0f};
 global constexpr s_v2 c_origin_center = {0, 0};
 
-global constexpr int c_max_entities = 4096;
-
 global constexpr float c_delta = 1.0f / c_updates_per_second;
 
 global constexpr int c_base_resolution_index = 5;
