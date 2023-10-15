@@ -542,3 +542,18 @@ func s_v2 v2_rotate_around(s_v2 v, s_v2 pivot, float angle)
 
 	return p;
 }
+
+func s_v2 v2_rotated(s_v2 v, float angle)
+{
+
+	float x = v.x;
+	float y = v.y;
+
+	float cs = cosf(angle);
+	float sn = sinf(angle);
+
+	v.x = x * cs - y * sn;
+	v.y = x * sn + y * cs;
+
+	return v;
+}

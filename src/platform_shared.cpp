@@ -30,20 +30,27 @@ func int get_render_offset(int texture, int blend_mode)
 	return texture * e_blend_mode_count + blend_mode;
 }
 
+// @Note(tkap, 15/10/2023): Should this always return font_size for y (like it does now), or actually get the tallest char?
 func s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count)
 {
 	assert(count >= 0);
 	if(count <= 0) { return zero; }
 
 	s_v2 size = zero;
-	size.y = font->size;
 	float scale = font->scale * (font_size / font->size);
 
 	for(int char_i = 0; char_i < count; char_i++)
 	{
 		char c = text[char_i];
 		s_glyph glyph = font->glyph_arr[c];
-		size.x += glyph.advance_width * scale;
+		s_v2 draw_size = v2((glyph.x1 - glyph.x0) * scale, (glyph.y1 - glyph.y0) * scale);
+		if(char_i == count - 1) {
+			size.x += (glyph.x1 - glyph.x0) * scale;
+		}
+		else {
+			size.x += glyph.advance_width * scale;
+		}
+		size.y = at_least(draw_size.y, size.y);
 	}
 
 	return size;

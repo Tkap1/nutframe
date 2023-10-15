@@ -778,9 +778,9 @@ func DWORD WINAPI watch_dir(void* arg)
 		assert(result);
 		if(bytes_read <= 0) { continue; }
 
+		FILE_NOTIFY_INFORMATION* current = &buffer[0];
 		while(true)
 		{
-			FILE_NOTIFY_INFORMATION* current = &buffer[0];
 			char file_path[MAX_PATH] = zero;
 			wide_to_unicode(current->FileName, file_path);
 			str_replace(file_path, "\\", "/");

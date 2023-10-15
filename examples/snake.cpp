@@ -40,6 +40,7 @@ struct s_game
 global s_input* g_input;
 global s_game* game;
 global s_game_renderer* g_r;
+global s_v2 mouse;
 
 func b8 is_key_down(s_input* input, int key);
 func b8 is_key_up(s_input* input, int key);
@@ -55,11 +56,13 @@ func void reset_level();
 
 #ifdef m_build_dll
 extern "C" {
-__declspec(dllexport)
+m_dll_export
 #endif // m_build_dll
 m_update_game(update_game)
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
+
+	mouse = platform_data->mouse;
 
 	game = (s_game*)game_memory;
 	g_r = renderer;
@@ -178,19 +181,12 @@ m_update_game(update_game)
 		float r = foo * 1;
 		draw_rect(
 			c_half_res + vel, 1, v2(4 * r), make_color(powf(rng.randf32(), 4), powf(rng.randf32(), 1), powf(rng.randf32(), 8)),
-			{.framebuffer = game->particle_framebuffer, .blend_mode = e_blend_mode_additive}
+			{.blend_mode = e_blend_mode_additive, .framebuffer = game->particle_framebuffer}
 		);
 	}
 	draw_texture(
 		c_half_res, 5, c_base_res * 8, make_color(1), game->particle_framebuffer->texture,
 		{.blend_mode = e_blend_mode_additive}, {.rotation = (float)renderer->total_time}
-	);
-
-	// draw_rect(c_half_res, 0, c_base_res, make_color(0, 1, 0));
-	draw_text(
-		"AAAAAAAAAA", c_half_res, 10, 64.0f, make_color(1), true, game->font,
-		// {.blend_mode = e_blend_mode_additive}
-		{.framebuffer = game->text_framebuffer}
 	);
 
 	draw_texture(
