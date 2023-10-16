@@ -35,7 +35,6 @@ func void* la_get(s_lin_arena* arena, u64 in_requested)
 
 func void* la_get_zero(s_lin_arena* arena, u64 in_requested)
 {
-	u8* max_pointer = (u8*)arena->memory + arena->capacity;
 	void* result = la_get(arena, in_requested);
 	memset(result, 0, in_requested);
 	return result;

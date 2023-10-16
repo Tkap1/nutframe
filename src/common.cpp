@@ -360,14 +360,14 @@ func s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 		g_to_embed.add(path);
 	}
 
-	#ifndef m_debug
+	#if !defined(m_debug) && !defined(__EMSCRIPTEN__)
 
 	int width, height, num_channels;
 	void* data = stbi_load_from_memory(embed_data[g_load_texture_index], embed_sizes[g_load_texture_index], &width, &height, &num_channels, 4);
 	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR);
 	g_load_texture_index += 1;
 
-	#else // m_debug
+	#else
 
 	s_texture result = load_texture_from_file(path, GL_LINEAR);
 	#endif
