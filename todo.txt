@@ -36,3 +36,5 @@ This doesnt seem necessary
 
 ANYTIME some weird nonsense shit happens on the web build, it's probably because we have a pointer to a stack variable and that just fucks things up
 	with emscripten_set_main_loop bullshit. Don't ever use pointers to stack variables BEFORE calling that shit
+
+test if embedding works for the web

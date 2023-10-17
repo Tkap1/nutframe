@@ -3,6 +3,7 @@
 #include "embed.h"
 #endif // m_debug
 
+// @TODO(tkap, 17/10/2023): This has to go away in favor of a dynamic system when we add support for custom shaders
 global constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 	{
 		.vertex_path = "shaders/vertex.vertex",
@@ -12,7 +13,7 @@ global constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 
 global b8 g_do_embed = false;
 global s_sarray<const char*, 128> g_to_embed;
-global int g_load_texture_index = 0;
+global int g_asset_index = 0;
 
 func void on_gl_error(const char* expr, int error)
 {
@@ -70,7 +71,7 @@ func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_
 
 	for(int shader_i = 0; shader_i < e_shader_count; shader_i++)
 	{
-		u32 program = load_shader_from_file(c_shader_paths[shader_i].vertex_path, c_shader_paths[shader_i].fragment_path, arena);
+		u32 program = load_shader(c_shader_paths[shader_i].vertex_path, c_shader_paths[shader_i].fragment_path, arena);
 		assert(program);
 		platform_renderer->programs[shader_i] = program;
 	}
@@ -282,6 +283,27 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	}
 }
 
+func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
+{
+	if(g_do_embed) {
+		g_to_embed.add(vertex_path);
+		g_to_embed.add(fragment_path);
+	}
+
+	#ifndef m_debug
+
+	u32 program = load_shader_from_str((char*)embed_data[g_asset_index], (char*)embed_data[g_asset_index + 1]);
+	g_asset_index += 2;
+	return program;
+
+	#else
+
+	return load_shader_from_file(vertex_path, fragment_path, frame_arena);
+
+	#endif
+
+}
+
 func u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
 {
 	char* vertex_src = read_file(vertex_path, frame_arena);
@@ -298,7 +320,7 @@ func u32 load_shader_from_str(const char* vertex_src, const char* fragment_src)
 	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
 
 	#ifdef __EMSCRIPTEN__
-	const char* header = "#version 300 es\nprecision highp float;";
+	const char* header = "#version 300 es\nprecision highp float;\n";
 	#else
 	const char* header = "#version 330 core\n";
 	#endif
@@ -360,12 +382,12 @@ func s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 		g_to_embed.add(path);
 	}
 
-	#if !defined(m_debug) && !defined(__EMSCRIPTEN__)
+	#ifndef m_debug
 
 	int width, height, num_channels;
-	void* data = stbi_load_from_memory(embed_data[g_load_texture_index], embed_sizes[g_load_texture_index], &width, &height, &num_channels, 4);
+	void* data = stbi_load_from_memory(embed_data[g_asset_index], embed_sizes[g_asset_index], &width, &height, &num_channels, 4);
 	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR);
-	g_load_texture_index += 1;
+	g_asset_index += 1;
 
 	#else
 

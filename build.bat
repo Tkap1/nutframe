@@ -13,7 +13,7 @@ if not exist build\NUL mkdir build
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 @REM 0 for win32, 1 for SDL
-set platform=1
+set platform=0
 set client_file=..\examples\snake.cpp
 set exe_name=DigHard
 
@@ -35,9 +35,12 @@ if !platform!==1 (
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
 	set comp=!comp! -Dm_sdl
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\glew\include"
-	set linker=!linker! "C:\Users\34687\Desktop\Dev\C\sdl\VisualC\x64\Release\SDL2.lib"
-	set linker=!linker! "C:\Users\34687\Desktop\Dev\C\SDL_mixer\VisualC\x64\Release\SDL2_mixer.lib"
+	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\engine_thing\src\external"
+	set linker=!linker! ..\SDL2.lib
+	set linker=!linker! ..\SDL2_mixer.lib
 	set linker=!linker! "C:\Users\34687\Desktop\Dev\C\glew\lib\Release\x64\glew32.lib"
+	set linker=!linker! Winmm.lib User32.lib Gdi32.lib Shell32.lib Setupapi.lib Version.lib Ole32.lib Imm32.lib Advapi32.lib OleAut32.lib
+	set linker=!linker! -IGNORE:4099
 	set build_dll=0
 )
 
@@ -49,11 +52,21 @@ if !debug!==0 (
 	rc.exe /nologo icon.rc
 )
 if !debug!==1 (
-	set comp=!comp! -O2 -Dm_debug -MTd
+	set comp=!comp! -O2 -Dm_debug
+	if !platform!==0 (
+		set comp=!comp! -MTd
+	) else (
+		set comp=!comp! -MT
+	)
 	set linker=!linker! -DYNAMICBASE:NO
 )
 if !debug!==2 (
-	set comp=!comp! -Od -Dm_debug -Zi -MTd
+	set comp=!comp! -Od -Dm_debug -Zi
+	if !platform!==0 (
+		set comp=!comp! -MTd
+	) else (
+		set comp=!comp! -MT
+	)
 	set linker=!linker! -DYNAMICBASE:NO
 )
 

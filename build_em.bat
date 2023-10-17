@@ -18,7 +18,6 @@ set comp=%comp% --preload-file ../examples/sound.wav@examples/sound.wav
 set comp=%comp% --preload-file ../examples/consola.ttf@examples/consola.ttf
 set comp=%comp% -I"C:\Users\34687\Desktop\Dev\C\sdl"
 set comp=%comp% -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
-set comp=%comp% -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\VisualC\x64\Release"
 set comp=%comp% -lSDL2_mixer
 set comp=%comp% -sSTACK_SIZE=1048576
 
