@@ -542,15 +542,46 @@ func void write_embed_file()
 		fclose(file);
 	}
 
+	printf("Successfully created embed.h!\n");
+
 	exit(0);
 }
 
 func s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena)
 {
+	if(g_do_embed) {
+		g_to_embed.add(path);
+	}
+
+	#ifdef m_debug
+
+	s_font font = load_font_from_file(game_renderer, path, font_size, arena);
+
+	#else // m_debug
+
+	s_font font = load_font_from_data(game_renderer, embed_data[g_asset_index], font_size, arena);
+	g_asset_index += 1;
+
+	#endif // m_debug
+
+	font.texture.game_id = game_renderer->textures.count;
+	game_renderer->textures.add(font.texture);
+	after_loading_texture(game_renderer);
+	int index = game_renderer->fonts.add(font);
+	return &game_renderer->fonts[index];
+}
+
+func s_font load_font_from_file(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena)
+{
+	u8* file_data = (u8*)read_file(path, arena);
+	return load_font_from_data(game_renderer, file_data, font_size, arena);
+}
+
+func s_font load_font_from_data(s_game_renderer* game_renderer, u8* file_data, int font_size, s_lin_arena* arena)
+{
 	s_font font = zero;
 	font.size = (float)font_size;
 
-	u8* file_data = (u8*)read_file(path, arena);
 	assert(file_data);
 
 	stbtt_fontinfo info = zero;
@@ -623,11 +654,6 @@ func s_font* load_font(s_game_renderer* game_renderer, const char* path, int fon
 	}
 
 	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR);
-	font.texture.game_id = game_renderer->textures.count;
-	game_renderer->textures.add(font.texture);
-	after_loading_texture(game_renderer);
 
-	int index = game_renderer->fonts.add(font);
-	return &game_renderer->fonts[index];
+	return font;
 }
-

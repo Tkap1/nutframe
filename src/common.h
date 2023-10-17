@@ -73,3 +73,5 @@ func void finish_attribs(s_attrib_handler* handler);
 func u32 load_shader_from_str(const char* vertex_src, const char* fragment_src);
 func u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
 func void after_making_framebuffer(int index, s_game_renderer* game_renderer);
+func s_font load_font_from_file(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena);
+func s_font load_font_from_data(s_game_renderer* game_renderer, u8* file_data, int font_size, s_lin_arena* arena);
