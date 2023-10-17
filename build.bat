@@ -18,7 +18,7 @@ set client_file=..\examples\snake.cpp
 set exe_name=DigHard
 
 set build_dll=1
-set comp=-nologo -std:c++20 -Zc:strictStrings- -W4 -FC -Gm- -GR- -EHa- -wd 4324 -wd 4127 -wd 4505 -D_CRT_SECURE_NO_WARNINGS -Dm_app
+set comp=-nologo -std:c++20 -Zc:strictStrings- -W4 -FC -Gm- -GR- -EHa- -wd 4324 -wd 4127 -wd 4505 -D_CRT_SECURE_NO_WARNINGS
 set linker=-INCREMENTAL:NO
 set comp=!comp! -wd4201
 set comp=!comp! -wd4100

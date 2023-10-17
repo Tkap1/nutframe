@@ -75,7 +75,7 @@ func char* format_text(const char* text, ...)
 
 func void on_failed_assert(const char* cond, const char* file, int line)
 {
-	printf("FAILED ASSERT: %s\n", cond);
+	printf("FAILED ASSERT: %s\n%s (%i)\n", cond, file, line);
 	#ifndef __EMSCRIPTEN__
 	__debugbreak();
 	#endif // __EMSCRIPTEN__
