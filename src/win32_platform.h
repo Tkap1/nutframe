@@ -20,7 +20,7 @@ struct s_voice : IXAudio2VoiceCallback
 	}
 
 	#pragma warning(push, 0)
-	void OnBufferStart(void * pBufferContext) noexcept {}
+	void OnBufferStart(void * pBufferContext) noexcept { unreferenced(pBufferContext); }
 	void OnVoiceProcessingPassEnd() noexcept { }
 	void OnVoiceProcessingPassStart(UINT32 SamplesRequired) noexcept { unreferenced(SamplesRequired); }
 	void OnBufferEnd(void * pBufferContext) noexcept { unreferenced(pBufferContext); }

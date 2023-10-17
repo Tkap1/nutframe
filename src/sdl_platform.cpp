@@ -31,7 +31,6 @@ global SDL_GLContext gContext;
 global SDL_Window* gWindow = null;
 global f64 g_start_of_frame_seconds = 0;
 
-global s_platform_funcs g_platform_funcs;
 global void* g_game_memory;
 global s_platform_renderer g_platform_renderer;
 global s_game_renderer* g_game_renderer;
@@ -233,7 +232,7 @@ func void do_one_frame()
 	}
 	// g_platform_data.is_window_active = GetActiveWindow() == g_window.handle;
 
-	update_game(&g_platform_data, g_platform_funcs, g_game_memory, g_game_renderer);
+	update_game(&g_platform_data, g_game_memory, g_game_renderer);
 	g_platform_data.recompiled = false;
 
 	if(g_do_embed) {
@@ -284,7 +283,7 @@ func int sdl_key_to_windows_key(int key) {
 		};
 
 		b8 handled = false;
-		for(int key_i = 0; key_i < array_count(map); key_i++)
+		for(int key_i = 0; key_i < (int)array_count(map); key_i++)
 		{
 			if(map[key_i].sdl == key) {
 				key = map[key_i].win;
@@ -316,7 +315,7 @@ func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin
 
 	#ifdef m_debug
 
-	Mix_Chunk* chunk = load_sound_from_file(path, arena);
+	Mix_Chunk* chunk = load_sound_from_file(path);
 	assert(chunk);
 
 	#else // m_debug
@@ -332,7 +331,7 @@ func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin
 	return &platform_data->sounds[index];
 }
 
-func Mix_Chunk* load_sound_from_file(const char* path, s_lin_arena* arena)
+func Mix_Chunk* load_sound_from_file(const char* path)
 {
 	Mix_Chunk* chunk = Mix_LoadWAV(path);
 	assert(chunk);

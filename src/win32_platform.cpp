@@ -149,10 +149,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		m_gl_funcs
 	#undef X
 
-	s_platform_funcs platform_funcs = zero;
-	// platform_funcs.show_cursor = ShowCursor;
-	platform_funcs.cycle_between_available_resolutions = cycle_between_available_resolutions;
-
 	#ifdef m_debug
 	t_update_game* update_game = null;
 	HMODULE dll = null;
@@ -223,6 +219,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.get_random_seed = get_random_seed;
 		g_platform_data.load_sound = load_sound;
 		g_platform_data.play_sound = play_sound;
+		// g_platform_data.show_cursor = ShowCursor;
+		g_platform_data.cycle_between_available_resolutions = cycle_between_available_resolutions;
 
 		#ifdef m_debug
 		if(need_to_reload_dll("build/DigHard.dll"))
@@ -249,7 +247,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.mouse.y = (float)p.y;
 		g_platform_data.is_window_active = GetActiveWindow() == g_window.handle;
 
-		update_game(&g_platform_data, platform_funcs, game_memory, game_renderer);
+		update_game(&g_platform_data, game_memory, game_renderer);
 		g_platform_data.recompiled = false;
 
 		if(g_do_embed) {
@@ -767,6 +765,8 @@ func void center_window()
 #ifdef m_debug
 func DWORD WINAPI watch_dir(void* arg)
 {
+	unreferenced(arg);
+
 	HANDLE handle = CreateFile(".", FILE_LIST_DIRECTORY, FILE_SHARE_READ|FILE_SHARE_WRITE, null, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, null);
 	while(true)
 	{

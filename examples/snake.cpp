@@ -1,6 +1,6 @@
 
-// #include "pch_client.h"
-#include "../src/pch_client.h"
+#include "pch_client.h"
+// #include "../src/pch_client.h"
 
 #include "../src/config.h"
 #include "../src/bucket.h"
@@ -210,14 +210,6 @@ m_update_game(update_game)
 #ifdef m_build_dll
 }
 #endif // m_build_dll
-
-func void update()
-{
-}
-
-func void render(float dt)
-{
-}
 
 func s_v2i spawn_apple()
 {

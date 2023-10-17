@@ -232,10 +232,6 @@ struct s_platform_data
 	t_load_sound load_sound;
 	t_play_sound play_sound;
 	s_sarray<s_sound, 16> sounds;
-};
-
-struct s_platform_funcs
-{
 	t_show_cursor show_cursor;
 	t_cycle_between_available_resolutions cycle_between_available_resolutions;
 };
@@ -260,7 +256,7 @@ struct s_game_renderer
 	s_sarray<s_font, 4> fonts;
 };
 
-#define m_update_game(name) void name(s_platform_data* platform_data, s_platform_funcs platform_funcs, void* game_memory, s_game_renderer* renderer)
+#define m_update_game(name) void name(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
 #ifdef m_build_dll
 typedef m_update_game(t_update_game);
 #else // m_build_dll
