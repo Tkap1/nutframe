@@ -306,24 +306,45 @@ func f64 get_seconds()
 	return (now - g_start_cycles) / (f64)g_cycle_frequency;
 }
 
-// @Fixme(tkap, 15/10/2023): This may be fucked
 func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
 {
-	Mix_Chunk* chunk = Mix_LoadWAV(path);
-	assert(chunk);
+	if(g_do_embed) {
+		g_to_embed.add(path);
+	}
 
 	s_sound sound = zero;
 
-	// @Note(tkap, 15/10/2023): Not really sample count
-	// @Fixme(tkap, 15/10/2023):
-	// sound.sample_count = (int)audio_len;
-	// sound.samples = (s16*)audio_buffer;
+	#ifdef m_debug
+
+	Mix_Chunk* chunk = load_sound_from_file(path, arena);
+	assert(chunk);
+
+	#else // m_debug
+
+	Mix_Chunk* chunk = load_sound_from_data(embed_data[g_asset_index], embed_sizes[g_asset_index]);
+	g_asset_index += 1;
+
+	#endif // m_debug
 
 	g_sdl_audio.add(chunk);
-
 	sound.index = platform_data->sounds.count;
 	int index = platform_data->sounds.add(sound);
 	return &platform_data->sounds[index];
+}
+
+func Mix_Chunk* load_sound_from_file(const char* path, s_lin_arena* arena)
+{
+	Mix_Chunk* chunk = Mix_LoadWAV(path);
+	assert(chunk);
+	return chunk;
+}
+
+func Mix_Chunk* load_sound_from_data(u8* data, int data_size)
+{
+	SDL_RWops* idk = SDL_RWFromMem(data, data_size);
+	Mix_Chunk* chunk = Mix_LoadWAV_RW(idk, 1);
+	assert(chunk);
+	return chunk;
 }
 
 func b8 play_sound(s_sound* sound)

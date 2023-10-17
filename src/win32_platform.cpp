@@ -817,9 +817,36 @@ func u32 get_random_seed()
 
 func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
 {
-	s_sound sound = zero;
+	if(g_do_embed) {
+		g_to_embed.add(path);
+	}
+
+	#ifdef m_debug
+
+	s_sound sound = load_sound_from_file(path, arena);
+
+	#else // m_debug
+
+	s_sound sound = load_sound_from_data(embed_data[g_asset_index]);
+	g_asset_index += 1;
+
+	#endif // m_debug
+
+	sound.index = platform_data->sounds.count;
+	int index = platform_data->sounds.add(sound);
+	return &platform_data->sounds[index];
+}
+
+func s_sound load_sound_from_file(const char* path, s_lin_arena* arena)
+{
 	u8* data = (u8*)read_file(path, arena);
-	if(!data) { return zero; }
+	assert(data);
+	return load_sound_from_data(data);
+}
+
+func s_sound load_sound_from_data(u8* data)
+{
+	s_sound sound = zero;
 
 	s_riff_chunk riff = *(s_riff_chunk*)data;
 	data += sizeof(riff);
@@ -836,7 +863,5 @@ func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin
 	sound.samples = (s16*)malloc(c_num_channels * sizeof(s16) * sound.sample_count);
 	memcpy(sound.samples, data, sound.sample_count * c_num_channels * sizeof(s16));
 
-	sound.index = platform_data->sounds.count;
-	int index = platform_data->sounds.add(sound);
-	return &platform_data->sounds[index];
+	return sound;
 }

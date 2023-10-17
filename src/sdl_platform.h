@@ -32,3 +32,5 @@ func u32 get_random_seed();
 func int sdl_key_to_windows_key(int key);
 func f64 get_seconds();
 func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
+func Mix_Chunk* load_sound_from_file(const char* path, s_lin_arena* arena);
+func Mix_Chunk* load_sound_from_data(u8* data, int data_size);

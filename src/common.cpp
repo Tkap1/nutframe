@@ -555,11 +555,11 @@ func s_font* load_font(s_game_renderer* game_renderer, const char* path, int fon
 
 	#ifdef m_debug
 
-	s_font font = load_font_from_file(game_renderer, path, font_size, arena);
+	s_font font = load_font_from_file(path, font_size, arena);
 
 	#else // m_debug
 
-	s_font font = load_font_from_data(game_renderer, embed_data[g_asset_index], font_size, arena);
+	s_font font = load_font_from_data(embed_data[g_asset_index], font_size, arena);
 	g_asset_index += 1;
 
 	#endif // m_debug
@@ -571,13 +571,13 @@ func s_font* load_font(s_game_renderer* game_renderer, const char* path, int fon
 	return &game_renderer->fonts[index];
 }
 
-func s_font load_font_from_file(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena)
+func s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena)
 {
 	u8* file_data = (u8*)read_file(path, arena);
-	return load_font_from_data(game_renderer, file_data, font_size, arena);
+	return load_font_from_data(file_data, font_size, arena);
 }
 
-func s_font load_font_from_data(s_game_renderer* game_renderer, u8* file_data, int font_size, s_lin_arena* arena)
+func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena)
 {
 	s_font font = zero;
 	font.size = (float)font_size;
