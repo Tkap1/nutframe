@@ -38,3 +38,6 @@ ANYTIME some weird nonsense shit happens on the web build, it's probably because
 	with emscripten_set_main_loop bullshit. Don't ever use pointers to stack variables BEFORE calling that shit
 
 test if embedding works for the web
+
+
+SDL_AUDIO_ALLOW_FREQUENCY_CHANGE breaks sounds in the web build!

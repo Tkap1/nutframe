@@ -56,7 +56,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		return 1;
 	}
 
-	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
+	if(Mix_OpenAudioDevice(44100, MIX_DEFAULT_FORMAT, 2, 4096, NULL, 0) == -1) {
 		printf("Failed to initialize SDL audio\n");
 		return 1;
 	}

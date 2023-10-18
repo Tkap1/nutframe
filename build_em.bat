@@ -22,6 +22,11 @@ set comp=!comp! -sSTACK_SIZE=1048576
 
 set debug=1
 if !debug!==0 (
+	@REM a
+) else (
+	set comp=!comp! -Dm_debug
+	set comp=!comp! -sSAFE_HEAP=1
+	set comp=!comp! -sASSERTIONS=1
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
 	set comp=!comp! --preload-file ../shaders/fragment.fragment@shaders/fragment.fragment
 	set comp=!comp! --preload-file ../assets/noise.png@assets/noise.png
@@ -31,10 +36,6 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../examples/apple.png@examples/apple.png
 	set comp=!comp! --preload-file ../examples/sound.wav@examples/sound.wav
 	set comp=!comp! --preload-file ../examples/consola.ttf@examples/consola.ttf
-) else (
-	set comp=!comp! -Dm_debug
-	set comp=!comp! -sSAFE_HEAP=1
-	set comp=!comp! -sASSERTIONS=1
 	@REM set comp=!comp! -fsanitize=address
 )
 
