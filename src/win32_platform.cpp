@@ -25,7 +25,60 @@
 
 #include "resource.h"
 #include "platform_shared.h"
-#include "win32_platform.h"
+
+
+struct s_window
+{
+	HDC dc;
+	HWND handle;
+	int width;
+	int height;
+};
+
+struct s_voice : IXAudio2VoiceCallback
+{
+	IXAudio2SourceVoice* voice;
+
+	volatile int playing;
+
+	void OnStreamEnd() noexcept
+	{
+		voice->Stop();
+		InterlockedExchange((LONG*)&playing, false);
+	}
+
+	#pragma warning(push, 0)
+	void OnBufferStart(void* pBufferContext) noexcept { unreferenced(pBufferContext); }
+	void OnVoiceProcessingPassEnd() noexcept { }
+	void OnVoiceProcessingPassStart(UINT32 SamplesRequired) noexcept { unreferenced(SamplesRequired); }
+	void OnBufferEnd(void* pBufferContext) noexcept { unreferenced(pBufferContext); }
+	void OnLoopEnd(void* pBufferContext) noexcept { unreferenced(pBufferContext); }
+	void OnVoiceError(void* pBufferContext, HRESULT Error) noexcept { unreferenced(pBufferContext); unreferenced(Error);}
+	#pragma warning(pop)
+};
+
+func void create_window(int width, int height);
+func WPARAM remap_key_if_necessary(WPARAM vk, LPARAM lparam);
+func PROC load_gl_func(const char* name);
+func b8 init_audio();
+func b8 play_sound(s_sound* sound);
+func void init_performance();
+func f64 get_seconds();
+func void set_vsync(b8 val);
+func int cycle_between_available_resolutions(int current);
+func void center_window();
+func s_v2i set_actual_window_size(int width, int height);
+func void wide_to_unicode(wchar_t* wide, char* out);
+func u32 get_random_seed();
+func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
+func s_sound load_sound_from_file(const char* path, s_lin_arena* arena);
+func s_sound load_sound_from_data(u8* data);
+func b8 thread_safe_set_bool_to_true(volatile int* var);
+
+#ifdef m_debug
+func DWORD WINAPI watch_dir(void* arg);
+#endif // m_debug
+
 
 #define m_gl_funcs \
 X(PFNGLBUFFERDATAPROC, glBufferData) \

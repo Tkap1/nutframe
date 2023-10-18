@@ -3,6 +3,11 @@
 #include "embed.h"
 #endif // m_debug
 
+func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
+func b8 check_for_shader_errors(u32 id, char* out_error);
+func s_texture load_texture_from_file(const char* path, u32 filtering);
+func void after_loading_texture(s_game_renderer* game_renderer);
+
 // @TODO(tkap, 17/10/2023): This has to go away in favor of a dynamic system when we add support for custom shaders
 global constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 	{
