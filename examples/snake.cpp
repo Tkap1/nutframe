@@ -5,7 +5,14 @@
 global constexpr int c_tile_size = 64;
 global constexpr int c_tile_count = 12;
 global constexpr int c_max_snake_len = c_tile_count * c_tile_count / 2;
+global constexpr int c_score_to_win = 3;
 global constexpr float c_move_delay = 0.15f;
+
+enum e_state
+{
+	e_state_play,
+	e_state_victory,
+};
 
 struct s_snake
 {
@@ -16,12 +23,14 @@ struct s_snake
 struct s_game
 {
 	b8 initialized;
+	e_state state;
 	s_framebuffer* particle_framebuffer;
 	s_framebuffer* text_framebuffer;
 	s_texture snake_head;
 	s_texture snake_body;
 	s_texture snake_tail;
 	s_texture apple_texture;
+	s_texture noise;
 	s_sarray<s_v2i, 4> inputs;
 	s_v2i last_dir;
 	s_snake snake[c_max_snake_len];
@@ -31,7 +40,7 @@ struct s_game
 	s_rng rng;
 	b8 reset_level;
 	s_font* font;
-	s_sound* sound;
+	s_sound* eat_apple_sound;
 };
 
 global s_input* g_input;
@@ -61,131 +70,130 @@ m_update_game(update_game)
 		game->snake_head = g_r->load_texture(renderer, "examples/snake_head.png");
 		game->snake_body = g_r->load_texture(renderer, "examples/snake_body.png");
 		game->snake_tail = g_r->load_texture(renderer, "examples/snake_tail.png");
+		game->noise = g_r->load_texture(renderer, "examples/noise.png");
 		game->apple_texture = g_r->load_texture(renderer, "examples/apple.png");
-		game->font = g_r->load_font(renderer, "examples/consola.ttf", 64, platform_data->frame_arena);
+		game->font = g_r->load_font(renderer, "examples/consola.ttf", 96, platform_data->frame_arena);
 		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->text_framebuffer = g_r->make_framebuffer(renderer, false);
-		game->sound = platform_data->load_sound(platform_data, "examples/sound.wav", platform_data->frame_arena);
+		game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/eat_apple.wav", platform_data->frame_arena);
 		game->reset_level = true;
 	}
 
-	if(is_key_pressed(g_input, c_key_f)) {
-		platform_data->play_sound(game->sound);
-	}
+	draw_texture(g_r, c_half_res, 0, c_base_res, make_color(1), game->noise, zero, {.effect_id = 1});
 
-	if(game->reset_level) {
-		game->reset_level = false;
-		game->snake[0] = zero;
-		game->last_dir = v2i(1, 0);
-		game->snake_len = 1;
-		game->apple = spawn_apple();
-		game->move_timer = 0;
-	}
-
-	if(is_key_pressed(g_input, c_key_left)) {
-		game->inputs.add_checked(v2i(-1, 0));
-	}
-	if(is_key_pressed(g_input, c_key_right)) {
-		game->inputs.add_checked(v2i(1, 0));
-	}
-	if(is_key_pressed(g_input, c_key_up)) {
-		game->inputs.add_checked(v2i(0, -1));
-	}
-	if(is_key_pressed(g_input, c_key_down)) {
-		game->inputs.add_checked(v2i(0, 1));
-	}
-
-	game->move_timer += (float)platform_data->frame_time;
-
-	if(game->move_timer >= c_move_delay) {
-		game->move_timer -= c_move_delay;
-		s_v2i dir = game->last_dir;
-		foreach_val(input_i, input, game->inputs)
-		{
-			if(input.x != 0 && game->last_dir.x != 0) {
-				game->inputs.remove_and_shift(input_i--);
-				continue;
-			}
-			if(input.y != 0 && game->last_dir.y != 0) {
-				game->inputs.remove_and_shift(input_i--);
-				continue;
-			}
-			dir = input;
-			game->inputs.remove_and_shift(input_i--);
-			break;
-		}
-
-		s_snake head = game->snake[0];
-		head.pos += dir;
-		head.pos.x = circular_index(head.pos.x, c_tile_count);
-		head.pos.y = circular_index(head.pos.y, c_tile_count);
-		head.rotation = v2_angle(v2(dir));
-
-		game->last_dir = dir;
-
-		if(head.pos == game->apple) {
-			if(game->snake_len >= c_max_snake_len) {
-				// @TODO(tkap, 11/10/2023): Victory?
-			}
-			else {
-				game->snake_len += 1;
+	switch(game->state) {
+		case e_state_play: {
+			if(game->reset_level) {
+				game->reset_level = false;
+				game->snake[0] = zero;
+				game->last_dir = v2i(1, 0);
+				game->snake_len = 1;
 				game->apple = spawn_apple();
+				game->move_timer = 0;
 			}
-		}
-		for(int snake_i = game->snake_len - 1; snake_i > 0; snake_i--)
-		{
-			game->snake[snake_i] = game->snake[snake_i - 1];
-		}
 
-		for(int snake_i = 0; snake_i < game->snake_len; snake_i++) {
-			if(head.pos == game->snake[snake_i].pos) {
+			if(is_key_pressed(g_input, c_key_left)) {
+				game->inputs.add_checked(v2i(-1, 0));
+			}
+			if(is_key_pressed(g_input, c_key_right)) {
+				game->inputs.add_checked(v2i(1, 0));
+			}
+			if(is_key_pressed(g_input, c_key_up)) {
+				game->inputs.add_checked(v2i(0, -1));
+			}
+			if(is_key_pressed(g_input, c_key_down)) {
+				game->inputs.add_checked(v2i(0, 1));
+			}
+
+			game->move_timer += (float)platform_data->frame_time;
+			if(game->move_timer >= c_move_delay) {
+				game->move_timer -= c_move_delay;
+				s_v2i dir = game->last_dir;
+				foreach_val(input_i, input, game->inputs)
+				{
+					if(input.x != 0 && game->last_dir.x != 0) {
+						game->inputs.remove_and_shift(input_i--);
+						continue;
+					}
+					if(input.y != 0 && game->last_dir.y != 0) {
+						game->inputs.remove_and_shift(input_i--);
+						continue;
+					}
+					dir = input;
+					game->inputs.remove_and_shift(input_i--);
+					break;
+				}
+
+				s_snake head = game->snake[0];
+				head.pos += dir;
+				head.pos.x = circular_index(head.pos.x, c_tile_count);
+				head.pos.y = circular_index(head.pos.y, c_tile_count);
+				head.rotation = v2_angle(v2(dir));
+
+				game->last_dir = dir;
+
+				if(head.pos == game->apple) {
+					game->snake_len += 1;
+					platform_data->play_sound(game->eat_apple_sound);
+					if(game->snake_len - 1 >= c_score_to_win) {
+						game->state = e_state_victory;
+					}
+					game->apple = spawn_apple();
+				}
+				for(int snake_i = game->snake_len - 1; snake_i > 0; snake_i--)
+				{
+					game->snake[snake_i] = game->snake[snake_i - 1];
+				}
+
+				for(int snake_i = 0; snake_i < game->snake_len; snake_i++) {
+					if(head.pos == game->snake[snake_i].pos) {
+						game->reset_level = true;
+					}
+				}
+				game->snake[0] = head;
+			}
+
+			for(int snake_i = 0; snake_i < game->snake_len; snake_i++)
+			{
+				s_texture texture;
+				if(snake_i == 0) { texture = game->snake_head; }
+				else if(snake_i == game->snake_len - 1) { texture = game->snake_tail; }
+				else { texture = game->snake_body; }
+				s_snake s = game->snake[snake_i];
+				draw_texture(g_r,
+					v2(s.pos * c_tile_size), 1, v2(c_tile_size), make_color(1), texture, zero, {.rotation = s.rotation, .origin_offset = c_origin_topleft}
+				);
+			}
+
+			draw_texture(g_r,
+				v2(game->apple * c_tile_size), 2, v2(c_tile_size), make_color(1), game->apple_texture, zero, {.origin_offset = c_origin_topleft}
+			);
+		} break;
+
+		case e_state_victory: {
+
+			if(is_key_pressed(g_input, c_key_enter)) {
+				game->state = e_state_play;
 				game->reset_level = true;
 			}
-		}
-		game->snake[0] = head;
+			else if(is_key_pressed(g_input, c_key_escape)) {
+				exit(0);
+			}
+
+			s_v2 pos = c_half_res;
+			draw_text(g_r, "You win!", pos, 50, game->font->size, make_color(1), true, game->font);
+			pos.y += game->font->size;
+			draw_text(g_r, "Press ENTER to play again", pos, 50, game->font->size * 0.5f, make_color(0.5f), true, game->font);
+			pos.y += game->font->size * 0.5f;
+			draw_text(g_r, "Press Escape to exit", pos, 50, game->font->size * 0.5f, make_color(0.5f), true, game->font);
+			draw_texture(g_r,
+				c_half_res, 10, c_base_res, make_color(1), game->text_framebuffer->texture,
+				{.blend_mode = e_blend_mode_additive}
+			);
+		} break;
 	}
 
-	for(int snake_i = 0; snake_i < game->snake_len; snake_i++)
-	{
-		s_texture texture;
-		if(snake_i == 0) { texture = game->snake_head; }
-		else if(snake_i == game->snake_len - 1) { texture = game->snake_tail; }
-		else { texture = game->snake_body; }
-		s_snake s = game->snake[snake_i];
-		draw_texture(g_r,
-			v2(s.pos * c_tile_size), 1, v2(c_tile_size), make_color(1), texture, zero, {.rotation = s.rotation, .origin_offset = c_origin_topleft}
-		);
-	}
 
-	draw_texture(g_r,
-		v2(game->apple * c_tile_size), 0, v2(c_tile_size), make_color(1), game->apple_texture, zero, {.origin_offset = c_origin_topleft}
-	);
-
-	static int count = 0;
-	int seed = 0;
-	count += 1;
-	s_rng rng = zero;
-	rng.seed = seed;
-	for(int i = 0; i < count; i++) {
-		float angle = rng.randf32() * tau;
-		float foo = 1-i/(float)count;
-		s_v2 vel = v2_from_angle(angle) * (count / 10.0f) * (rng.randf32() + 0.01f) * foo;
-		float r = foo * 1;
-		draw_rect(g_r,
-			c_half_res + vel, 1, v2(4 * r), make_color(powf(rng.randf32(), 4), powf(rng.randf32(), 1), powf(rng.randf32(), 8)),
-			{.blend_mode = e_blend_mode_additive, .framebuffer = game->particle_framebuffer}
-		);
-	}
-	draw_texture(g_r,
-		c_half_res, 5, c_base_res * 8, make_color(1), game->particle_framebuffer->texture,
-		{.blend_mode = e_blend_mode_additive}, {.rotation = (float)renderer->total_time}
-	);
-
-	draw_text(g_r, "ATHANO BITCH", mouse, 50, 64, make_color(1), true, game->font);
-	draw_texture(g_r,
-		c_half_res, 10, c_base_res, make_color(1), game->text_framebuffer->texture,
-		{.blend_mode = e_blend_mode_additive}
-	);
 
 	for(int i = 0; i < c_max_keys; i++) {
 		g_input->keys[i].count = 0;
