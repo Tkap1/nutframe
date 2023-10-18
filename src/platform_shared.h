@@ -88,11 +88,52 @@ global constexpr int c_max_keys = 1024;
 
 global constexpr int c_game_memory = 1 * c_mb;
 
+global constexpr s_v2 c_origin_topleft = {1.0f, -1.0f};
+global constexpr s_v2 c_origin_bottomleft = {1.0f, 1.0f};
+global constexpr s_v2 c_origin_center = {0, 0};
+
+global constexpr s_v2 c_base_res = {64*12, 64*12};
+global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
+
+global constexpr int c_base_resolution_index = 5;
+global constexpr s_v2i c_resolutions[] = {
+	v2i(640, 360),
+	v2i(854, 480),
+	v2i(960, 540),
+	v2i(1024, 576),
+	v2i(1280, 720),
+	v2i(1366, 768),
+	v2i(1600, 900),
+	v2i(1920, 1080),
+	v2i(2560, 1440),
+	v2i(3200, 1800),
+	v2i(3840, 2160),
+	v2i(5120, 2880),
+	v2i(7680, 4320),
+};
+
+enum e_render_flags
+{
+	e_render_flag_use_texture = 1 << 0,
+	e_render_flag_flip_x = 1 << 1,
+};
+
 struct s_sound
 {
 	int index;
 	int sample_count;
 	s16* samples;
+};
+
+global constexpr int c_max_arena_push = 16;
+
+struct s_lin_arena
+{
+	int push_count;
+	u64 push[c_max_arena_push];
+	u64 used;
+	u64 capacity;
+	void* memory;
 };
 
 struct s_framebuffer;
@@ -141,6 +182,18 @@ struct s_font
 	s_glyph glyph_arr[1024];
 };
 
+// @Note(tkap, 08/10/2023): We have a bug with this. If we ever go from having never drawn anything to drawing 64*16+1 things we will
+// exceed the max bucket count (16 currently). To fix this, I guess we have to allow merging in the middle of a frame?? Seems messy...
+global constexpr int c_bucket_capacity = 64;
+
+template <typename t>
+struct s_bucket_array
+{
+	int bucket_count;
+	int capacity[16];
+	int element_count[16];
+	t* elements[16];
+};
 
 #pragma pack(push, 1)
 struct s_transform
@@ -267,3 +320,7 @@ m_update_game(update_game);
 func int get_render_offset(int texture, int blend_mode);
 func s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count);
 func s_v2 get_text_size(const char* text, s_font* font, float font_size);
+template <typename t>
+func void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc);
+template <typename t>
+func void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena);

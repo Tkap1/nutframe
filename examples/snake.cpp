@@ -1,9 +1,7 @@
 
-// #include "pch_client.h"
-#include "../src/pch_client.h"
+#include "pch_client.h"
+// #include "../src/pch_client.h"
 
-#include "../src/config.h"
-#include "../src/bucket.h"
 #include "../src/platform_shared.h"
 
 global constexpr int c_tile_size = 64;
@@ -50,9 +48,6 @@ func b8 is_key_released(s_input* input, int key);
 func s_v2i spawn_apple();
 func void reset_level();
 
-#include "../src/draw.cpp"
-#include "../src/memory.cpp"
-#include "../src/bucket.cpp"
 #include "../src/platform_shared.cpp"
 
 #ifdef m_build_dll
@@ -166,12 +161,12 @@ m_update_game(update_game)
 		else if(snake_i == game->snake_len - 1) { texture = game->snake_tail; }
 		else { texture = game->snake_body; }
 		s_snake s = game->snake[snake_i];
-		draw_texture(
+		draw_texture(g_r,
 			v2(s.pos * c_tile_size), 1, v2(c_tile_size), make_color(1), texture, zero, {.rotation = s.rotation, .origin_offset = c_origin_topleft}
 		);
 	}
 
-	draw_texture(
+	draw_texture(g_r,
 		v2(game->apple * c_tile_size), 0, v2(c_tile_size), make_color(1), game->apple_texture, zero, {.origin_offset = c_origin_topleft}
 	);
 
@@ -185,18 +180,18 @@ m_update_game(update_game)
 		float foo = 1-i/(float)count;
 		s_v2 vel = v2_from_angle(angle) * (count / 10.0f) * (rng.randf32() + 0.01f) * foo;
 		float r = foo * 1;
-		draw_rect(
+		draw_rect(g_r,
 			c_half_res + vel, 1, v2(4 * r), make_color(powf(rng.randf32(), 4), powf(rng.randf32(), 1), powf(rng.randf32(), 8)),
 			{.blend_mode = e_blend_mode_additive, .framebuffer = game->particle_framebuffer}
 		);
 	}
-	draw_texture(
+	draw_texture(g_r,
 		c_half_res, 5, c_base_res * 8, make_color(1), game->particle_framebuffer->texture,
 		{.blend_mode = e_blend_mode_additive}, {.rotation = (float)renderer->total_time}
 	);
 
-	draw_text("ATHANO BITCH", mouse, 50, 64, make_color(1), true, game->font);
-	draw_texture(
+	draw_text(g_r, "ATHANO BITCH", mouse, 50, 64, make_color(1), true, game->font);
+	draw_texture(g_r,
 		c_half_res, 10, c_base_res, make_color(1), game->text_framebuffer->texture,
 		{.blend_mode = e_blend_mode_additive}
 	);

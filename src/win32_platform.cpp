@@ -18,9 +18,6 @@
 
 
 #include "resource.h"
-#include "memory.h"
-#include "config.h"
-#include "bucket.h"
 #include "platform_shared.h"
 #include "common.h"
 #include "str_builder.h"
@@ -70,6 +67,10 @@ X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
 X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
 
 
+global constexpr int c_num_channels = 2;
+global constexpr int c_sample_rate = 44100;
+global constexpr int c_max_concurrent_sounds = 32;
+
 global s_window g_window;
 global s_input g_input;
 global s_input g_logic_input;
@@ -91,10 +92,8 @@ m_gl_funcs
 
 static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 
-#include "memory.cpp"
 #include "platform_shared.cpp"
 #include "file.cpp"
-#include "bucket.cpp"
 #include "common.cpp"
 #include "str_builder.cpp"
 
