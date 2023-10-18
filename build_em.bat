@@ -34,7 +34,8 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../examples/snake_body.png@examples/snake_body.png
 	set comp=!comp! --preload-file ../examples/snake_tail.png@examples/snake_tail.png
 	set comp=!comp! --preload-file ../examples/apple.png@examples/apple.png
-	set comp=!comp! --preload-file ../examples/sound.wav@examples/sound.wav
+	set comp=!comp! --preload-file ../examples/noise.png@examples/noise.png
+	set comp=!comp! --preload-file ../examples/eat_apple.wav@examples/eat_apple.wav
 	set comp=!comp! --preload-file ../examples/consola.ttf@examples/consola.ttf
 	@REM set comp=!comp! -fsanitize=address
 )

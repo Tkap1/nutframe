@@ -5,7 +5,7 @@
 global constexpr int c_tile_size = 64;
 global constexpr int c_tile_count = 12;
 global constexpr int c_max_snake_len = c_tile_count * c_tile_count / 2;
-global constexpr int c_score_to_win = 3;
+global constexpr int c_score_to_win = 20;
 global constexpr float c_move_delay = 0.15f;
 
 enum e_state
