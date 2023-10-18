@@ -13,6 +13,8 @@
 #include <xaudio2.h>
 
 #pragma warning(push, 0)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-value"
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ASSERT
 #include "external/stb_image.h"
@@ -21,6 +23,7 @@
 #define STBTT_assert
 #include "external/stb_truetype.h"
 
+#pragma clang diagnostic pop
 #pragma warning(pop)
 
 #include "resource.h"
