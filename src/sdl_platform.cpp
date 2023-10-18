@@ -31,7 +31,6 @@
 
 #include "resource.h"
 #include "platform_shared.h"
-#include "common.h"
 #include "sdl_platform.h"
 
 global s_window g_window;
@@ -50,7 +49,6 @@ global s_game_renderer* g_game_renderer;
 global s_sarray<Mix_Chunk*, 16> g_sdl_audio;
 s_lin_arena g_game_frame_arena = zero;
 
-#include "file.cpp"
 #include "common.cpp"
 
 #if defined(m_debug) || !defined(_WIN32)

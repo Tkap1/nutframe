@@ -74,7 +74,358 @@ global constexpr float epsilon = 0.000001f;
 
 func void on_failed_assert(const char* cond, const char* file, int line);
 
+struct s_game_renderer;
+
+struct s_v2
+{
+	float x;
+	float y;
+};
+
+struct s_v2i
+{
+	int x;
+	int y;
+};
+
+struct s_v3
+{
+	float x;
+	float y;
+	float z;
+};
+
+struct s_v4
+{
+	float x;
+	float y;
+	float z;
+	float w;
+};
+
+
+template <typename T, int N>
+struct s_sarray
+{
+	static_assert(N > 0);
+	int count = 0;
+	T elements[N];
+
+	constexpr T& operator[](int index)
+	{
+		assert(index >= 0);
+		assert(index < count);
+		return elements[index];
+	}
+
+	constexpr T get(int index)
+	{
+		return (*this)[index];
+	}
+
+	T pop()
+	{
+		assert(count > 0);
+		return elements[--count];
+	}
+
+	constexpr void remove_and_swap(int index)
+	{
+		assert(index >= 0);
+		assert(index < count);
+		count -= 1;
+		elements[index] = elements[count];
+	}
+
+	constexpr T remove_and_shift(int index)
+	{
+		assert(index >= 0);
+		assert(index < count);
+		T result = elements[index];
+		count -= 1;
+
+		int to_move = count - index;
+		if(to_move > 0)
+		{
+			// @Note(tkap, 13/10/2023): memcpy is good enough here, but the sanitizer complains.
+			memmove(elements + index, elements + index + 1, to_move * sizeof(T));
+		}
+		return result;
+	}
+
+	constexpr T* get_ptr(int index)
+	{
+		return &(*this)[index];
+	}
+
+	constexpr void swap(int index0, int index1)
+	{
+		assert(index0 >= 0);
+		assert(index1 >= 0);
+		assert(index0 < count);
+		assert(index1 < count);
+		assert(index0 != index1);
+		T temp = elements[index0];
+		elements[index0] = elements[index1];
+		elements[index1] = temp;
+	}
+
+	constexpr T get_last()
+	{
+		assert(count > 0);
+		return elements[count - 1];
+	}
+
+	constexpr T* get_last_ptr()
+	{
+		assert(count > 0);
+		return &elements[count - 1];
+	}
+
+	constexpr int add(T element)
+	{
+		assert(count < N);
+		elements[count] = element;
+		count += 1;
+		return count - 1;
+	}
+
+	constexpr b8 add_checked(T element)
+	{
+		if(count < N)
+		{
+			add(element);
+			return true;
+		}
+		return false;
+	}
+
+	constexpr b8 contains(T what)
+	{
+		for(int element_i = 0; element_i < count; element_i++)
+		{
+			if(what == elements[element_i])
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	constexpr void insert(int index, T element)
+	{
+		assert(index >= 0);
+		assert(index < N);
+		assert(index <= count);
+
+		int to_move = count - index;
+		count += 1;
+		if(to_move > 0)
+		{
+			memmove(&elements[index + 1], &elements[index], to_move * sizeof(T));
+		}
+		elements[index] = element;
+	}
+
+	constexpr int max_elements()
+	{
+		return N;
+	}
+
+	constexpr b8 is_last(int index)
+	{
+		assert(index >= 0);
+		assert(index < count);
+		return index == count - 1;
+	}
+
+	constexpr b8 is_full()
+	{
+		return count >= N;
+	}
+
+	b8 is_empty()
+	{
+		return count <= 0;
+	}
+
+	void small_sort()
+	{
+		// @Note(tkap, 25/06/2023): Let's not get crazy with insertion sort, bro
+		assert(count < 256);
+
+		for(int i = 1; i < count; i++)
+		{
+			for(int j = i; j > 0; j--)
+			{
+				T* a = &elements[j];
+				T* b = &elements[j - 1];
+
+				if(*a > *b) {
+					break;
+				}
+				T temp = *a;
+				*a = *b;
+				*b = temp;
+			}
+		}
+	}
+};
+
+struct s_texture
+{
+	b8 comes_from_framebuffer;
+	u32 gpu_id;
+	int game_id;
+	s_v2 size;
+	s_v2 sub_size;
+	const char* path;
+};
+
+struct s_glyph
+{
+	int advance_width;
+	int width;
+	int height;
+	int x0;
+	int y0;
+	int x1;
+	int y1;
+	s_v2 uv_min;
+	s_v2 uv_max;
+};
+
+struct s_font
+{
+	float size;
+	float scale;
+	int ascent;
+	int descent;
+	int line_gap;
+	s_texture texture;
+	s_glyph glyph_arr[1024];
+};
+
+
+global constexpr int c_max_arena_push = 16;
+struct s_lin_arena
+{
+	int push_count;
+	u64 push[c_max_arena_push];
+	u64 used;
+	u64 capacity;
+	void* memory;
+};
+
+func void* la_get(s_lin_arena* arena, u64 in_requested)
+{
+	assert(arena);
+	assert(in_requested > 0);
+	u64 requested = (in_requested + 7) & ~7;
+	assert(arena->used + requested <= arena->capacity);
+	void* result = (u8*)arena->memory + arena->used;
+	arena->used += requested;
+	return result;
+}
+
+func void* la_get_zero(s_lin_arena* arena, u64 in_requested)
+{
+	void* result = la_get(arena, in_requested);
+	memset(result, 0, in_requested);
+	return result;
+}
+
+func void la_push(s_lin_arena* arena)
+{
+	assert(arena->push_count < c_max_arena_push);
+	arena->push[arena->push_count++] = arena->used;
+}
+
+func void la_pop(s_lin_arena* arena)
+{
+	assert(arena->push_count > 0);
+	arena->used = arena->push[--arena->push_count];
+}
+
+
+
 #ifndef m_game
+
+#ifdef m_debug
+#define gl(...) __VA_ARGS__; {int error = glGetError(); if(error != 0) { on_gl_error(#__VA_ARGS__, error); }}
+#else // m_debug
+#define gl(...) __VA_ARGS__
+#endif // m_debug
+
+enum e_shader
+{
+	e_shader_default,
+	e_shader_count
+};
+
+struct s_attrib
+{
+	int type;
+	int size;
+	int count;
+};
+
+struct s_attrib_handler
+{
+	s_sarray<s_attrib, 32> attribs;
+};
+
+struct s_shader_paths
+{
+	const char* vertex_path;
+	const char* fragment_path;
+};
+
+struct s_platform_renderer
+{
+	int max_elements;
+	u32 default_vao;
+	u32 default_vbo;
+	u32 programs[e_shader_count];
+};
+
+#pragma pack(push, 1)
+struct s_riff_chunk
+{
+	u32 chunk_id;
+	u32 chunk_size;
+	u32 format;
+};
+
+struct s_fmt_chunk
+{
+	u32 sub_chunk1_id;
+	u32 sub_chunk1_size;
+	u16 audio_format;
+	u16 num_channels;
+	u32 sample_rate;
+	u32 byte_rate;
+	u16 block_align;
+	u16 bits_per_sample;
+};
+
+struct s_data_chunk
+{
+	u32 sub_chunk2_id;
+	u32 sub_chunk2_size;
+};
+#pragma pack(pop)
+
+func void add_int_attrib(s_attrib_handler* handler, int count);
+func void add_float_attrib(s_attrib_handler* handler, int count);
+func void finish_attribs(s_attrib_handler* handler);
+func u32 load_shader_from_str(const char* vertex_src, const char* fragment_src);
+func u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
+func void after_making_framebuffer(int index, s_game_renderer* game_renderer);
+func s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
+func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
+
+
 global constexpr int c_str_builder_size = 1 * c_gb;
 
 struct s_str_builder
@@ -170,34 +521,38 @@ func void builder_pop_tab(s_str_builder* builder)
 	builder->tab_count--;
 }
 
+func char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = null)
+{
+	FILE* file = fopen(path, "rb");
+	if(!file) { return null; }
+
+	fseek(file, 0, SEEK_END);
+	u64 file_size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	char* data = (char*)la_get(arena, file_size + 1);
+	fread(data, file_size, 1, file);
+	data[file_size] = 0;
+	fclose(file);
+
+	if(out_file_size) { *out_file_size = file_size; }
+
+	return data;
+}
+
+func b8 write_file(const char* path, void* data, u64 size)
+{
+	assert(size > 0);
+	FILE* file = fopen(path, "wb");
+	if(!file) { return false; }
+
+	fwrite(data, size, 1, file);
+	fclose(file);
+	return true;
+}
+
+
 #endif // m_game
-
-struct s_v2
-{
-	float x;
-	float y;
-};
-
-struct s_v2i
-{
-	int x;
-	int y;
-};
-
-struct s_v3
-{
-	float x;
-	float y;
-	float z;
-};
-
-struct s_v4
-{
-	float x;
-	float y;
-	float z;
-	float w;
-};
 
 template <typename t>
 func t at_least(t a, t b)
@@ -761,175 +1116,6 @@ global constexpr s_v2i c_resolutions[] = {
 	v2i(7680, 4320),
 };
 
-template <typename T, int N>
-struct s_sarray
-{
-	static_assert(N > 0);
-	int count = 0;
-	T elements[N];
-
-	constexpr T& operator[](int index)
-	{
-		assert(index >= 0);
-		assert(index < count);
-		return elements[index];
-	}
-
-	constexpr T get(int index)
-	{
-		return (*this)[index];
-	}
-
-	T pop()
-	{
-		assert(count > 0);
-		return elements[--count];
-	}
-
-	constexpr void remove_and_swap(int index)
-	{
-		assert(index >= 0);
-		assert(index < count);
-		count -= 1;
-		elements[index] = elements[count];
-	}
-
-	constexpr T remove_and_shift(int index)
-	{
-		assert(index >= 0);
-		assert(index < count);
-		T result = elements[index];
-		count -= 1;
-
-		int to_move = count - index;
-		if(to_move > 0)
-		{
-			// @Note(tkap, 13/10/2023): memcpy is good enough here, but the sanitizer complains.
-			memmove(elements + index, elements + index + 1, to_move * sizeof(T));
-		}
-		return result;
-	}
-
-	constexpr T* get_ptr(int index)
-	{
-		return &(*this)[index];
-	}
-
-	constexpr void swap(int index0, int index1)
-	{
-		assert(index0 >= 0);
-		assert(index1 >= 0);
-		assert(index0 < count);
-		assert(index1 < count);
-		assert(index0 != index1);
-		T temp = elements[index0];
-		elements[index0] = elements[index1];
-		elements[index1] = temp;
-	}
-
-	constexpr T get_last()
-	{
-		assert(count > 0);
-		return elements[count - 1];
-	}
-
-	constexpr T* get_last_ptr()
-	{
-		assert(count > 0);
-		return &elements[count - 1];
-	}
-
-	constexpr int add(T element)
-	{
-		assert(count < N);
-		elements[count] = element;
-		count += 1;
-		return count - 1;
-	}
-
-	constexpr b8 add_checked(T element)
-	{
-		if(count < N)
-		{
-			add(element);
-			return true;
-		}
-		return false;
-	}
-
-	constexpr b8 contains(T what)
-	{
-		for(int element_i = 0; element_i < count; element_i++)
-		{
-			if(what == elements[element_i])
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-	constexpr void insert(int index, T element)
-	{
-		assert(index >= 0);
-		assert(index < N);
-		assert(index <= count);
-
-		int to_move = count - index;
-		count += 1;
-		if(to_move > 0)
-		{
-			memmove(&elements[index + 1], &elements[index], to_move * sizeof(T));
-		}
-		elements[index] = element;
-	}
-
-	constexpr int max_elements()
-	{
-		return N;
-	}
-
-	constexpr b8 is_last(int index)
-	{
-		assert(index >= 0);
-		assert(index < count);
-		return index == count - 1;
-	}
-
-	constexpr b8 is_full()
-	{
-		return count >= N;
-	}
-
-	b8 is_empty()
-	{
-		return count <= 0;
-	}
-
-	void small_sort()
-	{
-		// @Note(tkap, 25/06/2023): Let's not get crazy with insertion sort, bro
-		assert(count < 256);
-
-		for(int i = 1; i < count; i++)
-		{
-			for(int j = i; j > 0; j--)
-			{
-				T* a = &elements[j];
-				T* b = &elements[j - 1];
-
-				if(*a > *b) {
-					break;
-				}
-				T temp = *a;
-				*a = *b;
-				*b = temp;
-			}
-		}
-	}
-};
-
-
 enum e_render_flags
 {
 	e_render_flag_use_texture = 1 << 0,
@@ -943,19 +1129,7 @@ struct s_sound
 	s16* samples;
 };
 
-global constexpr int c_max_arena_push = 16;
-
-struct s_lin_arena
-{
-	int push_count;
-	u64 push[c_max_arena_push];
-	u64 used;
-	u64 capacity;
-	void* memory;
-};
-
 struct s_framebuffer;
-struct s_game_renderer;
 struct s_platform_data;
 
 typedef b8 (*t_play_sound)(s_sound*);
@@ -965,40 +1139,6 @@ typedef int (*t_cycle_between_available_resolutions)(int);
 typedef u32 (*t_get_random_seed)();
 typedef s_framebuffer* (*t_make_framebuffer)(s_game_renderer*, b8);
 typedef s_sound* (*t_load_sound)(s_platform_data*, const char*, s_lin_arena*);
-
-struct s_texture
-{
-	b8 comes_from_framebuffer;
-	u32 gpu_id;
-	int game_id;
-	s_v2 size;
-	s_v2 sub_size;
-	const char* path;
-};
-
-struct s_glyph
-{
-	int advance_width;
-	int width;
-	int height;
-	int x0;
-	int y0;
-	int x1;
-	int y1;
-	s_v2 uv_min;
-	s_v2 uv_max;
-};
-
-struct s_font
-{
-	float size;
-	float scale;
-	int ascent;
-	int descent;
-	int line_gap;
-	s_texture texture;
-	s_glyph glyph_arr[1024];
-};
 
 // @Note(tkap, 08/10/2023): We have a bug with this. If we ever go from having never drawn anything to drawing 64*16+1 things we will
 // exceed the max bucket count (16 currently). To fix this, I guess we have to allow merging in the middle of a frame?? Seems messy...
@@ -1333,37 +1473,6 @@ func s_lin_arena make_lin_arena_from_memory(u64 capacity, void* memory)
 	result.memory = memory;
 	return result;
 }
-
-func void* la_get(s_lin_arena* arena, u64 in_requested)
-{
-	assert(arena);
-	assert(in_requested > 0);
-	u64 requested = (in_requested + 7) & ~7;
-	assert(arena->used + requested <= arena->capacity);
-	void* result = (u8*)arena->memory + arena->used;
-	arena->used += requested;
-	return result;
-}
-
-func void* la_get_zero(s_lin_arena* arena, u64 in_requested)
-{
-	void* result = la_get(arena, in_requested);
-	memset(result, 0, in_requested);
-	return result;
-}
-
-func void la_push(s_lin_arena* arena)
-{
-	assert(arena->push_count < c_max_arena_push);
-	arena->push[arena->push_count++] = arena->used;
-}
-
-func void la_pop(s_lin_arena* arena)
-{
-	assert(arena->push_count > 0);
-	arena->used = arena->push[--arena->push_count];
-}
-
 
 
 template <typename t>

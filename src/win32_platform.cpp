@@ -25,7 +25,6 @@
 
 #include "resource.h"
 #include "platform_shared.h"
-#include "common.h"
 #include "win32_platform.h"
 
 #define m_gl_funcs \
@@ -100,7 +99,6 @@ func HMODULE load_dll(const char* path);
 func void unload_dll(HMODULE dll);
 #endif // m_debug
 
-#include "file.cpp"
 #include "common.cpp"
 
 #ifdef m_debug
