@@ -4,7 +4,13 @@
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "Ole32.lib")
 
-#include "pch_platform.h"
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <gl/GL.h>
+#include "external/glcorearb.h"
+#include "external/wglext.h"
+#include <xaudio2.h>
 
 #pragma warning(push, 0)
 #define STB_IMAGE_IMPLEMENTATION
@@ -17,16 +23,10 @@
 
 #pragma warning(pop)
 
-
 #include "resource.h"
 #include "platform_shared.h"
 #include "common.h"
-#include "str_builder.h"
 #include "win32_platform.h"
-
-#ifdef m_debug
-#include "win32_reload_dll.h"
-#endif // m_debug
 
 #define m_gl_funcs \
 X(PFNGLBUFFERDATAPROC, glBufferData) \
@@ -86,17 +86,22 @@ global volatile int g_file_write = 0;
 global int g_file_read = 0;
 global char g_files[c_max_files][MAX_PATH];
 
-
 #define X(type, name) static type name = null;
 m_gl_funcs
 #undef X
 
 static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 
-#include "platform_shared.cpp"
+#ifdef m_debug
+// @TODO(tkap, 18/10/2023): We probably don't want this now that we have the file watcher thing going
+global FILETIME last_dll_write_time;
+func b8 need_to_reload_dll(const char* path);
+func HMODULE load_dll(const char* path);
+func void unload_dll(HMODULE dll);
+#endif // m_debug
+
 #include "file.cpp"
 #include "common.cpp"
-#include "str_builder.cpp"
 
 #ifdef m_debug
 int main(int argc, char** argv)
@@ -865,3 +870,32 @@ func s_sound load_sound_from_data(u8* data)
 
 	return sound;
 }
+
+#ifdef m_debug
+func b8 need_to_reload_dll(const char* path)
+{
+	WIN32_FIND_DATAA find_data = zero;
+	HANDLE handle = FindFirstFileA(path, &find_data);
+	if(handle == INVALID_HANDLE_VALUE) { assert(false); return false; }
+
+	b8 result = CompareFileTime(&last_dll_write_time, &find_data.ftLastWriteTime) == -1;
+	FindClose(handle);
+	if(result)
+	{
+		last_dll_write_time = find_data.ftLastWriteTime;
+	}
+	return result;
+}
+
+func HMODULE load_dll(const char* path)
+{
+	HMODULE result = LoadLibrary(path);
+	assert(result);
+	return result;
+}
+
+func void unload_dll(HMODULE dll)
+{
+	check(FreeLibrary(dll));
+}
+#endif // m_debug

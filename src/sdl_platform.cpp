@@ -1,25 +1,38 @@
 
-#include "pch_platform.h"
+#pragma comment(lib, "opengl32.lib")
+
+#if !defined(m_debug) && defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
+#define SDL_MAIN_HANDLED
+#include "SDL2/SDL.h"
+#include "SDL_mixer.h"
+#include "GL\glew.h"
+
+#ifdef __EMSCRIPTEN__
+#include "emscripten.h"
+#include "emscripten/html5.h"
+#endif // __EMSCRIPTEN__
+
 
 #pragma warning(push, 0)
 #define STB_IMAGE_IMPLEMENTATION
-#define STBI_ASSERT assert
+#define STBI_ASSERT
 #include "external/stb_image.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
-#define STBTT_assert assert
+#define STBTT_assert
 #include "external/stb_truetype.h"
 
 #pragma warning(pop)
 
 #include "resource.h"
-#include "memory.h"
-#include "config.h"
-#include "bucket.h"
 #include "platform_shared.h"
 #include "common.h"
 #include "sdl_platform.h"
-#include "str_builder.h"
 
 global s_window g_window;
 global s_input g_input;
@@ -37,12 +50,8 @@ global s_game_renderer* g_game_renderer;
 global s_sarray<Mix_Chunk*, 16> g_sdl_audio;
 s_lin_arena g_game_frame_arena = zero;
 
-#include "memory.cpp"
-#include "platform_shared.cpp"
 #include "file.cpp"
-#include "bucket.cpp"
 #include "common.cpp"
-#include "str_builder.cpp"
 
 #if defined(m_debug) || !defined(_WIN32)
 int main(int argc, char** argv)

@@ -41,3 +41,6 @@ test if embedding works for the web
 
 
 SDL_AUDIO_ALLOW_FREQUENCY_CHANGE breaks sounds in the web build!
+
+
+we could actually get it down to 1 file with a bunch of #ifdefs. but we still need 2 compilation units for hot reloading to work

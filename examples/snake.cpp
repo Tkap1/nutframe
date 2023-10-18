@@ -1,3 +1,4 @@
+#define m_game
 
 #include "../src/platform_shared.h"
 
@@ -39,8 +40,6 @@ global s_game_renderer* g_r;
 global s_v2 mouse;
 
 func s_v2i spawn_apple();
-
-#include "../src/platform_shared.cpp"
 
 #ifdef m_build_dll
 extern "C" {
