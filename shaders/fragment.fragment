@@ -23,6 +23,8 @@ uniform vec2 window_size;
 uniform float time;
 uniform vec2 player_pos;
 uniform vec2 mouse;
+uniform vec2 snake_pos;
+uniform float snake_apple_time;
 
 uniform sampler2D in_texture;
 uniform sampler2D noise;
@@ -111,9 +113,12 @@ void main()
 		color.rgb *= n;
 		color.rgb *= 0.3;
 
-		float d = distance(v_local_uv, vec2(0.5));
+		vec2 snake_normalized = snake_pos / base_res;
+		float d = distance(v_local_uv, snake_normalized);
 		float light = 0.1/(d*d);
-		color.rgb *= light * 1.0;
+		color.r *= light * 1.0;
+		color.g *= (light + snake_apple_time * 2.0) * 1.0;
+		color.b *= light * 1.0;
 	}
 
 	color = pma(color);

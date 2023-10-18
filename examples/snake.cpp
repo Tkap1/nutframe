@@ -41,6 +41,8 @@ struct s_game
 	b8 reset_level;
 	s_font* font;
 	s_sound* eat_apple_sound;
+	s_v2 snake_light_pos;
+	float snake_apple_time;
 };
 
 global s_input* g_input;
@@ -80,6 +82,8 @@ m_update_game(update_game)
 	}
 
 	draw_texture(g_r, c_half_res, 0, c_base_res, make_color(1), game->noise, zero, {.effect_id = 1});
+	renderer->set_shader_float("snake_apple_time", game->snake_apple_time);
+	game->snake_apple_time = at_least(0.0f, game->snake_apple_time - (float)platform_data->frame_time);
 
 	switch(game->state) {
 		case e_state_play: {
@@ -134,6 +138,7 @@ m_update_game(update_game)
 
 				if(head.pos == game->apple) {
 					game->snake_len += 1;
+					game->snake_apple_time = 1.0f;
 					platform_data->play_sound(game->eat_apple_sound);
 					if(game->snake_len - 1 >= c_score_to_win) {
 						game->state = e_state_victory;
@@ -151,6 +156,10 @@ m_update_game(update_game)
 					}
 				}
 				game->snake[0] = head;
+
+				s_v2 snake_center = v2(head.pos * c_tile_size) + v2(c_tile_size / 2);
+				game->snake_light_pos = lerp(game->snake_light_pos, snake_center, 0.1f);
+				renderer->set_shader_v2("snake_pos", game->snake_light_pos);
 			}
 
 			for(int snake_i = 0; snake_i < game->snake_len; snake_i++)

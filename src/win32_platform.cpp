@@ -170,7 +170,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	}
 	#endif // m_debug
 
-	s_platform_renderer platform_renderer = zero;
 	s_game_renderer* game_renderer = null;
 	s_lin_arena platform_frame_arena = zero;
 	s_lin_arena game_frame_arena = zero;
@@ -236,8 +235,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	game_renderer->load_texture = load_texture;
 	game_renderer->load_font = load_font;
 	game_renderer->make_framebuffer = make_framebuffer;
+	game_renderer->set_shader_float = set_shader_float;
+	game_renderer->set_shader_v2 = set_shader_v2;
 
-	init_gl(&platform_renderer, game_renderer, &platform_frame_arena);
+	init_gl(&g_platform_renderer, game_renderer, &platform_frame_arena);
 
 	b8 running = true;
 
@@ -309,7 +310,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			write_embed_file();
 		}
 
-		gl_render(&platform_renderer, game_renderer);
+		gl_render(&g_platform_renderer, game_renderer);
 
 		SwapBuffers(g_window.dc);
 
@@ -350,8 +351,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 							if(!program) { break; }
 
 							gl(glUseProgram(0));
-							gl(glDeleteProgram(platform_renderer.programs[shader_i]));
-							platform_renderer.programs[shader_i] = program;
+							gl(glDeleteProgram(g_platform_renderer.programs[shader_i]));
+							g_platform_renderer.programs[shader_i] = program;
 
 							log_info("Reloaded %s", file_path);
 

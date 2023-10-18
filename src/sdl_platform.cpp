@@ -63,7 +63,6 @@ global SDL_Window* gWindow = null;
 global f64 g_start_of_frame_seconds = 0;
 
 global void* g_game_memory;
-global s_platform_renderer g_platform_renderer;
 global s_game_renderer* g_game_renderer;
 global s_sarray<Mix_Chunk*, 16> g_sdl_audio;
 s_lin_arena g_game_frame_arena = zero;
@@ -84,6 +83,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		printf("Failed to initialize SDL audio\n");
 		return 1;
 	}
+	Mix_Volume(-1, floorfi(MIX_MAX_VOLUME * 0.25f));
 
 	#if defined(m_debug) || !defined(_WIN32)
 	if(argc > 1 && strcmp(argv[1], "embed") == 0) {
@@ -173,6 +173,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_game_renderer->load_texture = load_texture;
 	g_game_renderer->load_font = load_font;
 	g_game_renderer->make_framebuffer = make_framebuffer;
+	g_game_renderer->set_shader_float = set_shader_float;
+	g_game_renderer->set_shader_v2 = set_shader_v2;
 	init_gl(&g_platform_renderer, g_game_renderer, &platform_frame_arena);
 
 	b8 running = true;

@@ -395,6 +395,7 @@ struct s_platform_renderer
 	u32 default_vbo;
 	u32 programs[e_shader_count];
 };
+global s_platform_renderer g_platform_renderer = zero;
 
 #pragma pack(push, 1)
 struct s_riff_chunk
@@ -1146,6 +1147,8 @@ typedef int (*t_cycle_between_available_resolutions)(int);
 typedef u32 (*t_get_random_seed)();
 typedef s_framebuffer* (*t_make_framebuffer)(s_game_renderer*, b8);
 typedef s_sound* (*t_load_sound)(s_platform_data*, const char*, s_lin_arena*);
+typedef b8 (*t_set_shader_float)(const char*, float);
+typedef b8 (*t_set_shader_v2)(const char*, s_v2);
 
 // @Note(tkap, 08/10/2023): We have a bug with this. If we ever go from having never drawn anything to drawing 64*16+1 things we will
 // exceed the max bucket count (16 currently). To fix this, I guess we have to allow merging in the middle of a frame?? Seems messy...
@@ -1267,6 +1270,8 @@ struct s_game_renderer
 	t_load_texture load_texture;
 	t_load_font load_font;
 	t_make_framebuffer make_framebuffer;
+	t_set_shader_float set_shader_float;
+	t_set_shader_v2 set_shader_v2;
 	f64 total_time;
 
 	int transform_arena_index;
@@ -2229,6 +2234,24 @@ func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena
 	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR);
 
 	return font;
+}
+
+func b8 set_shader_float(const char* uniform_name, float val)
+{
+	// @TODO(tkap, 18/10/2023): Change this when we support multiple shaders (if ever)
+	int location = gl(glGetUniformLocation(g_platform_renderer.programs[e_shader_default], uniform_name));
+	if(location < 0) { return false; }
+	gl(glUniform1f(location, val));
+	return true;
+}
+
+func b8 set_shader_v2(const char* uniform_name, s_v2 val)
+{
+	// @TODO(tkap, 18/10/2023): Change this when we support multiple shaders (if ever)
+	int location = gl(glGetUniformLocation(g_platform_renderer.programs[e_shader_default], uniform_name));
+	if(location < 0) { return false; }
+	gl(glUniform2fv(location, 1, &val.x));
+	return true;
 }
 
 #endif // m_game
