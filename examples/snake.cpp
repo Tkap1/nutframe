@@ -1,7 +1,4 @@
 
-#include "pch_client.h"
-// #include "../src/pch_client.h"
-
 #include "../src/platform_shared.h"
 
 global constexpr int c_tile_size = 64;
@@ -41,12 +38,7 @@ global s_game* game;
 global s_game_renderer* g_r;
 global s_v2 mouse;
 
-func b8 is_key_down(s_input* input, int key);
-func b8 is_key_up(s_input* input, int key);
-func b8 is_key_pressed(s_input* input, int key);
-func b8 is_key_released(s_input* input, int key);
 func s_v2i spawn_apple();
-func void reset_level();
 
 #include "../src/platform_shared.cpp"
 

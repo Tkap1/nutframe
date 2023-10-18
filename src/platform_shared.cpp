@@ -271,3 +271,30 @@ func void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena)
 	arr->element_count[0] = count;
 	arr->bucket_count = 1;
 }
+
+func void on_failed_assert(const char* cond, const char* file, int line)
+{
+	printf("FAILED ASSERT: %s\n%s (%i)\n", cond, file, line);
+	#ifndef __EMSCRIPTEN__
+	__debugbreak();
+	#endif // __EMSCRIPTEN__
+	printf("Press ENTER to exit...");
+	// *(char*)1 = 0;
+	getchar();
+	exit(1);
+	// @Fixme(tkap, 05/10/2023):
+	// char* text = format_text("FAILED ASSERT IN %s (%i)\n%s\n", file, line, cond);
+	// printf("%s\n", text);
+	// int result = MessageBox(null, text, "Assertion failed", MB_RETRYCANCEL | MB_TOPMOST);
+	// if(result != IDRETRY)
+	// {
+	// 	if(IsDebuggerPresent())
+	// 	{
+	// 		__debugbreak();
+	// 	}
+	// 	else
+	// 	{
+	// 		exit(1);
+	// 	}
+	// }
+}

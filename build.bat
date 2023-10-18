@@ -77,7 +77,7 @@ if !build_dll!==1 (
 pushd build
 
 	if "%1%"=="pch" (
-		cl /Ycpch_client.h ..\src\pch_client.cpp !comp! /c
+		@REM cl /Ycpch_client.h ..\src\pch_client.cpp !comp! /c
 		cl /Ycpch_platform.h ..\src\pch_platform.cpp !comp! /c
 	)
 
@@ -90,7 +90,7 @@ pushd build
 		)
 		type temp_compiler_output.txt
 	) else (
-		cl !client_file! /Yupch_client.h -LD -Fe!exe_name!.dll !comp! -link !linker! pch_client.obj -PDB:client.pdb > temp_compiler_output.txt
+		cl !client_file! -LD -Fe!exe_name!.dll !comp! -link !linker! -PDB:client.pdb > temp_compiler_output.txt
 		if NOT !ErrorLevel! == 0 (
 			type temp_compiler_output.txt
 			popd

@@ -1,3 +1,4 @@
+
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "opengl32.lib")
@@ -7,11 +8,11 @@
 
 #pragma warning(push, 0)
 #define STB_IMAGE_IMPLEMENTATION
-#define STBI_ASSERT assert
+#define STBI_ASSERT
 #include "external/stb_image.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
-#define STBTT_assert assert
+#define STBTT_assert
 #include "external/stb_truetype.h"
 
 #pragma warning(pop)

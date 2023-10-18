@@ -39,8 +39,3 @@
 #include "emscripten.h"
 #include "emscripten/html5.h"
 #endif // __EMSCRIPTEN__
-
-#include "types.h"
-#include "rng.h"
-#include "math.h"
-#include "utils.h"
