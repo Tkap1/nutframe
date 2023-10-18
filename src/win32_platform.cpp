@@ -24,8 +24,50 @@
 #pragma warning(pop)
 
 #include "resource.h"
-#include "platform_shared.h"
 
+
+#define m_gl_funcs \
+X(PFNGLBUFFERDATAPROC, glBufferData) \
+X(PFNGLBUFFERSUBDATAPROC, glBufferSubData) \
+X(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays) \
+X(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray) \
+X(PFNGLGENBUFFERSPROC, glGenBuffers) \
+X(PFNGLBINDBUFFERPROC, glBindBuffer) \
+X(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer) \
+X(PFNGLVERTEXATTRIBIPOINTERPROC, glVertexAttribIPointer) \
+X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray) \
+X(PFNGLCREATESHADERPROC, glCreateShader) \
+X(PFNGLSHADERSOURCEPROC, glShaderSource) \
+X(PFNGLCREATEPROGRAMPROC, glCreateProgram) \
+X(PFNGLATTACHSHADERPROC, glAttachShader) \
+X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
+X(PFNGLCOMPILESHADERPROC, glCompileShader) \
+X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
+X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
+X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
+X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
+X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
+X(PFNGLUSEPROGRAMPROC, glUseProgram) \
+X(PFNGLGETSHADERIVPROC, glGetShaderiv) \
+X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog) \
+X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers) \
+X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer) \
+X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D) \
+X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus) \
+X(PFNGLACTIVETEXTUREPROC, glActiveTexture) \
+X(PFNGLBLENDEQUATIONPROC, glBlendEquation) \
+X(PFNGLDELETEPROGRAMPROC, glDeleteProgram) \
+X(PFNGLDELETESHADERPROC, glDeleteShader) \
+X(PFNGLUNIFORM1IPROC, glUniform1i) \
+X(PFNGLUNIFORM1FPROC, glUniform1f) \
+X(PFNGLDETACHSHADERPROC, glDetachShader) \
+X(PFNGLGETPROGRAMIVPROC, glGetProgramiv) \
+X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
+X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
+
+#define X(type, name) static type name = NULL;
+m_gl_funcs
+#undef X
 
 struct s_window
 {
@@ -34,6 +76,9 @@ struct s_window
 	int width;
 	int height;
 };
+static s_window g_window;
+
+#include "platform_shared.h"
 
 struct s_voice : IXAudio2VoiceCallback
 {
@@ -79,68 +124,21 @@ func b8 thread_safe_set_bool_to_true(volatile int* var);
 func DWORD WINAPI watch_dir(void* arg);
 #endif // m_debug
 
-
-#define m_gl_funcs \
-X(PFNGLBUFFERDATAPROC, glBufferData) \
-X(PFNGLBUFFERSUBDATAPROC, glBufferSubData) \
-X(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays) \
-X(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray) \
-X(PFNGLGENBUFFERSPROC, glGenBuffers) \
-X(PFNGLBINDBUFFERPROC, glBindBuffer) \
-X(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer) \
-X(PFNGLVERTEXATTRIBIPOINTERPROC, glVertexAttribIPointer) \
-X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray) \
-X(PFNGLCREATESHADERPROC, glCreateShader) \
-X(PFNGLSHADERSOURCEPROC, glShaderSource) \
-X(PFNGLCREATEPROGRAMPROC, glCreateProgram) \
-X(PFNGLATTACHSHADERPROC, glAttachShader) \
-X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
-X(PFNGLCOMPILESHADERPROC, glCompileShader) \
-X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
-X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
-X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
-X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
-X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
-X(PFNGLUSEPROGRAMPROC, glUseProgram) \
-X(PFNGLGETSHADERIVPROC, glGetShaderiv) \
-X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog) \
-X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers) \
-X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer) \
-X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D) \
-X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus) \
-X(PFNGLACTIVETEXTUREPROC, glActiveTexture) \
-X(PFNGLBLENDEQUATIONPROC, glBlendEquation) \
-X(PFNGLDELETEPROGRAMPROC, glDeleteProgram) \
-X(PFNGLDELETESHADERPROC, glDeleteShader) \
-X(PFNGLUNIFORM1IPROC, glUniform1i) \
-X(PFNGLUNIFORM1FPROC, glUniform1f) \
-X(PFNGLDETACHSHADERPROC, glDetachShader) \
-X(PFNGLGETPROGRAMIVPROC, glGetProgramiv) \
-X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
-X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
-
-
 global constexpr int c_num_channels = 2;
 global constexpr int c_sample_rate = 44100;
 global constexpr int c_max_concurrent_sounds = 32;
 
-global s_window g_window;
 global s_input g_input;
 global s_input g_logic_input;
 global s_voice voice_arr[c_max_concurrent_sounds];
 global u64 g_cycle_frequency;
 global u64 g_start_cycles;
-global s_platform_data g_platform_data = zero;
 
 // @Note(tkap, 11/10/2023): File watch
 global constexpr int c_max_files = 16;
 global volatile int g_file_write = 0;
 global int g_file_read = 0;
 global char g_files[c_max_files][MAX_PATH];
-
-#define X(type, name) static type name = null;
-m_gl_funcs
-#undef X
 
 static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 
@@ -151,8 +149,6 @@ func b8 need_to_reload_dll(const char* path);
 func HMODULE load_dll(const char* path);
 func void unload_dll(HMODULE dll);
 #endif // m_debug
-
-#include "common.cpp"
 
 #ifdef m_debug
 int main(int argc, char** argv)

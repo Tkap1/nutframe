@@ -30,13 +30,16 @@
 #pragma warning(pop)
 
 #include "resource.h"
-#include "platform_shared.h"
+
 
 struct s_window
 {
 	int width;
 	int height;
 };
+static s_window g_window;
+
+#include "platform_shared.h"
 
 func b8 play_sound(s_sound* sound);
 func void set_vsync(b8 val);
@@ -49,12 +52,10 @@ func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin
 func Mix_Chunk* load_sound_from_file(const char* path);
 func Mix_Chunk* load_sound_from_data(u8* data, int data_size);
 
-global s_window g_window;
 global s_input g_input;
 global s_input g_logic_input;
 global u64 g_cycle_frequency;
 global u64 g_start_cycles;
-global s_platform_data g_platform_data = zero;
 global SDL_GLContext gContext;
 global SDL_Window* gWindow = null;
 global f64 g_start_of_frame_seconds = 0;
@@ -64,8 +65,6 @@ global s_platform_renderer g_platform_renderer;
 global s_game_renderer* g_game_renderer;
 global s_sarray<Mix_Chunk*, 16> g_sdl_audio;
 s_lin_arena g_game_frame_arena = zero;
-
-#include "common.cpp"
 
 #if defined(m_debug) || !defined(_WIN32)
 int main(int argc, char** argv)
