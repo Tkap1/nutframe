@@ -165,12 +165,12 @@ m_update_game(update_game)
 	register_live_variable(c_apple_light_duration);
 	register_live_variable(c_move_delay);
 	register_live_variable(c_tile_size);
-	register_live_variable(c_foo);
+	register_live_variable(c_self_collision);
 
 	live_variable(c_apple_light_duration, 0.0f, 5.0f);
 	live_variable(c_move_delay, 0.01f, 0.5f);
 	live_variable(c_tile_size, 64, 65);
-	live_variable(c_foo, (b8)0, (b8)0);
+	live_variable(c_self_collision, (b8)0, (b8)0);
 
 	if(is_key_pressed(g_input, c_key_f1)) {
 		game->show_live_vars = !game->show_live_vars;
@@ -303,11 +303,14 @@ m_update_game(update_game)
 					game->snake[snake_i] = game->snake[snake_i - 1];
 				}
 
-				for(int snake_i = 0; snake_i < game->snake_len; snake_i++) {
-					if(head.pos == game->snake[snake_i].pos) {
-						game->reset_level = true;
+				if(c_self_collision) {
+					for(int snake_i = 0; snake_i < game->snake_len; snake_i++) {
+						if(head.pos == game->snake[snake_i].pos) {
+							game->reset_level = true;
+						}
 					}
 				}
+
 				game->snake[0] = head;
 
 				s_v2 snake_center = v2(head.pos * c_tile_size) + v2(c_tile_size / 2);
