@@ -75,6 +75,13 @@ global constexpr float epsilon = 0.000001f;
 
 func void on_failed_assert(const char* cond, const char* file, int line);
 
+template<typename t0, typename t1>
+struct is_same_ { static constexpr b8 is_it = false; };
+template<typename t>
+struct is_same_<t, t> { static constexpr b8 is_it = true; };
+template <typename t0, typename t1>
+constexpr bool is_same = is_same_<t0, t1>::is_it;
+
 struct s_game_renderer;
 
 struct s_v2
@@ -544,6 +551,7 @@ func u32 load_shader_from_file(const char* vertex_path, const char* fragment_pat
 func void after_making_framebuffer(int index, s_game_renderer* game_renderer);
 func s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
 func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
+func s_texture load_texture(s_game_renderer* game_renderer, const char* path);
 
 func char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = null)
 {
@@ -1174,6 +1182,7 @@ typedef s_framebuffer* (*t_make_framebuffer)(s_game_renderer*, b8);
 typedef s_sound* (*t_load_sound)(s_platform_data*, const char*, s_lin_arena*);
 typedef b8 (*t_set_shader_float)(const char*, float);
 typedef b8 (*t_set_shader_v2)(const char*, s_v2);
+typedef char* (*t_read_file)(const char*, s_lin_arena*, u64*);
 typedef b8 (*t_write_file)(const char*, void*, u64);
 
 // @Note(tkap, 08/10/2023): We have a bug with this. If we ever go from having never drawn anything to drawing 64*16+1 things we will
@@ -1281,6 +1290,7 @@ struct s_platform_data
 	s_sarray<s_sound, 16> sounds;
 	t_show_cursor show_cursor;
 	t_cycle_between_available_resolutions cycle_between_available_resolutions;
+	t_read_file read_file;
 	t_write_file write_file;
 };
 

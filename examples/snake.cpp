@@ -3,7 +3,6 @@
 #include "../src/platform_shared.h"
 #include "../src/variables.h"
 
-global constexpr int c_tile_size = 64;
 global constexpr int c_tile_count = 12;
 global constexpr int c_max_snake_len = c_tile_count * c_tile_count / 2;
 global constexpr int c_score_to_win = 20;
@@ -34,6 +33,19 @@ struct s_snake
 	float rotation;
 };
 
+enum e_var_type
+{
+	e_var_type_int,
+	e_var_type_float,
+	e_var_type_bool,
+};
+
+union s_var_value
+{
+	float val_float;
+	int val_int;
+};
+
 struct s_ui_id
 {
 	u32 id;
@@ -48,10 +60,12 @@ struct s_ui
 
 struct s_var
 {
-	float* ptr;
-	char* name;
-	float min_val;
-	float max_val;
+	b8 display;
+	e_var_type type;
+	void* ptr;
+	const char* name;
+	s_var_value min_val;
+	s_var_value max_val;
 };
 
 struct s_game
@@ -65,6 +79,7 @@ struct s_game
 	s_texture snake_tail;
 	s_texture apple_texture;
 	s_texture noise;
+	s_texture checkmark_texture;
 	s_sarray<s_v2i, 4> inputs;
 	s_v2i last_dir;
 	s_snake snake[c_max_snake_len];
@@ -92,13 +107,25 @@ global s_game_renderer* g_r;
 global s_v2 mouse;
 global s_ui g_ui;
 
+#ifdef m_debug
+#define register_live_variable(var) register_live_variable_(&var, #var)
 #define live_variable(var, min_val, max_val) live_variable_(&var, #var, min_val, max_val)
+#else // m_debug
+#define register_live_variable(var)
+#define live_variable(var, min_val, max_val)
+#endif // m_debug
 
 func s_v2i spawn_apple();
-func void live_variable_(float* ptr, char* name, float min_val, float max_val);
-func s_ui_interaction ui_button(char* text, s_v2 pos, s_v2 size, s_font* font, float font_size);
-func float ui_slider(char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, float min_val, float max_val, float curr_val);
+template <typename t>
+func void live_variable_(t* ptr, const char* name, t min_val, t max_val);
+func s_ui_interaction ui_button(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size);
+template <typename t>
+func t ui_slider(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, t min_val, t max_val, t curr_val);
 func void ui_request_pressed(u32 id);
+func void ui_checkbox(const char* text, s_v2 pos, s_v2 size, b8* val);
+template <typename t>
+func void register_live_variable_(t* ptr, const char* name);
+func s_var* get_var_by_ptr(void* ptr);
 
 
 #ifdef m_build_dll
@@ -123,6 +150,7 @@ m_update_game(update_game)
 		game->snake_tail = g_r->load_texture(renderer, "examples/snake_tail.png");
 		game->noise = g_r->load_texture(renderer, "examples/noise.png");
 		game->apple_texture = g_r->load_texture(renderer, "examples/apple.png");
+		game->checkmark_texture = g_r->load_texture(renderer, "examples/checkmark.png");
 		game->font = g_r->load_font(renderer, "examples/consola.ttf", 96, platform_data->frame_arena);
 		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->text_framebuffer = g_r->make_framebuffer(renderer, false);
@@ -134,8 +162,15 @@ m_update_game(update_game)
 	renderer->set_shader_float("snake_apple_time", game->snake_apple_time);
 	game->snake_apple_time = at_least(0.0f, game->snake_apple_time - (float)platform_data->frame_time);
 
-	live_variable(c_apple_light_duration, 0, 5);
+	register_live_variable(c_apple_light_duration);
+	register_live_variable(c_move_delay);
+	register_live_variable(c_tile_size);
+	register_live_variable(c_foo);
+
+	live_variable(c_apple_light_duration, 0.0f, 5.0f);
 	live_variable(c_move_delay, 0.01f, 0.5f);
+	live_variable(c_tile_size, 64, 65);
+	live_variable(c_foo, (b8)0, (b8)0);
 
 	if(is_key_pressed(g_input, c_key_f1)) {
 		game->show_live_vars = !game->show_live_vars;
@@ -162,19 +197,41 @@ m_update_game(update_game)
 		constexpr float font_size = 24;
 
 		foreach_val(var_i, var, game->variables) {
+			if(!var.display) { continue; }
 			s_v2 text_pos = pos;
 			text_pos.x -= 300;
 			text_pos.y += 24 - font_size * 0.5f;
 			s_v2 slider_pos = pos;
 			draw_text(g_r, var.name, text_pos, 15, font_size, rgb(0xffffff), false, game->font);
-			*var.ptr = ui_slider(var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val, var.max_val, *var.ptr);
+			if(var.type == e_var_type_int) {
+				*(int*)var.ptr = ui_slider(var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr);
+			}
+			else if(var.type == e_var_type_float) {
+				*(float*)var.ptr = ui_slider(
+					var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr
+				);
+			}
+			else if(var.type == e_var_type_bool) {
+				s_v2 temp = slider_pos;
+				temp.x += 100 - 24;
+				ui_checkbox(var.name, temp, v2(48), (b8*)var.ptr);
+			}
 			pos.y += 50;
 		}
 
 		if(ui_button("Save", pos, v2(200, 48), game->font, font_size).state == e_ui_active) {
 			s_str_builder<10 * c_kb> builder;
 			foreach_val(var_i, var, game->variables) {
-				builder.add_line("global float %s = %ff;", var.name, *var.ptr);
+				if(var.type == e_var_type_int) {
+					builder.add_line("global int %s = %i;", var.name, *(int*)var.ptr);
+				}
+				else if(var.type == e_var_type_float) {
+					builder.add_line("global float %s = %ff;", var.name, *(float*)var.ptr);
+				}
+				else if(var.type == e_var_type_bool) {
+					builder.add_line("global b8 %s = %s;", var.name, *(b8*)var.ptr ? "true" : "false");
+				}
+				invalid_else;
 			}
 			platform_data->write_file("src/variables.h", builder.data, builder.len);
 		}
@@ -327,19 +384,74 @@ func s_v2i spawn_apple()
 				break;
 			}
 		}
+		if(game->apple == pos) { collision = true; }
 		if(!collision) { break; }
 	}
 	return pos;
 }
 
-func void live_variable_(float* ptr, char* name, float min_val, float max_val)
+template <typename t>
+func void live_variable_(t* ptr, const char* name, t min_val, t max_val)
 {
+	constexpr b8 is_int = is_same<t, int>;
+	constexpr b8 is_float = is_same<t, float>;
+	constexpr b8 is_bool = is_same<t, b8>;
+	static_assert(is_int || is_float || is_bool);
+	s_var var = zero;
+	var.display = true;
+	var.ptr = ptr;
+	var.name = name;
+	if constexpr(is_int) {
+		var.type = e_var_type_int;
+		var.min_val.val_int = min_val;
+		var.max_val.val_int = max_val;
+	}
+	else if constexpr(is_float) {
+		var.type = e_var_type_float;
+		var.min_val.val_float = min_val;
+		var.max_val.val_float = max_val;
+	}
+	else if constexpr(is_bool) {
+		var.type = e_var_type_bool;
+	}
+	s_var* temp = get_var_by_ptr(ptr);
+	if(temp) {
+		*temp = var;
+	}
+	else {
+		game->variables.add(var);
+	}
+}
+
+template <typename t>
+func void register_live_variable_(t* ptr, const char* name)
+{
+	constexpr b8 is_int = is_same<t, int>;
+	constexpr b8 is_float = is_same<t, float>;
+	constexpr b8 is_bool = is_same<t, b8>;
+	static_assert(is_int || is_float || is_bool);
 	s_var var = zero;
 	var.ptr = ptr;
 	var.name = name;
-	var.min_val = min_val;
-	var.max_val = max_val;
+	if constexpr(is_int) {
+		var.type = e_var_type_int;
+	}
+	else if constexpr(is_float) {
+		var.type = e_var_type_float;
+	}
+	else if constexpr(is_bool) {
+		var.type = e_var_type_bool;
+	}
+	assert(get_var_by_ptr(ptr) == null);
 	game->variables.add(var);
+}
+
+func s_var* get_var_by_ptr(void* ptr)
+{
+	foreach_ptr(var_i, var, game->variables) {
+		if(var->ptr == ptr) { return var; }
+	}
+	return null;
 }
 
 func void ui_request_hovered(u32 id)
@@ -360,7 +472,7 @@ func void ui_request_active(u32 id)
 	g_ui.pressed.id = 0;
 }
 
-func s_ui_interaction ui_button(char* text, s_v2 pos, s_v2 size, s_font* font, float font_size)
+func s_ui_interaction ui_button(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size)
 {
 	s_ui_interaction result = zero;
 	u32 id = hash(text);
@@ -404,9 +516,14 @@ func s_ui_interaction ui_button(char* text, s_v2 pos, s_v2 size, s_font* font, f
 	return result;
 }
 
-func float ui_slider(char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, float min_val, float max_val, float curr_val)
+template <typename t>
+func t ui_slider(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, t min_val, t max_val, t curr_val)
 {
-	float result = curr_val;
+	constexpr b8 is_int = is_same<t, int>;
+	constexpr b8 is_float = is_same<t, float>;
+	static_assert(is_int || is_float);
+
+	t result = curr_val;
 	u32 id = hash(text);
 	s_v4 button_color = rgb(0x217278);
 	s_v4 handle_color = rgb(0xEA5D58);
@@ -442,12 +559,12 @@ func float ui_slider(char* text, s_v2 pos, s_v2 size, s_font* font, float font_s
 		else {
 			percent = ilerp(pos.x + handle_size.x * 0.5f, pos.x + size.x - handle_size.x * 0.5f, mouse.x);
 		}
-		result = lerp(min_val, max_val, percent);
+		result = (t)lerp((float)min_val, (float)max_val, percent);
 	}
 	result = clamp(result, min_val, max_val);
 
 	s_v2 handle_pos = v2(
-		pos.x + ilerp(min_val, max_val, result) * (size.x - handle_size.y),
+		pos.x + ilerp((float)min_val, (float)max_val, (float)result) * (size.x - handle_size.y),
 		pos.y - handle_size.y / 2 + size.y / 2
 	);
 
@@ -455,6 +572,50 @@ func float ui_slider(char* text, s_v2 pos, s_v2 size, s_font* font, float font_s
 	draw_rect(g_r, handle_pos, 11, handle_size, handle_color, zero, {.flags = e_render_flag_circle, .origin_offset = c_origin_topleft});
 	s_v2 text_pos = pos;
 	text_pos += size / 2;
-	draw_text(g_r, format_text("%.2f", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	if(is_int) {
+		draw_text(g_r, format_text("%i", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	}
+	else if(is_float) {
+		draw_text(g_r, format_text("%.2f", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	}
 	return result;
 }
+
+func void ui_checkbox(const char* text, s_v2 pos, s_v2 size, b8* val)
+{
+	assert(val);
+	u32 id = hash(text);
+	s_v4 button_color = rgb(0x217278);
+	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
+	if(hovered) {
+		ui_request_hovered(id);
+	}
+	if(g_ui.hovered.id == id) {
+		button_color = brighter(button_color, 1.4f);
+		if(hovered && is_key_pressed(g_input, c_left_mouse)) {
+			ui_request_pressed(id);
+		}
+		else if(!hovered) {
+			ui_request_hovered(0);
+		}
+	}
+	if(g_ui.pressed.id == id) {
+		g_ui.pressed_present = true;
+		button_color = brighter(button_color, 0.6f);
+		if(is_key_released(g_input, c_left_mouse)) {
+			if(hovered) {
+				*val = !(*val);
+				ui_request_active(id);
+			}
+			else {
+				ui_request_pressed(0);
+			}
+		}
+	}
+
+	draw_rect(g_r, pos, 10, size, button_color, zero, {.origin_offset = c_origin_topleft});
+	if(*val) {
+		draw_texture(g_r, pos, 11, size, make_color(0,1,0), game->checkmark_texture, zero, {.origin_offset = c_origin_topleft});
+	}
+}
+

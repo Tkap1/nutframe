@@ -182,6 +182,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_platform_data.get_random_seed = get_random_seed;
 	g_platform_data.load_sound = load_sound;
 	g_platform_data.play_sound = play_sound;
+	g_platform_data.read_file = read_file;
 	g_platform_data.write_file = write_file;
 
 	#ifdef __EMSCRIPTEN__
