@@ -84,18 +84,6 @@ func float rad_to_deg(float r)
 	return r * (180.f / pi);
 }
 
-func b8 floats_equal(float a, float b)
-{
-	return (a >= b - epsilon && a <= b + epsilon);
-}
-
-func float ilerp(float start, float end, float val)
-{
-	float b = end - start;
-	if(floats_equal(b, 0)) { return val; }
-	return (val - start) / b;
-}
-
 
 func b8 circle_collides_circle(s_v2 center1, float radius1, s_v2 center2, float radius2)
 {
@@ -180,12 +168,6 @@ template <typename t>
 func t max(t a, t b)
 {
 	return a >= b ? a : b;
-}
-
-template <typename t>
-func t clamp(t current, t min_val, t max_val)
-{
-	return at_most(max_val, at_least(min_val, current));
 }
 
 func b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)

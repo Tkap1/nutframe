@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 #include <math.h>
 
 #ifdef _WIN32
@@ -355,6 +356,117 @@ func void la_pop(s_lin_arena* arena)
 }
 
 
+template <int max_chars>
+struct s_str_builder
+{
+	int tab_count;
+	int len;
+	char data[max_chars];
+
+	void add_(const char* what, b8 use_tabs, va_list args);
+	void add(const char* what, ...);
+	void add_char(char c);
+	void add_with_tabs(const char* what, ...);
+	void add_line(const char* what, ...);
+	void add_line_with_tabs(const char* what, ...);
+	void add_tabs();
+	void line();
+	void push_tab();
+	void pop_tab();
+};
+
+template <int max_chars>
+void s_str_builder<max_chars>::add_(const char* what, b8 use_tabs, va_list args)
+{
+	if(use_tabs)
+	{
+		for(int tab_i = 0; tab_i < tab_count; tab_i++)
+		{
+			data[len++] = '\t';
+		}
+	}
+	char* where_to_write = &data[len];
+	int written = vsnprintf(where_to_write, max_chars + 1 - len, what, args);
+	assert(written > 0 && written < max_chars);
+	len += written;
+	assert(len < max_chars);
+	data[len] = 0;
+}
+
+template <int max_chars>
+void s_str_builder<max_chars>::add(const char* what, ...)
+{
+	va_list args;
+	va_start(args, what);
+	add_(what, false, args);
+	va_end(args);
+}
+
+template <int max_chars>
+void s_str_builder<max_chars>::add_char(char c)
+{
+	assert(len < max_chars);
+	data[len++] = c;
+	data[len] = 0;
+}
+
+template <int max_chars>
+void s_str_builder<max_chars>::add_with_tabs(const char* what, ...)
+{
+	va_list args;
+	va_start(args, what);
+	builder_add_(this, what, true, args);
+	va_end(args);
+}
+
+template <int max_chars>
+void s_str_builder<max_chars>::add_line(const char* what, ...)
+{
+	va_list args;
+	va_start(args, what);
+	add_(what, false, args);
+	va_end(args);
+	add("\n");
+}
+
+template <int max_chars>
+void s_str_builder<max_chars>::add_line_with_tabs(const char* what, ...)
+{
+	va_list args;
+	va_start(args, what);
+	builder_add_(this, what, true, args);
+	va_end(args);
+	builder_add(this, "\n");
+}
+
+template <int max_chars>
+void s_str_builder<max_chars>::add_tabs()
+{
+	for(int tab_i = 0; tab_i < tab_count; tab_i++)
+	{
+		data[len++] = '\t';
+	}
+}
+
+template <int max_chars>
+void s_str_builder<max_chars>::line()
+{
+	builder_add(this, "\n");
+}
+
+template <int max_chars>
+void s_str_builder<max_chars>::push_tab()
+{
+	assert(tab_count <= 64);
+	tab_count++;
+}
+
+template <int max_chars>
+void s_str_builder<max_chars>::pop_tab()
+{
+	assert(tab_count > 0);
+	tab_count--;
+}
 
 #ifndef m_game
 
@@ -432,102 +544,6 @@ func u32 load_shader_from_file(const char* vertex_path, const char* fragment_pat
 func void after_making_framebuffer(int index, s_game_renderer* game_renderer);
 func s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
 func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
-
-
-global constexpr int c_str_builder_size = 1 * c_gb;
-
-struct s_str_builder
-{
-	int tab_count;
-	int len;
-	char data[c_str_builder_size];
-};
-
-func void builder_add_line(s_str_builder* builder, const char* what, ...);
-func void builder_add(s_str_builder* builder, const char* what, ...);
-
-func void builder_add_(s_str_builder* builder, const char* what, b8 use_tabs, va_list args)
-{
-	if(use_tabs)
-	{
-		for(int tab_i = 0; tab_i < builder->tab_count; tab_i++)
-		{
-			builder->data[builder->len++] = '\t';
-		}
-	}
-	char* where_to_write = &builder->data[builder->len];
-	int written = vsnprintf(where_to_write, c_str_builder_size + 1 - builder->len, what, args);
-	assert(written > 0 && written < c_str_builder_size);
-	builder->len += written;
-	assert(builder->len < c_str_builder_size);
-	builder->data[builder->len] = 0;
-}
-
-func void builder_add(s_str_builder* builder, const char* what, ...)
-{
-	va_list args;
-	va_start(args, what);
-	builder_add_(builder, what, false, args);
-	va_end(args);
-}
-
-func void builder_add_char(s_str_builder* builder, char c)
-{
-	assert(builder->len < c_str_builder_size);
-	builder->data[builder->len++] = c;
-	builder->data[builder->len] = 0;
-}
-
-func void builder_add_with_tabs(s_str_builder* builder, const char* what, ...)
-{
-	va_list args;
-	va_start(args, what);
-	builder_add_(builder, what, true, args);
-	va_end(args);
-}
-
-func void builder_add_line(s_str_builder* builder, const char* what, ...)
-{
-	va_list args;
-	va_start(args, what);
-	builder_add_(builder, what, false, args);
-	va_end(args);
-	builder_add(builder, "\n");
-}
-
-func void builder_add_line_with_tabs(s_str_builder* builder, const char* what, ...)
-{
-	va_list args;
-	va_start(args, what);
-	builder_add_(builder, what, true, args);
-	va_end(args);
-	builder_add(builder, "\n");
-}
-
-func void builder_add_tabs(s_str_builder* builder)
-{
-	for(int tab_i = 0; tab_i < builder->tab_count; tab_i++)
-	{
-		builder->data[builder->len++] = '\t';
-	}
-}
-
-func void builder_line(s_str_builder* builder)
-{
-	builder_add(builder, "\n");
-}
-
-func void builder_push_tab(s_str_builder* builder)
-{
-	assert(builder->tab_count <= 64);
-	builder->tab_count++;
-}
-
-func void builder_pop_tab(s_str_builder* builder)
-{
-	assert(builder->tab_count > 0);
-	builder->tab_count--;
-}
 
 func char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = null)
 {
@@ -789,6 +805,14 @@ func void operator*=(s_v2& a, float b)
 	a.x *= b;
 	a.y *= b;
 }
+
+
+template <typename t>
+func t clamp(t current, t min_val, t max_val)
+{
+	return at_most(max_val, at_least(min_val, current));
+}
+
 
 func s_v2 v2_rotate_around(s_v2 v, s_v2 pivot, float angle)
 {
@@ -1128,6 +1152,7 @@ enum e_render_flags
 {
 	e_render_flag_use_texture = 1 << 0,
 	e_render_flag_flip_x = 1 << 1,
+	e_render_flag_circle = 1 << 2,
 };
 
 struct s_sound
@@ -1149,6 +1174,7 @@ typedef s_framebuffer* (*t_make_framebuffer)(s_game_renderer*, b8);
 typedef s_sound* (*t_load_sound)(s_platform_data*, const char*, s_lin_arena*);
 typedef b8 (*t_set_shader_float)(const char*, float);
 typedef b8 (*t_set_shader_v2)(const char*, s_v2);
+typedef b8 (*t_write_file)(const char*, void*, u64);
 
 // @Note(tkap, 08/10/2023): We have a bug with this. If we ever go from having never drawn anything to drawing 64*16+1 things we will
 // exceed the max bucket count (16 currently). To fix this, I guess we have to allow merging in the middle of a frame?? Seems messy...
@@ -1255,6 +1281,7 @@ struct s_platform_data
 	s_sarray<s_sound, 16> sounds;
 	t_show_cursor show_cursor;
 	t_cycle_between_available_resolutions cycle_between_available_resolutions;
+	t_write_file write_file;
 };
 
 #ifndef m_game
@@ -2077,8 +2104,9 @@ func void after_making_framebuffer(int index, s_game_renderer* game_renderer)
 
 func void write_embed_file()
 {
+	constexpr int max_chars = 100 * c_mb;
 	assert(g_do_embed);
-	s_str_builder* builder = (s_str_builder*)malloc(sizeof(s_str_builder));
+	s_str_builder<max_chars>* builder = (s_str_builder<max_chars>*)malloc(sizeof(s_str_builder<max_chars>));
 	builder->tab_count = 0;
 	builder->len = 0;
 	foreach_val(embed_i, embed, g_to_embed) {
@@ -2091,28 +2119,28 @@ func void write_embed_file()
 		fread(data, 1, file_size, file);
 		u8* cursor = data;
 
-		builder_add_line(builder, "global constexpr u8 embed%i[%u] = {", embed_i, file_size);
+		builder->add_line("global constexpr u8 embed%i[%u] = {", embed_i, file_size);
 		for(u64 i = 0; i < file_size; i++) {
-			builder_add(builder, "%u,", *cursor);
+			builder->add("%u,", *cursor);
 			cursor++;
 		}
-		builder_add_line(builder, "\n};");
+		builder->add_line("\n};");
 
 		fclose(file);
 		free(data);
 	}
 
-	builder_add_line(builder, "global constexpr u8* embed_data[%i] = {", g_to_embed.count);
+	builder->add_line("global constexpr u8* embed_data[%i] = {", g_to_embed.count);
 	foreach_val(embed_i, embed, g_to_embed) {
-		builder_add(builder, "(u8*)embed%i,", embed_i);
+		builder->add("(u8*)embed%i,", embed_i);
 	}
-	builder_add_line(builder, "\n};");
+	builder->add_line("\n};");
 
-	builder_add_line(builder, "global constexpr int embed_sizes[%i] = {", g_to_embed.count);
+	builder->add_line("global constexpr int embed_sizes[%i] = {", g_to_embed.count);
 	foreach_val(embed_i, embed, g_to_embed) {
-		builder_add(builder, "array_count(embed%i),", embed_i);
+		builder->add("array_count(embed%i),", embed_i);
 	}
-	builder_add_line(builder, "\n};");
+	builder->add_line("\n};");
 
 	{
 		FILE* file = fopen("src/embed.h", "wb");
@@ -2255,3 +2283,100 @@ func b8 set_shader_v2(const char* uniform_name, s_v2 val)
 }
 
 #endif // m_game
+
+
+[[nodiscard]]
+func constexpr s_v4 rgb(int hex)
+{
+	s_v4 result;
+	result.x = ((hex & 0xFF0000) >> 16) / 255.0f;
+	result.y = ((hex & 0x00FF00) >> 8) / 255.0f;
+	result.z = ((hex & 0x0000FF)) / 255.0f;
+	result.w = 1;
+	return result;
+}
+
+[[nodiscard]]
+func constexpr s_v4 rgba(int hex)
+{
+	s_v4 result;
+	result.x = ((hex & 0xFF000000) >> 24) / 255.0f;
+	result.y = ((hex & 0x00FF0000) >> 16) / 255.0f;
+	result.z = ((hex & 0x0000FF00) >> 8) / 255.0f;
+	result.w = ((hex & 0x000000FF) >> 0) / 255.0f;
+	return result;
+}
+
+[[nodiscard]]
+func u32 hash(const char* text)
+{
+	assert(text);
+	u32 hash = 5381;
+	while(true)
+	{
+		int c = *text;
+		text += 1;
+		if(!c) { break; }
+		hash = ((hash << 5) + hash) + c;
+	}
+	return hash;
+}
+
+
+func b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
+{
+	return pos0.x + size0.x > pos1.x && pos0.x < pos1.x + size1.x &&
+		pos0.y + size0.y > pos1.y && pos0.y < pos1.y + size1.y;
+}
+
+func b8 mouse_collides_rect_topleft(s_v2 mouse, s_v2 pos, s_v2 size)
+{
+	return rect_collides_rect_topleft(mouse, v2(1, 1), pos, size);
+}
+
+func s_v4 brighter(s_v4 color, float val)
+{
+	color.x = clamp(color.x * val, 0.0f, 1.0f);
+	color.y = clamp(color.y * val, 0.0f, 1.0f);
+	color.z = clamp(color.z * val, 0.0f, 1.0f);
+	return color;
+}
+
+func b8 floats_equal(float a, float b)
+{
+	return (a >= b - epsilon && a <= b + epsilon);
+}
+
+func float ilerp(float start, float end, float val)
+{
+	float b = end - start;
+	if(floats_equal(b, 0)) { return val; }
+	return (val - start) / b;
+}
+
+func char* format_text(const char* text, ...)
+{
+	global constexpr int max_format_text_buffers = 16;
+	global constexpr int max_text_buffer_length = 256;
+
+	static char buffers[max_format_text_buffers][max_text_buffer_length] = {};
+	static int index = 0;
+
+	char* current_buffer = buffers[index];
+	memset(current_buffer, 0, max_text_buffer_length);
+
+	va_list args;
+	va_start(args, text);
+	#ifdef m_debug
+	int written = vsnprintf(current_buffer, max_text_buffer_length, text, args);
+	assert(written > 0 && written < max_text_buffer_length);
+	#else
+	vsnprintf(current_buffer, max_text_buffer_length, text, args);
+	#endif
+	va_end(args);
+
+	index += 1;
+	if(index >= max_format_text_buffers) { index = 0; }
+
+	return current_buffer;
+}

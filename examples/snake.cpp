@@ -1,12 +1,12 @@
 #define m_game
 
 #include "../src/platform_shared.h"
+#include "../src/variables.h"
 
 global constexpr int c_tile_size = 64;
 global constexpr int c_tile_count = 12;
 global constexpr int c_max_snake_len = c_tile_count * c_tile_count / 2;
 global constexpr int c_score_to_win = 20;
-global constexpr float c_move_delay = 0.15f;
 
 enum e_state
 {
@@ -14,10 +14,44 @@ enum e_state
 	e_state_victory,
 };
 
+enum e_ui
+{
+	e_ui_nothing,
+	e_ui_hovered,
+	e_ui_pressed,
+	e_ui_active,
+};
+
+struct s_ui_interaction
+{
+	b8 pressed_this_frame;
+	e_ui state;
+};
+
 struct s_snake
 {
 	s_v2i pos;
 	float rotation;
+};
+
+struct s_ui_id
+{
+	u32 id;
+};
+
+struct s_ui
+{
+	b8 pressed_present;
+	s_ui_id hovered;
+	s_ui_id pressed;
+};
+
+struct s_var
+{
+	float* ptr;
+	char* name;
+	float min_val;
+	float max_val;
 };
 
 struct s_game
@@ -43,14 +77,29 @@ struct s_game
 	s_sound* eat_apple_sound;
 	s_v2 snake_light_pos;
 	float snake_apple_time;
+
+	#ifdef m_debug
+	s_v2 vars_pos;
+	s_v2 vars_pos_offset;
+	s_sarray<s_var, 16> variables;
+	b8 show_live_vars;
+	#endif // m_debug
 };
 
 global s_input* g_input;
 global s_game* game;
 global s_game_renderer* g_r;
 global s_v2 mouse;
+global s_ui g_ui;
+
+#define live_variable(var, min_val, max_val) live_variable_(&var, #var, min_val, max_val)
 
 func s_v2i spawn_apple();
+func void live_variable_(float* ptr, char* name, float min_val, float max_val);
+func s_ui_interaction ui_button(char* text, s_v2 pos, s_v2 size, s_font* font, float font_size);
+func float ui_slider(char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, float min_val, float max_val, float curr_val);
+func void ui_request_pressed(u32 id);
+
 
 #ifdef m_build_dll
 extern "C" {
@@ -84,6 +133,53 @@ m_update_game(update_game)
 	draw_texture(g_r, c_half_res, 0, c_base_res, make_color(1), game->noise, zero, {.effect_id = 1});
 	renderer->set_shader_float("snake_apple_time", game->snake_apple_time);
 	game->snake_apple_time = at_least(0.0f, game->snake_apple_time - (float)platform_data->frame_time);
+
+	live_variable(c_apple_light_duration, 0, 5);
+	live_variable(c_move_delay, 0.01f, 0.5f);
+
+	if(is_key_pressed(g_input, c_key_f1)) {
+		game->show_live_vars = !game->show_live_vars;
+	}
+
+	#ifdef m_debug
+
+	if(game->show_live_vars) {
+		s_v2 pos = game->vars_pos;
+		s_ui_interaction interaction = ui_button("Move", pos, v2(32), null, 32);
+		if(interaction.state == e_ui_pressed) {
+			if(interaction.pressed_this_frame) {
+				game->vars_pos_offset = mouse - pos;
+			}
+			s_v2 m = mouse;
+			m.x = clamp(mouse.x, 0.0f, c_base_res.x - 32);
+			m.y = clamp(mouse.y, 0.0f, c_base_res.y - 32);
+			m -= game->vars_pos_offset;
+			game->vars_pos = m;
+			pos = m;
+		}
+		pos += v2(100);
+
+		constexpr float font_size = 24;
+
+		foreach_val(var_i, var, game->variables) {
+			s_v2 text_pos = pos;
+			text_pos.x -= 300;
+			text_pos.y += 24 - font_size * 0.5f;
+			s_v2 slider_pos = pos;
+			draw_text(g_r, var.name, text_pos, 15, font_size, rgb(0xffffff), false, game->font);
+			*var.ptr = ui_slider(var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val, var.max_val, *var.ptr);
+			pos.y += 50;
+		}
+
+		if(ui_button("Save", pos, v2(200, 48), game->font, font_size).state == e_ui_active) {
+			s_str_builder<10 * c_kb> builder;
+			foreach_val(var_i, var, game->variables) {
+				builder.add_line("global float %s = %ff;", var.name, *var.ptr);
+			}
+			platform_data->write_file("src/variables.h", builder.data, builder.len);
+		}
+	}
+	#endif // m_debug
 
 	switch(game->state) {
 		case e_state_play: {
@@ -138,7 +234,7 @@ m_update_game(update_game)
 
 				if(head.pos == game->apple) {
 					game->snake_len += 1;
-					game->snake_apple_time = 1.0f;
+					game->snake_apple_time = c_apple_light_duration;
 					platform_data->play_sound(game->eat_apple_sound);
 					if(game->snake_len - 1 >= c_score_to_win) {
 						game->state = e_state_victory;
@@ -202,11 +298,16 @@ m_update_game(update_game)
 		} break;
 	}
 
-
-
 	for(int i = 0; i < c_max_keys; i++) {
 		g_input->keys[i].count = 0;
 	}
+
+	game->variables.count = 0;
+	g_ui.hovered.id = 0;
+	if(!g_ui.pressed_present && g_ui.pressed.id != 0) {
+		ui_request_pressed(0);
+	}
+	g_ui.pressed_present = false;
 
 }
 
@@ -229,4 +330,131 @@ func s_v2i spawn_apple()
 		if(!collision) { break; }
 	}
 	return pos;
+}
+
+func void live_variable_(float* ptr, char* name, float min_val, float max_val)
+{
+	s_var var = zero;
+	var.ptr = ptr;
+	var.name = name;
+	var.min_val = min_val;
+	var.max_val = max_val;
+	game->variables.add(var);
+}
+
+func void ui_request_hovered(u32 id)
+{
+	if(g_ui.pressed.id != 0) { return; }
+	g_ui.hovered.id = id;
+}
+
+func void ui_request_pressed(u32 id)
+{
+	g_ui.hovered.id = 0;
+	g_ui.pressed.id = id;
+}
+
+func void ui_request_active(u32 id)
+{
+	g_ui.hovered.id = 0;
+	g_ui.pressed.id = 0;
+}
+
+func s_ui_interaction ui_button(char* text, s_v2 pos, s_v2 size, s_font* font, float font_size)
+{
+	s_ui_interaction result = zero;
+	u32 id = hash(text);
+	s_v4 button_color = rgb(0x217278);
+	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
+	if(hovered) {
+		ui_request_hovered(id);
+	}
+	if(g_ui.hovered.id == id) {
+		result.state = e_ui_hovered;
+		button_color = brighter(button_color, 1.4f);
+		if(hovered && is_key_pressed(g_input, c_left_mouse)) {
+			result.pressed_this_frame = true;
+			ui_request_pressed(id);
+		}
+		else if(!hovered) {
+			ui_request_hovered(0);
+		}
+	}
+	if(g_ui.pressed.id == id) {
+		result.state = e_ui_pressed;
+		g_ui.pressed_present = true;
+		button_color = brighter(button_color, 0.6f);
+		if(is_key_released(g_input, c_left_mouse)) {
+			if(hovered) {
+				result.state = e_ui_active;
+				ui_request_active(id);
+			}
+			else {
+				ui_request_pressed(0);
+			}
+		}
+	}
+
+	draw_rect(g_r, pos, 10, size, button_color, zero, {.origin_offset = c_origin_topleft});
+	if(font) {
+		s_v2 text_pos = pos;
+		text_pos += size / 2;
+		draw_text(g_r, text, text_pos, 11, font_size, rgb(0xFB9766), true, font);
+	}
+	return result;
+}
+
+func float ui_slider(char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, float min_val, float max_val, float curr_val)
+{
+	float result = curr_val;
+	u32 id = hash(text);
+	s_v4 button_color = rgb(0x217278);
+	s_v4 handle_color = rgb(0xEA5D58);
+	s_v2 handle_size = v2(size.y);
+	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
+	if(hovered) {
+		ui_request_hovered(id);
+	}
+	if(g_ui.hovered.id == id) {
+		button_color = brighter(button_color, 1.4f);
+		if(hovered && is_key_pressed(g_input, c_left_mouse)) {
+			ui_request_pressed(id);
+		}
+		else if(!hovered) {
+			ui_request_hovered(0);
+		}
+	}
+	if(g_ui.pressed.id == id) {
+		g_ui.pressed_present = true;
+		button_color = brighter(button_color, 0.6f);
+		if(is_key_released(g_input, c_left_mouse)) {
+			if(hovered) {
+				ui_request_active(id);
+			}
+			else {
+				ui_request_pressed(0);
+			}
+		}
+		float percent;
+		if(is_key_down(g_input, c_key_left_ctrl)) {
+			percent = ilerp(handle_size.x * 0.5f, c_base_res.x - handle_size.x * 0.5f, mouse.x);
+		}
+		else {
+			percent = ilerp(pos.x + handle_size.x * 0.5f, pos.x + size.x - handle_size.x * 0.5f, mouse.x);
+		}
+		result = lerp(min_val, max_val, percent);
+	}
+	result = clamp(result, min_val, max_val);
+
+	s_v2 handle_pos = v2(
+		pos.x + ilerp(min_val, max_val, result) * (size.x - handle_size.y),
+		pos.y - handle_size.y / 2 + size.y / 2
+	);
+
+	draw_rect(g_r, pos, 10, size, button_color, zero, {.origin_offset = c_origin_topleft});
+	draw_rect(g_r, handle_pos, 11, handle_size, handle_color, zero, {.flags = e_render_flag_circle, .origin_offset = c_origin_topleft});
+	s_v2 text_pos = pos;
+	text_pos += size / 2;
+	draw_text(g_r, format_text("%.2f", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	return result;
 }

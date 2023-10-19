@@ -275,6 +275,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.get_random_seed = get_random_seed;
 		g_platform_data.load_sound = load_sound;
 		g_platform_data.play_sound = play_sound;
+		g_platform_data.write_file = write_file;
 		// g_platform_data.show_cursor = ShowCursor;
 		g_platform_data.cycle_between_available_resolutions = cycle_between_available_resolutions;
 
