@@ -168,11 +168,12 @@ m_update_game(update_game)
 	live_variable(c_tile_size, 64, 65, true);
 	live_variable(c_self_collision, (b8)0, (b8)0, true);
 
+
+	#ifdef m_debug
+
 	if(is_key_pressed(g_input, c_key_f1)) {
 		game->show_live_vars = !game->show_live_vars;
 	}
-
-	#ifdef m_debug
 
 	if(game->show_live_vars) {
 		s_v2 pos = game->vars_pos;
@@ -347,8 +348,7 @@ m_update_game(update_game)
 			draw_text(g_r, "Press ENTER to play again", pos, 50, game->font->size * 0.5f, make_color(0.5f), true, game->font);
 			pos.y += game->font->size * 0.5f;
 			draw_text(g_r, "Press Escape to exit", pos, 50, game->font->size * 0.5f, make_color(0.5f), true, game->font);
-			draw_texture(g_r,
-				c_half_res, 10, c_base_res, make_color(1), game->text_framebuffer->texture,
+			draw_texture(g_r, c_half_res, 10, c_base_res, make_color(1), game->text_framebuffer->texture,
 				{.blend_mode = e_blend_mode_additive}
 			);
 		} break;
@@ -358,7 +358,10 @@ m_update_game(update_game)
 		g_input->keys[i].count = 0;
 	}
 
+	#ifdef m_debug
 	game->variables.count = 0;
+	#endif // m_debug
+
 	g_ui.hovered.id = 0;
 	if(!g_ui.pressed_present && g_ui.pressed.id != 0) {
 		ui_request_pressed(0);
@@ -389,6 +392,7 @@ func s_v2i spawn_apple()
 	return pos;
 }
 
+#ifdef m_debug
 template <typename t>
 func void live_variable_(t* ptr, const char* name, t min_val, t max_val, b8 display)
 {
@@ -429,6 +433,7 @@ func s_var* get_var_by_ptr(void* ptr)
 	}
 	return null;
 }
+#endif // m_debug
 
 func void ui_request_hovered(u32 id)
 {
@@ -444,6 +449,7 @@ func void ui_request_pressed(u32 id)
 
 func void ui_request_active(u32 id)
 {
+	unreferenced(id);
 	g_ui.hovered.id = 0;
 	g_ui.pressed.id = 0;
 }

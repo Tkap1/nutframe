@@ -76,7 +76,7 @@ struct is_same_ { static constexpr b8 is_it = false; };
 template<typename t>
 struct is_same_<t, t> { static constexpr b8 is_it = true; };
 template <typename t0, typename t1>
-constexpr bool is_same = is_same_<t0, t1>::is_it;
+constexpr b8 is_same = is_same_<t0, t1>::is_it;
 
 struct s_game_renderer;
 
@@ -548,6 +548,7 @@ static void after_making_framebuffer(int index, s_game_renderer* game_renderer);
 static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
 static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
 static s_texture load_texture(s_game_renderer* game_renderer, const char* path);
+static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering);
 
 static char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = NULL)
 {
@@ -641,7 +642,7 @@ struct s_rng
 			max = temp;
 		}
 
-		return min + (randu() % (max - min + 1));
+		return min + ((int)(randu() % (max - min + 1)));
 	}
 
 	// min inclusive, max exclusive
@@ -654,7 +655,7 @@ struct s_rng
 			max = temp;
 		}
 
-		return min + (randu() % (max - min));
+		return min + ((int)(randu() % (max - min)));
 	}
 
 	float randf_range(float min_val, float max_val)

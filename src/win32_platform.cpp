@@ -4,6 +4,7 @@
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "Ole32.lib")
 
+#pragma warning(push, 0)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -12,7 +13,6 @@
 #include "external/wglext.h"
 #include <xaudio2.h>
 
-#pragma warning(push, 0)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-value"
 #define STB_IMAGE_IMPLEMENTATION
