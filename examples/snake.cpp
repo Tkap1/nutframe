@@ -82,7 +82,7 @@ struct s_game
 global s_input* g_input;
 global s_game* game;
 global s_game_renderer* g_r;
-global s_v2 mouse;
+global s_v2 g_mouse;
 global s_ui g_ui;
 
 #ifdef m_debug
@@ -105,7 +105,7 @@ m_update_game(update_game)
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
 
-	mouse = platform_data->mouse;
+	g_mouse = platform_data->mouse;
 
 	game = (s_game*)game_memory;
 	g_r = renderer;
@@ -135,7 +135,6 @@ m_update_game(update_game)
 	live_variable(c_tile_size, 64, 65, true);
 	live_variable(c_self_collision, (b8)0, (b8)0, true);
 
-
 	#ifdef m_debug
 
 	if(is_key_pressed(g_input, c_key_f1)) {
@@ -144,14 +143,14 @@ m_update_game(update_game)
 
 	if(game->show_live_vars) {
 		s_v2 pos = game->vars_pos;
-		s_ui_interaction interaction = ui_button(g_r, &g_ui, "Move", pos, v2(32), null, 32, g_input, mouse);
+		s_ui_interaction interaction = ui_button(g_r, &g_ui, "Move", pos, v2(32), null, 32, g_input, g_mouse);
 		if(interaction.state == e_ui_pressed) {
 			if(interaction.pressed_this_frame) {
-				game->vars_pos_offset = mouse - pos;
+				game->vars_pos_offset = g_mouse - pos;
 			}
-			s_v2 m = mouse;
-			m.x = clamp(mouse.x, 0.0f, c_base_res.x - 32);
-			m.y = clamp(mouse.y, 0.0f, c_base_res.y - 32);
+			s_v2 m = g_mouse;
+			m.x = clamp(g_mouse.x, 0.0f, c_base_res.x - 32);
+			m.y = clamp(g_mouse.y, 0.0f, c_base_res.y - 32);
 			m -= game->vars_pos_offset;
 			game->vars_pos = m;
 			pos = m;
@@ -169,24 +168,24 @@ m_update_game(update_game)
 			draw_text(g_r, var.name, text_pos, 15, font_size, rgb(0xffffff), false, game->font);
 			if(var.type == e_var_type_int) {
 				*(int*)var.ptr = ui_slider(
-					g_r, &g_ui, var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, g_input, mouse
+					g_r, &g_ui, var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, g_input, g_mouse
 				);
 			}
 			else if(var.type == e_var_type_float) {
 				*(float*)var.ptr = ui_slider(
 					g_r, &g_ui, var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr,
-					g_input, mouse
+					g_input, g_mouse
 				);
 			}
 			else if(var.type == e_var_type_bool) {
 				s_v2 temp = slider_pos;
 				temp.x += 100 - 24;
-				ui_checkbox(g_r, &g_ui, var.name, temp, v2(48), (b8*)var.ptr, g_input, mouse);
+				ui_checkbox(g_r, &g_ui, var.name, temp, v2(48), (b8*)var.ptr, g_input, g_mouse);
 			}
 			pos.y += 50;
 		}
 
-		if(ui_button(g_r, &g_ui, "Save", pos, v2(200, 48), game->font, font_size, g_input, mouse).state == e_ui_active) {
+		if(ui_button(g_r, &g_ui, "Save", pos, v2(200, 48), game->font, font_size, g_input, g_mouse).state == e_ui_active) {
 			s_str_builder<10 * c_kb> builder;
 			foreach_val(var_i, var, game->variables) {
 				if(var.type == e_var_type_int) {
