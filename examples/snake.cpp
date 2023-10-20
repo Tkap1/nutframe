@@ -3,6 +3,11 @@
 #include "../src/platform_shared.h"
 #include "../src/variables.h"
 
+#define zero {}
+#define func static
+#define global static
+#define null NULL
+
 global constexpr int c_tile_count = 12;
 global constexpr int c_max_snake_len = c_tile_count * c_tile_count / 2;
 global constexpr int c_score_to_win = 20;
@@ -108,23 +113,19 @@ global s_v2 mouse;
 global s_ui g_ui;
 
 #ifdef m_debug
-#define register_live_variable(var) register_live_variable_(&var, #var)
-#define live_variable(var, min_val, max_val) live_variable_(&var, #var, min_val, max_val)
+#define live_variable(var, min_val, max_val, display) live_variable_(&var, #var, min_val, max_val, display)
 #else // m_debug
-#define register_live_variable(var)
-#define live_variable(var, min_val, max_val)
+#define live_variable(var, min_val, max_val, display)
 #endif // m_debug
 
 func s_v2i spawn_apple();
 template <typename t>
-func void live_variable_(t* ptr, const char* name, t min_val, t max_val);
+func void live_variable_(t* ptr, const char* name, t min_val, t max_val, b8 display);
 func s_ui_interaction ui_button(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size);
 template <typename t>
 func t ui_slider(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, t min_val, t max_val, t curr_val);
 func void ui_request_pressed(u32 id);
 func void ui_checkbox(const char* text, s_v2 pos, s_v2 size, b8* val);
-template <typename t>
-func void register_live_variable_(t* ptr, const char* name);
 func s_var* get_var_by_ptr(void* ptr);
 
 
@@ -162,15 +163,10 @@ m_update_game(update_game)
 	renderer->set_shader_float("snake_apple_time", game->snake_apple_time);
 	game->snake_apple_time = at_least(0.0f, game->snake_apple_time - (float)platform_data->frame_time);
 
-	register_live_variable(c_apple_light_duration);
-	register_live_variable(c_move_delay);
-	register_live_variable(c_tile_size);
-	register_live_variable(c_self_collision);
-
-	live_variable(c_apple_light_duration, 0.0f, 5.0f);
-	live_variable(c_move_delay, 0.01f, 0.5f);
-	live_variable(c_tile_size, 64, 65);
-	live_variable(c_self_collision, (b8)0, (b8)0);
+	live_variable(c_apple_light_duration, 0.0f, 5.0f, true);
+	live_variable(c_move_delay, 0.01f, 0.5f, true);
+	live_variable(c_tile_size, 64, 65, true);
+	live_variable(c_self_collision, (b8)0, (b8)0, true);
 
 	if(is_key_pressed(g_input, c_key_f1)) {
 		game->show_live_vars = !game->show_live_vars;
@@ -223,13 +219,13 @@ m_update_game(update_game)
 			s_str_builder<10 * c_kb> builder;
 			foreach_val(var_i, var, game->variables) {
 				if(var.type == e_var_type_int) {
-					builder.add_line("global int %s = %i;", var.name, *(int*)var.ptr);
+					builder.add_line("static int %s = %i;", var.name, *(int*)var.ptr);
 				}
 				else if(var.type == e_var_type_float) {
-					builder.add_line("global float %s = %ff;", var.name, *(float*)var.ptr);
+					builder.add_line("static float %s = %ff;", var.name, *(float*)var.ptr);
 				}
 				else if(var.type == e_var_type_bool) {
-					builder.add_line("global b8 %s = %s;", var.name, *(b8*)var.ptr ? "true" : "false");
+					builder.add_line("static b8 %s = %s;", var.name, *(b8*)var.ptr ? "true" : "false");
 				}
 				invalid_else;
 			}
@@ -394,14 +390,14 @@ func s_v2i spawn_apple()
 }
 
 template <typename t>
-func void live_variable_(t* ptr, const char* name, t min_val, t max_val)
+func void live_variable_(t* ptr, const char* name, t min_val, t max_val, b8 display)
 {
 	constexpr b8 is_int = is_same<t, int>;
 	constexpr b8 is_float = is_same<t, float>;
 	constexpr b8 is_bool = is_same<t, b8>;
 	static_assert(is_int || is_float || is_bool);
 	s_var var = zero;
-	var.display = true;
+	var.display = display;
 	var.ptr = ptr;
 	var.name = name;
 	if constexpr(is_int) {
@@ -424,29 +420,6 @@ func void live_variable_(t* ptr, const char* name, t min_val, t max_val)
 	else {
 		game->variables.add(var);
 	}
-}
-
-template <typename t>
-func void register_live_variable_(t* ptr, const char* name)
-{
-	constexpr b8 is_int = is_same<t, int>;
-	constexpr b8 is_float = is_same<t, float>;
-	constexpr b8 is_bool = is_same<t, b8>;
-	static_assert(is_int || is_float || is_bool);
-	s_var var = zero;
-	var.ptr = ptr;
-	var.name = name;
-	if constexpr(is_int) {
-		var.type = e_var_type_int;
-	}
-	else if constexpr(is_float) {
-		var.type = e_var_type_float;
-	}
-	else if constexpr(is_bool) {
-		var.type = e_var_type_bool;
-	}
-	assert(get_var_by_ptr(ptr) == null);
-	game->variables.add(var);
 }
 
 func s_var* get_var_by_ptr(void* ptr)

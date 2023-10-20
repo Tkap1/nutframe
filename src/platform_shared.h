@@ -35,10 +35,6 @@ typedef uint32_t b32;
 
 typedef double f64;
 
-#define zero {}
-#define func static
-#define global static
-#define null NULL
 #define assert(cond) do { if(!(cond)) { on_failed_assert(#cond, __FILE__, __LINE__); } } while(0)
 #define unreferenced(thing) (void)thing;
 #define check(cond) do { if(!(cond)) { error(false); }} while(0)
@@ -61,19 +57,19 @@ typedef double f64;
 #define foreach_val_(a, index_name, element_name, array) foreach_val__(a, index_name, element_name, array)
 #define foreach_val(index_name, element_name, array) foreach_val_(__LINE__, index_name, element_name, array)
 
-global constexpr u64 c_max_u64 = UINT64_MAX;
-global constexpr float c_max_f32 = 999999999.0f;
+static constexpr u64 c_max_u64 = UINT64_MAX;
+static constexpr float c_max_f32 = 999999999.0f;
 
-global constexpr s64 c_kb = 1024;
-global constexpr s64 c_mb = 1024 * c_kb;
-global constexpr s64 c_gb = 1024 * c_mb;
-global constexpr s64 c_tb = 1024 * c_gb;
+static constexpr s64 c_kb = 1024;
+static constexpr s64 c_mb = 1024 * c_kb;
+static constexpr s64 c_gb = 1024 * c_mb;
+static constexpr s64 c_tb = 1024 * c_gb;
 
-global constexpr float pi = 3.1415926f;
-global constexpr float tau = 6.283185f;
-global constexpr float epsilon = 0.000001f;
+static constexpr float pi = 3.1415926f;
+static constexpr float tau = 6.283185f;
+static constexpr float epsilon = 0.000001f;
 
-func void on_failed_assert(const char* cond, const char* file, int line);
+static void on_failed_assert(const char* cond, const char* file, int line);
 
 template<typename t0, typename t1>
 struct is_same_ { static constexpr b8 is_it = false; };
@@ -322,7 +318,7 @@ struct s_font
 };
 
 
-global constexpr int c_max_arena_push = 16;
+static constexpr int c_max_arena_push = 16;
 struct s_lin_arena
 {
 	int push_count;
@@ -332,7 +328,7 @@ struct s_lin_arena
 	void* memory;
 };
 
-func void* la_get(s_lin_arena* arena, u64 in_requested)
+static void* la_get(s_lin_arena* arena, u64 in_requested)
 {
 	assert(arena);
 	assert(in_requested > 0);
@@ -343,20 +339,20 @@ func void* la_get(s_lin_arena* arena, u64 in_requested)
 	return result;
 }
 
-func void* la_get_zero(s_lin_arena* arena, u64 in_requested)
+static void* la_get_zero(s_lin_arena* arena, u64 in_requested)
 {
 	void* result = la_get(arena, in_requested);
 	memset(result, 0, in_requested);
 	return result;
 }
 
-func void la_push(s_lin_arena* arena)
+static void la_push(s_lin_arena* arena)
 {
 	assert(arena->push_count < c_max_arena_push);
 	arena->push[arena->push_count++] = arena->used;
 }
 
-func void la_pop(s_lin_arena* arena)
+static void la_pop(s_lin_arena* arena)
 {
 	assert(arena->push_count > 0);
 	arena->used = arena->push[--arena->push_count];
@@ -514,7 +510,7 @@ struct s_platform_renderer
 	u32 default_vbo;
 	u32 programs[e_shader_count];
 };
-global s_platform_renderer g_platform_renderer = zero;
+static s_platform_renderer g_platform_renderer = {};
 
 #pragma pack(push, 1)
 struct s_riff_chunk
@@ -543,20 +539,20 @@ struct s_data_chunk
 };
 #pragma pack(pop)
 
-func void add_int_attrib(s_attrib_handler* handler, int count);
-func void add_float_attrib(s_attrib_handler* handler, int count);
-func void finish_attribs(s_attrib_handler* handler);
-func u32 load_shader_from_str(const char* vertex_src, const char* fragment_src);
-func u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
-func void after_making_framebuffer(int index, s_game_renderer* game_renderer);
-func s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
-func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
-func s_texture load_texture(s_game_renderer* game_renderer, const char* path);
+static void add_int_attrib(s_attrib_handler* handler, int count);
+static void add_float_attrib(s_attrib_handler* handler, int count);
+static void finish_attribs(s_attrib_handler* handler);
+static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src);
+static u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
+static void after_making_framebuffer(int index, s_game_renderer* game_renderer);
+static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
+static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
+static s_texture load_texture(s_game_renderer* game_renderer, const char* path);
 
-func char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = null)
+static char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = NULL)
 {
 	FILE* file = fopen(path, "rb");
-	if(!file) { return null; }
+	if(!file) { return NULL; }
 
 	fseek(file, 0, SEEK_END);
 	u64 file_size = ftell(file);
@@ -572,7 +568,7 @@ func char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = 
 	return data;
 }
 
-func b8 write_file(const char* path, void* data, u64 size)
+static b8 write_file(const char* path, void* data, u64 size)
 {
 	assert(size > 0);
 	FILE* file = fopen(path, "wb");
@@ -587,13 +583,13 @@ func b8 write_file(const char* path, void* data, u64 size)
 #endif // m_game
 
 template <typename t>
-func t at_least(t a, t b)
+static t at_least(t a, t b)
 {
 	return a > b ? a : b;
 }
 
 template <typename t>
-func t at_most(t a, t b)
+static t at_most(t a, t b)
 {
 	return b > a ? a : b;
 }
@@ -683,7 +679,7 @@ struct s_rng
 
 
 template <typename T>
-func constexpr s_v2 v2(T x, T y)
+static constexpr s_v2 v2(T x, T y)
 {
 	s_v2 result;
 	result.x = (float)x;
@@ -691,13 +687,13 @@ func constexpr s_v2 v2(T x, T y)
 	return result;
 }
 
-func constexpr s_v2 v2(s_v2i v)
+static constexpr s_v2 v2(s_v2i v)
 {
 	return v2(v.x, v.y);
 }
 
 template <typename T>
-func constexpr s_v2 v2(T v)
+static constexpr s_v2 v2(T v)
 {
 	s_v2 result;
 	result.x = (float)v;
@@ -705,7 +701,7 @@ func constexpr s_v2 v2(T v)
 	return result;
 }
 
-func constexpr s_v2i v2i(int x, int y)
+static constexpr s_v2i v2i(int x, int y)
 {
 	s_v2i result;
 	result.x = x;
@@ -713,7 +709,7 @@ func constexpr s_v2i v2i(int x, int y)
 	return result;
 }
 
-func s_v4 v41f(float v)
+static s_v4 v41f(float v)
 {
 	s_v4 result;
 	result.x = v;
@@ -724,7 +720,7 @@ func s_v4 v41f(float v)
 }
 
 
-func s_v2 operator+(s_v2 a, s_v2 b)
+static s_v2 operator+(s_v2 a, s_v2 b)
 {
 	s_v2 result;
 	result.x = a.x + b.x;
@@ -732,7 +728,7 @@ func s_v2 operator+(s_v2 a, s_v2 b)
 	return result;
 }
 
-func s_v2 operator+(s_v2 a, float b)
+static s_v2 operator+(s_v2 a, float b)
 {
 	s_v2 result;
 	result.x = a.x + b;
@@ -740,7 +736,7 @@ func s_v2 operator+(s_v2 a, float b)
 	return result;
 }
 
-func s_v2 operator-(s_v2 a, s_v2 b)
+static s_v2 operator-(s_v2 a, s_v2 b)
 {
 	s_v2 result;
 	result.x = a.x - b.x;
@@ -748,7 +744,7 @@ func s_v2 operator-(s_v2 a, s_v2 b)
 	return result;
 }
 
-func s_v2 operator-(s_v2 a, float b)
+static s_v2 operator-(s_v2 a, float b)
 {
 	s_v2 result;
 	result.x = a.x - b;
@@ -756,7 +752,7 @@ func s_v2 operator-(s_v2 a, float b)
 	return result;
 }
 
-func s_v2 operator*(s_v2 a, s_v2 b)
+static s_v2 operator*(s_v2 a, s_v2 b)
 {
 	s_v2 result;
 	result.x = a.x * b.x;
@@ -764,7 +760,7 @@ func s_v2 operator*(s_v2 a, s_v2 b)
 	return result;
 }
 
-func s_v2 operator*(s_v2 a, float b)
+static s_v2 operator*(s_v2 a, float b)
 {
 	s_v2 result;
 	result.x = a.x * b;
@@ -772,7 +768,7 @@ func s_v2 operator*(s_v2 a, float b)
 	return result;
 }
 
-func s_v2i operator*(s_v2i a, int b)
+static s_v2i operator*(s_v2i a, int b)
 {
 	s_v2i result;
 	result.x = a.x * b;
@@ -780,7 +776,7 @@ func s_v2i operator*(s_v2i a, int b)
 	return result;
 }
 
-func s_v2 operator/(s_v2 a, float b)
+static s_v2 operator/(s_v2 a, float b)
 {
 	s_v2 result;
 	result.x = a.x / b;
@@ -788,7 +784,7 @@ func s_v2 operator/(s_v2 a, float b)
 	return result;
 }
 
-func s_v2 operator/(s_v2 a, s_v2 b)
+static s_v2 operator/(s_v2 a, s_v2 b)
 {
 	s_v2 result;
 	result.x = a.x / b.x;
@@ -796,19 +792,19 @@ func s_v2 operator/(s_v2 a, s_v2 b)
 	return result;
 }
 
-func void operator-=(s_v2& a, s_v2 b)
+static void operator-=(s_v2& a, s_v2 b)
 {
 	a.x -= b.x;
 	a.y -= b.y;
 }
 
-func void operator*=(s_v2& a, s_v2 b)
+static void operator*=(s_v2& a, s_v2 b)
 {
 	a.x *= b.x;
 	a.y *= b.y;
 }
 
-func void operator*=(s_v2& a, float b)
+static void operator*=(s_v2& a, float b)
 {
 	a.x *= b;
 	a.y *= b;
@@ -816,13 +812,13 @@ func void operator*=(s_v2& a, float b)
 
 
 template <typename t>
-func t clamp(t current, t min_val, t max_val)
+static t clamp(t current, t min_val, t max_val)
 {
 	return at_most(max_val, at_least(min_val, current));
 }
 
 
-func s_v2 v2_rotate_around(s_v2 v, s_v2 pivot, float angle)
+static s_v2 v2_rotate_around(s_v2 v, s_v2 pivot, float angle)
 {
 	s_v2 p = v;
 
@@ -844,20 +840,20 @@ func s_v2 v2_rotate_around(s_v2 v, s_v2 pivot, float angle)
 	return p;
 }
 
-func void operator+=(s_v2& left, s_v2 right)
+static void operator+=(s_v2& left, s_v2 right)
 {
 	left.x += right.x;
 	left.y += right.y;
 }
 
-func void operator+=(s_v2i& left, s_v2i right)
+static void operator+=(s_v2i& left, s_v2i right)
 {
 	left.x += right.x;
 	left.y += right.y;
 }
 
 [[nodiscard]]
-func int circular_index(int index, int size)
+static int circular_index(int index, int size)
 {
 	assert(size > 0);
 	if(index >= 0)
@@ -867,33 +863,33 @@ func int circular_index(int index, int size)
 	return (size - 1) - ((-index - 1) % size);
 }
 
-func float v2_angle(s_v2 v)
+static float v2_angle(s_v2 v)
 {
 	return atan2f(v.y, v.x);
 }
 
-func float lerp(float a, float b, float t)
+static float lerp(float a, float b, float t)
 {
 	return a + (b - a) * t;
 }
 
-func int roundfi(float x)
+static int roundfi(float x)
 {
 	return (int)roundf(x);
 }
 
-func float sinf2(float t)
+static float sinf2(float t)
 {
 	return sinf(t) * 0.5f + 0.5f;
 }
 
-func b8 operator==(s_v2i a, s_v2i b)
+static b8 operator==(s_v2i a, s_v2i b)
 {
 	return a.x == b.x && a.y == b.y;
 }
 
 template <typename t>
-func constexpr s_v4 make_color(t v)
+static constexpr s_v4 make_color(t v)
 {
 	s_v4 result;
 	result.x = (float)v;
@@ -904,7 +900,7 @@ func constexpr s_v4 make_color(t v)
 }
 
 template <typename t0, typename t1, typename t2>
-func constexpr s_v4 make_color(t0 r, t1 g, t2 b)
+static constexpr s_v4 make_color(t0 r, t1 g, t2 b)
 {
 	s_v4 result;
 	result.x = (float)r;
@@ -914,7 +910,7 @@ func constexpr s_v4 make_color(t0 r, t1 g, t2 b)
 	return result;
 }
 
-func s_v2 v2_from_angle(float angle)
+static s_v2 v2_from_angle(float angle)
 {
 	return v2(
 		cosf(angle),
@@ -922,7 +918,7 @@ func s_v2 v2_from_angle(float angle)
 	);
 }
 
-func int double_until_greater_or_equal(int current, int target)
+static int double_until_greater_or_equal(int current, int target)
 {
 	assert(target > 0);
 	if(current <= 0) { current = 1; }
@@ -930,33 +926,33 @@ func int double_until_greater_or_equal(int current, int target)
 	return current;
 }
 
-func int floorfi(float x)
+static int floorfi(float x)
 {
 	return (int)floorf(x);
 }
 
-func int ceilfi(float x)
+static int ceilfi(float x)
 {
 	return (int)ceilf(x);
 }
 
-func float fract(float x)
+static float fract(float x)
 {
 	return x - (int)x;
 }
 
-func float v2_length(s_v2 a)
+static float v2_length(s_v2 a)
 {
 	return sqrtf(a.x * a.x + a.y * a.y);
 }
 
-func float v2_distance(s_v2 a, s_v2 b)
+static float v2_distance(s_v2 a, s_v2 b)
 {
 	return v2_length(a - b);
 }
 
 
-func s_v2 lerp(s_v2 a, s_v2 b, float t)
+static s_v2 lerp(s_v2 a, s_v2 b, float t)
 {
 	s_v2 result;
 	result.x = lerp(a.x, b.x, t);
@@ -964,7 +960,7 @@ func s_v2 lerp(s_v2 a, s_v2 b, float t)
 	return result;
 }
 
-func s_v2 lerp_snap(s_v2 a, s_v2 b, float t)
+static s_v2 lerp_snap(s_v2 a, s_v2 b, float t)
 {
 	s_v2 result;
 	float dist = v2_distance(a, b);
@@ -977,7 +973,7 @@ func s_v2 lerp_snap(s_v2 a, s_v2 b, float t)
 	return result;
 }
 
-func s_v4 lerp(s_v4 a, s_v4 b, float t)
+static s_v4 lerp(s_v4 a, s_v4 b, float t)
 {
 	s_v4 result;
 	result.x = lerp(a.x, b.x, t);
@@ -987,7 +983,7 @@ func s_v4 lerp(s_v4 a, s_v4 b, float t)
 	return result;
 }
 
-func s_v2 v2_normalized(s_v2 v)
+static s_v2 v2_normalized(s_v2 v)
 {
 	s_v2 result;
 	float length = v2_length(v);
@@ -1003,12 +999,12 @@ func s_v2 v2_normalized(s_v2 v)
 	return result;
 }
 
-func float range_lerp(float input_val, float input_start, float input_end, float output_start, float output_end)
+static float range_lerp(float input_val, float input_start, float input_end, float output_start, float output_end)
 {
 	return output_start + ((output_end - output_start) / (input_end - input_start)) * (input_val - input_start);
 }
 
-func int str_find_from_left(const char* haystack, int haystack_len, const char* needle, int needle_len)
+static int str_find_from_left(const char* haystack, int haystack_len, const char* needle, int needle_len)
 {
 	if(needle_len > haystack_len) { return -1; }
 
@@ -1033,7 +1029,7 @@ func int str_find_from_left(const char* haystack, int haystack_len, const char* 
 	return -1;
 }
 
-func b8 str_replace(char* str, const char* needle, const char* replacement)
+static b8 str_replace(char* str, const char* needle, const char* replacement)
 {
 	int str_len = (int)strlen(str);
 	int needle_len = (int)strlen(needle);
@@ -1057,90 +1053,90 @@ func b8 str_replace(char* str, const char* needle, const char* replacement)
 }
 
 
-global constexpr int c_key_backspace = 0x08;
-global constexpr int c_key_tab = 0x09;
-global constexpr int c_key_enter = 0x0D;
-global constexpr int c_key_alt = 0x12;
-global constexpr int c_key_left_alt = 0xA4;
-global constexpr int c_key_right_alt = 0xA5;
-global constexpr int c_key_escape = 0x1B;
-global constexpr int c_key_space = 0x20;
-global constexpr int c_key_end = 0x23;
-global constexpr int c_key_home = 0x24;
-global constexpr int c_key_left = 0x25;
-global constexpr int c_key_up = 0x26;
-global constexpr int c_key_right = 0x27;
-global constexpr int c_key_down = 0x28;
-global constexpr int c_key_delete = 0x2E;
-global constexpr int c_key_0 = 0x30;
-global constexpr int c_key_1 = 0x31;
-global constexpr int c_key_2 = 0x32;
-global constexpr int c_key_3 = 0x33;
-global constexpr int c_key_4 = 0x34;
-global constexpr int c_key_5 = 0x35;
-global constexpr int c_key_6 = 0x36;
-global constexpr int c_key_7 = 0x37;
-global constexpr int c_key_8 = 0x38;
-global constexpr int c_key_9 = 0x39;
-global constexpr int c_key_a = 0x41;
-global constexpr int c_key_b = 0x42;
-global constexpr int c_key_c = 0x43;
-global constexpr int c_key_d = 0x44;
-global constexpr int c_key_e = 0x45;
-global constexpr int c_key_f = 0x46;
-global constexpr int c_key_g = 0x47;
-global constexpr int c_key_h = 0x48;
-global constexpr int c_key_i = 0x49;
-global constexpr int c_key_j = 0x4A;
-global constexpr int c_key_k = 0x4B;
-global constexpr int c_key_l = 0x4C;
-global constexpr int c_key_m = 0x4D;
-global constexpr int c_key_n = 0x4E;
-global constexpr int c_key_o = 0x4F;
-global constexpr int c_key_p = 0x50;
-global constexpr int c_key_q = 0x51;
-global constexpr int c_key_r = 0x52;
-global constexpr int c_key_s = 0x53;
-global constexpr int c_key_t = 0x54;
-global constexpr int c_key_u = 0x55;
-global constexpr int c_key_v = 0x56;
-global constexpr int c_key_w = 0x57;
-global constexpr int c_key_x = 0x58;
-global constexpr int c_key_y = 0x59;
-global constexpr int c_key_z = 0x5A;
-global constexpr int c_key_add = 0x6B;
-global constexpr int c_key_subtract = 0x6D;
-global constexpr int c_key_f1 = 0x70;
-global constexpr int c_key_f2 = 0x71;
-global constexpr int c_key_f3 = 0x72;
-global constexpr int c_key_f4 = 0x73;
-global constexpr int c_key_f5 = 0x74;
-global constexpr int c_key_f6 = 0x75;
-global constexpr int c_key_f7 = 0x76;
-global constexpr int c_key_f8 = 0x77;
-global constexpr int c_key_f9 = 0x78;
-global constexpr int c_key_f10 = 0x79;
-global constexpr int c_key_f11 = 0x7A;
-global constexpr int c_key_f12 = 0x7B;
-global constexpr int c_key_left_shift = 0xA0;
-global constexpr int c_key_right_shift = 0xA1;
-global constexpr int c_key_left_ctrl = 0xA2;
-global constexpr int c_key_right_ctrl = 0xA3;
-global constexpr int c_left_mouse = 1020;
-global constexpr int c_right_mouse = 1021;
-global constexpr int c_max_keys = 1024;
+static constexpr int c_key_backspace = 0x08;
+static constexpr int c_key_tab = 0x09;
+static constexpr int c_key_enter = 0x0D;
+static constexpr int c_key_alt = 0x12;
+static constexpr int c_key_left_alt = 0xA4;
+static constexpr int c_key_right_alt = 0xA5;
+static constexpr int c_key_escape = 0x1B;
+static constexpr int c_key_space = 0x20;
+static constexpr int c_key_end = 0x23;
+static constexpr int c_key_home = 0x24;
+static constexpr int c_key_left = 0x25;
+static constexpr int c_key_up = 0x26;
+static constexpr int c_key_right = 0x27;
+static constexpr int c_key_down = 0x28;
+static constexpr int c_key_delete = 0x2E;
+static constexpr int c_key_0 = 0x30;
+static constexpr int c_key_1 = 0x31;
+static constexpr int c_key_2 = 0x32;
+static constexpr int c_key_3 = 0x33;
+static constexpr int c_key_4 = 0x34;
+static constexpr int c_key_5 = 0x35;
+static constexpr int c_key_6 = 0x36;
+static constexpr int c_key_7 = 0x37;
+static constexpr int c_key_8 = 0x38;
+static constexpr int c_key_9 = 0x39;
+static constexpr int c_key_a = 0x41;
+static constexpr int c_key_b = 0x42;
+static constexpr int c_key_c = 0x43;
+static constexpr int c_key_d = 0x44;
+static constexpr int c_key_e = 0x45;
+static constexpr int c_key_f = 0x46;
+static constexpr int c_key_g = 0x47;
+static constexpr int c_key_h = 0x48;
+static constexpr int c_key_i = 0x49;
+static constexpr int c_key_j = 0x4A;
+static constexpr int c_key_k = 0x4B;
+static constexpr int c_key_l = 0x4C;
+static constexpr int c_key_m = 0x4D;
+static constexpr int c_key_n = 0x4E;
+static constexpr int c_key_o = 0x4F;
+static constexpr int c_key_p = 0x50;
+static constexpr int c_key_q = 0x51;
+static constexpr int c_key_r = 0x52;
+static constexpr int c_key_s = 0x53;
+static constexpr int c_key_t = 0x54;
+static constexpr int c_key_u = 0x55;
+static constexpr int c_key_v = 0x56;
+static constexpr int c_key_w = 0x57;
+static constexpr int c_key_x = 0x58;
+static constexpr int c_key_y = 0x59;
+static constexpr int c_key_z = 0x5A;
+static constexpr int c_key_add = 0x6B;
+static constexpr int c_key_subtract = 0x6D;
+static constexpr int c_key_f1 = 0x70;
+static constexpr int c_key_f2 = 0x71;
+static constexpr int c_key_f3 = 0x72;
+static constexpr int c_key_f4 = 0x73;
+static constexpr int c_key_f5 = 0x74;
+static constexpr int c_key_f6 = 0x75;
+static constexpr int c_key_f7 = 0x76;
+static constexpr int c_key_f8 = 0x77;
+static constexpr int c_key_f9 = 0x78;
+static constexpr int c_key_f10 = 0x79;
+static constexpr int c_key_f11 = 0x7A;
+static constexpr int c_key_f12 = 0x7B;
+static constexpr int c_key_left_shift = 0xA0;
+static constexpr int c_key_right_shift = 0xA1;
+static constexpr int c_key_left_ctrl = 0xA2;
+static constexpr int c_key_right_ctrl = 0xA3;
+static constexpr int c_left_mouse = 1020;
+static constexpr int c_right_mouse = 1021;
+static constexpr int c_max_keys = 1024;
 
-global constexpr int c_game_memory = 1 * c_mb;
+static constexpr int c_game_memory = 1 * c_mb;
 
-global constexpr s_v2 c_origin_topleft = {1.0f, -1.0f};
-global constexpr s_v2 c_origin_bottomleft = {1.0f, 1.0f};
-global constexpr s_v2 c_origin_center = {0, 0};
+static constexpr s_v2 c_origin_topleft = {1.0f, -1.0f};
+static constexpr s_v2 c_origin_bottomleft = {1.0f, 1.0f};
+static constexpr s_v2 c_origin_center = {0, 0};
 
-global constexpr s_v2 c_base_res = {64*12, 64*12};
-global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
+static constexpr s_v2 c_base_res = {64*12, 64*12};
+static constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
 
-global constexpr int c_base_resolution_index = 5;
-global constexpr s_v2i c_resolutions[] = {
+static constexpr int c_base_resolution_index = 5;
+static constexpr s_v2i c_resolutions[] = {
 	v2i(640, 360),
 	v2i(854, 480),
 	v2i(960, 540),
@@ -1187,7 +1183,7 @@ typedef b8 (*t_write_file)(const char*, void*, u64);
 
 // @Note(tkap, 08/10/2023): We have a bug with this. If we ever go from having never drawn anything to drawing 64*16+1 things we will
 // exceed the max bucket count (16 currently). To fix this, I guess we have to allow merging in the middle of a frame?? Seems messy...
-global constexpr int c_bucket_capacity = 64;
+static constexpr int c_bucket_capacity = 64;
 
 template <typename t>
 struct s_bucket_array
@@ -1295,7 +1291,7 @@ struct s_platform_data
 };
 
 #ifndef m_game
-global s_platform_data g_platform_data = zero;
+static s_platform_data g_platform_data = {};
 #endif // m_game
 
 typedef s_texture (*t_load_texture)(s_game_renderer*, const char*);
@@ -1328,13 +1324,13 @@ m_update_game(update_game);
 #endif
 
 
-func int get_render_offset(int texture, int blend_mode);
-func s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count);
-func s_v2 get_text_size(const char* text, s_font* font, float font_size);
+static int get_render_offset(int texture, int blend_mode);
+static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count);
+static s_v2 get_text_size(const char* text, s_font* font, float font_size);
 template <typename t>
-func void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc);
+static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc);
 template <typename t>
-func void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena);
+static void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena);
 
 
 
@@ -1343,44 +1339,44 @@ func void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena);
 // ------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------
 
-func void apply_event_to_input(s_input* in_input, s_stored_input event)
+static void apply_event_to_input(s_input* in_input, s_stored_input event)
 {
 	in_input->keys[event.key].is_down = event.is_down;
 	in_input->keys[event.key].count += 1;
 }
 
-func b8 is_key_down(s_input* input, int key) {
+static b8 is_key_down(s_input* input, int key) {
 	assert(key < c_max_keys);
 	return input->keys[key].is_down || input->keys[key].count >= 2;
 }
 
-func b8 is_key_up(s_input* input, int key) {
+static b8 is_key_up(s_input* input, int key) {
 	assert(key < c_max_keys);
 	return !input->keys[key].is_down;
 }
 
-func b8 is_key_pressed(s_input* input, int key) {
+static b8 is_key_pressed(s_input* input, int key) {
 	assert(key < c_max_keys);
 	return (input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
 }
 
-func b8 is_key_released(s_input* input, int key) {
+static b8 is_key_released(s_input* input, int key) {
 	assert(key < c_max_keys);
 	return (!input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
 }
 
-func int get_render_offset(int texture, int blend_mode)
+static int get_render_offset(int texture, int blend_mode)
 {
 	return texture * e_blend_mode_count + blend_mode;
 }
 
 // @Note(tkap, 15/10/2023): Should this always return font_size for y (like it does now), or actually get the tallest char?
-func s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count)
+static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count)
 {
 	assert(count >= 0);
-	if(count <= 0) { return zero; }
+	if(count <= 0) { return {}; }
 
-	s_v2 size = zero;
+	s_v2 size = {};
 	float scale = font->scale * (font_size / font->size);
 
 	for(int char_i = 0; char_i < count; char_i++)
@@ -1400,12 +1396,12 @@ func s_v2 get_text_size_with_count(const char* text, s_font* font, float font_si
 	return size;
 }
 
-func s_v2 get_text_size(const char* text, s_font* font, float font_size)
+static s_v2 get_text_size(const char* text, s_font* font, float font_size)
 {
 	return get_text_size_with_count(text, font, font_size, (int)strlen(text));
 }
 
-func void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_render_data render_data = zero, s_transform t = zero)
+static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_render_data render_data = {}, s_transform t = {})
 {
 	if(!render_data.framebuffer) {
 		render_data.framebuffer = &game_renderer->framebuffers[0];
@@ -1421,7 +1417,7 @@ func void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 si
 	bucket_add(&render_data.framebuffer->transforms[get_render_offset(0, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
 }
 
-func void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_render_data render_data = zero, s_transform t = zero)
+static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_render_data render_data = {}, s_transform t = {})
 {
 	if(!render_data.framebuffer) {
 		render_data.framebuffer = &game_renderer->framebuffers[0];
@@ -1444,7 +1440,7 @@ func void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2
 	bucket_add(&render_data.framebuffer->transforms[get_render_offset(texture.game_id, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
 }
 
-func void draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_pos, int layer, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = zero, s_transform t = zero)
+static void draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_pos, int layer, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
 {
 	if(!render_data.framebuffer) {
 		render_data.framebuffer = &game_renderer->framebuffers[0];
@@ -1482,11 +1478,11 @@ func void draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_po
 		s_v2 bottomleft = t.pos;
 
 		// s_v2 topleft = t.pos + t.draw_size * v2(0, -1);
-		// draw_rect(t.pos, 1, t.draw_size, make_color(0.4f, 0,0), zero, {.origin_offset = c_origin_bottomleft});
-		// draw_rect(center, 75, v2(4), make_color(0, 1,0), zero);
-		// draw_rect(topleft, 75, v2(4), make_color(0, 0,1), zero, {.origin_offset = c_origin_topleft});
-		// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), zero, {.origin_offset = c_origin_bottomleft});
-		// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), zero, {.origin_offset = c_origin_topleft});
+		// draw_rect(t.pos, 1, t.draw_size, make_color(0.4f, 0,0), {}, {.origin_offset = c_origin_bottomleft});
+		// draw_rect(center, 75, v2(4), make_color(0, 1,0), {});
+		// draw_rect(topleft, 75, v2(4), make_color(0, 0,1), {}, {.origin_offset = c_origin_topleft});
+		// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), {}, {.origin_offset = c_origin_bottomleft});
+		// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), {}, {.origin_offset = c_origin_topleft});
 
 		t.pos = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
 
@@ -1505,23 +1501,23 @@ func void draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_po
 	}
 }
 
-func s_lin_arena make_lin_arena(u64 capacity)
+static s_lin_arena make_lin_arena(u64 capacity)
 {
 	assert(capacity > 0);
 	capacity = (capacity + 7) & ~7;
-	s_lin_arena result = zero;
+	s_lin_arena result = {};
 	result.capacity = capacity;
 	result.memory = malloc(capacity);
 	return result;
 }
 
-func s_lin_arena make_lin_arena_from_memory(u64 capacity, void* memory)
+static s_lin_arena make_lin_arena_from_memory(u64 capacity, void* memory)
 {
 	assert(capacity > 0);
 	assert(memory);
 
 	capacity = (capacity + 7) & ~7;
-	s_lin_arena result = zero;
+	s_lin_arena result = {};
 	result.capacity = capacity;
 	result.memory = memory;
 	return result;
@@ -1529,7 +1525,7 @@ func s_lin_arena make_lin_arena_from_memory(u64 capacity, void* memory)
 
 
 template <typename t>
-func void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc)
+static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc)
 {
 	for(int i = 0; i < arr->bucket_count; i++)
 	{
@@ -1556,7 +1552,7 @@ func void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, 
 }
 
 template <typename t>
-func void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena)
+static void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena)
 {
 	int capacity = 0;
 	int count = 0;
@@ -1585,7 +1581,7 @@ func void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena)
 	arr->bucket_count = 1;
 }
 
-func void on_failed_assert(const char* cond, const char* file, int line)
+static void on_failed_assert(const char* cond, const char* file, int line)
 {
 	printf("FAILED ASSERT: %s\n%s (%i)\n", cond, file, line);
 	#ifndef __EMSCRIPTEN__
@@ -1598,7 +1594,7 @@ func void on_failed_assert(const char* cond, const char* file, int line)
 	// @Fixme(tkap, 05/10/2023):
 	// char* text = format_text("FAILED ASSERT IN %s (%i)\n%s\n", file, line, cond);
 	// printf("%s\n", text);
-	// int result = MessageBox(null, text, "Assertion failed", MB_RETRYCANCEL | MB_TOPMOST);
+	// int result = MessageBox(NULL, text, "Assertion failed", MB_RETRYCANCEL | MB_TOPMOST);
 	// if(result != IDRETRY)
 	// {
 	// 	if(IsDebuggerPresent())
@@ -1613,24 +1609,24 @@ func void on_failed_assert(const char* cond, const char* file, int line)
 }
 
 #ifndef m_game
-func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
-func b8 check_for_shader_errors(u32 id, char* out_error);
-func s_texture load_texture_from_file(const char* path, u32 filtering);
-func void after_loading_texture(s_game_renderer* game_renderer);
+static u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
+static b8 check_for_shader_errors(u32 id, char* out_error);
+static s_texture load_texture_from_file(const char* path, u32 filtering);
+static void after_loading_texture(s_game_renderer* game_renderer);
 
 // @TODO(tkap, 17/10/2023): This has to go away in favor of a dynamic system when we add support for custom shaders
-global constexpr s_shader_paths c_shader_paths[e_shader_count] = {
+static constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 	{
 		.vertex_path = "shaders/vertex.vertex",
 		.fragment_path = "shaders/fragment.fragment",
 	},
 };
 
-global b8 g_do_embed = false;
-global s_sarray<const char*, 128> g_to_embed;
-global int g_asset_index = 0;
+static b8 g_do_embed = false;
+static s_sarray<const char*, 128> g_to_embed;
+static int g_asset_index = 0;
 
-func void on_gl_error(const char* expr, int error)
+static void on_gl_error(const char* expr, int error)
 {
 	#define m_gl_errors \
 	X(GL_INVALID_ENUM, "GL_INVALID_ENUM") \
@@ -1656,7 +1652,7 @@ func void on_gl_error(const char* expr, int error)
 	printf("GL ERROR: %s - %i (%s)\n", expr, error, error_str);
 }
 
-func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer, s_lin_arena* arena)
+static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer, s_lin_arena* arena)
 {
 	gl(glGenVertexArrays(1, &platform_renderer->default_vao));
 	gl(glBindVertexArray(platform_renderer->default_vao));
@@ -1664,7 +1660,7 @@ func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_
 	gl(glGenBuffers(1, &platform_renderer->default_vbo));
 	gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
 
-	s_attrib_handler handler = zero;
+	s_attrib_handler handler = {};
 	add_int_attrib(&handler, 1);
 	add_int_attrib(&handler, 1);
 	add_int_attrib(&handler, 1);
@@ -1682,7 +1678,7 @@ func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_
 	finish_attribs(&handler);
 
 	platform_renderer->max_elements = 64;
-	gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * platform_renderer->max_elements, null, GL_DYNAMIC_DRAW));
+	gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * platform_renderer->max_elements, NULL, GL_DYNAMIC_DRAW));
 
 	for(int shader_i = 0; shader_i < e_shader_count; shader_i++)
 	{
@@ -1693,32 +1689,32 @@ func void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_
 
 	gl(glUseProgram(platform_renderer->programs[e_shader_default]));
 
-	s_framebuffer framebuffer = zero;
+	s_framebuffer framebuffer = {};
 	framebuffer.do_depth = true;
 	game_renderer->framebuffers.add(framebuffer);
 	after_making_framebuffer(framebuffer.game_id, game_renderer);
 
 }
 
-func void add_int_attrib(s_attrib_handler* handler, int count)
+static void add_int_attrib(s_attrib_handler* handler, int count)
 {
-	s_attrib attrib = zero;
+	s_attrib attrib = {};
 	attrib.type = GL_INT;
 	attrib.size = sizeof(int);
 	attrib.count = count;
 	handler->attribs.add(attrib);
 }
 
-func void add_float_attrib(s_attrib_handler* handler, int count)
+static void add_float_attrib(s_attrib_handler* handler, int count)
 {
-	s_attrib attrib = zero;
+	s_attrib attrib = {};
 	attrib.type = GL_FLOAT;
 	attrib.size = sizeof(float);
 	attrib.count = count;
 	handler->attribs.add(attrib);
 }
 
-func void finish_attribs(s_attrib_handler* handler)
+static void finish_attribs(s_attrib_handler* handler)
 {
 	u8* offset = 0;
 	int stride = 0;
@@ -1743,7 +1739,7 @@ func void finish_attribs(s_attrib_handler* handler)
 	}
 }
 
-func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer)
+static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer)
 {
 	gl(glUseProgram(platform_renderer->programs[e_shader_default]));
 
@@ -1817,7 +1813,7 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 
 				if(count > platform_renderer->max_elements) {
 					platform_renderer->max_elements = double_until_greater_or_equal(platform_renderer->max_elements, count);
-					gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * platform_renderer->max_elements, null, GL_DYNAMIC_DRAW));
+					gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * platform_renderer->max_elements, NULL, GL_DYNAMIC_DRAW));
 				}
 
 				if(count <= 0) { continue; }
@@ -1898,7 +1894,7 @@ func void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	}
 }
 
-func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
+static u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
 {
 	if(g_do_embed) {
 		g_to_embed.add(vertex_path);
@@ -1919,7 +1915,7 @@ func u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_a
 
 }
 
-func u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
+static u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
 {
 	char* vertex_src = read_file(vertex_path, frame_arena);
 	if(!vertex_src || !vertex_src[0]) { return 0; }
@@ -1929,7 +1925,7 @@ func u32 load_shader_from_file(const char* vertex_path, const char* fragment_pat
 	return load_shader_from_str(vertex_src, fragment_src);
 }
 
-func u32 load_shader_from_str(const char* vertex_src, const char* fragment_src)
+static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src)
 {
 	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
 	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -1942,10 +1938,10 @@ func u32 load_shader_from_str(const char* vertex_src, const char* fragment_src)
 
 	const char* vertex_src_arr[] = {header, vertex_src};
 	const char* fragment_src_arr[] = {header, fragment_src};
-	gl(glShaderSource(vertex, array_count(vertex_src_arr), (const GLchar * const *)vertex_src_arr, null));
-	gl(glShaderSource(fragment, array_count(fragment_src_arr), (const GLchar * const *)fragment_src_arr, null));
+	gl(glShaderSource(vertex, array_count(vertex_src_arr), (const GLchar * const *)vertex_src_arr, NULL));
+	gl(glShaderSource(fragment, array_count(fragment_src_arr), (const GLchar * const *)fragment_src_arr, NULL));
 	gl(glCompileShader(vertex));
-	char buffer[1024] = zero;
+	char buffer[1024] = {};
 	check_for_shader_errors(vertex, buffer);
 	gl(glCompileShader(fragment));
 	check_for_shader_errors(fragment, buffer);
@@ -1971,14 +1967,14 @@ func u32 load_shader_from_str(const char* vertex_src, const char* fragment_src)
 	return program;
 }
 
-func b8 check_for_shader_errors(u32 id, char* out_error)
+static b8 check_for_shader_errors(u32 id, char* out_error)
 {
 	int compile_success;
 	char info_log[1024];
 	gl(glGetShaderiv(id, GL_COMPILE_STATUS, &compile_success));
 
 	if(!compile_success) {
-		gl(glGetShaderInfoLog(id, 1024, null, info_log));
+		gl(glGetShaderInfoLog(id, 1024, NULL, info_log));
 		log("Failed to compile shader:\n%s", info_log);
 
 		if(out_error)
@@ -1991,7 +1987,7 @@ func b8 check_for_shader_errors(u32 id, char* out_error)
 	return true;
 }
 
-func s_texture load_texture(s_game_renderer* game_renderer, const char* path)
+static s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 {
 	if(g_do_embed) {
 		g_to_embed.add(path);
@@ -2016,7 +2012,7 @@ func s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 	return result;
 }
 
-func s_texture load_texture_from_data(void* data, int width, int height, u32 filtering)
+static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering)
 {
 	assert(data);
 	u32 id;
@@ -2028,13 +2024,13 @@ func s_texture load_texture_from_data(void* data, int width, int height, u32 fil
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering));
 
-	s_texture texture = zero;
+	s_texture texture = {};
 	texture.gpu_id = id;
 	texture.size = v2(width, height);
 	return texture;
 }
 
-func s_texture load_texture_from_file(const char* path, u32 filtering)
+static s_texture load_texture_from_file(const char* path, u32 filtering)
 {
 	int width, height, num_channels;
 	void* data = stbi_load(path, &width, &height, &num_channels, 4);
@@ -2044,7 +2040,7 @@ func s_texture load_texture_from_file(const char* path, u32 filtering)
 	return texture;
 }
 
-func void after_loading_texture(s_game_renderer* game_renderer)
+static void after_loading_texture(s_game_renderer* game_renderer)
 {
 	int old_index = game_renderer->transform_arena_index;
 	int new_index = (game_renderer->transform_arena_index + 1) % 2;
@@ -2055,7 +2051,7 @@ func void after_loading_texture(s_game_renderer* game_renderer)
 			&game_renderer->transform_arenas[new_index], size
 		);
 
-		// @Note(tkap, 08/10/2023): The first time we add a texture, transforms is null, so we can't memcpy from it
+		// @Note(tkap, 08/10/2023): The first time we add a texture, transforms is NULL, so we can't memcpy from it
 		if(framebuffer->transforms) {
 			memcpy(new_transforms, framebuffer->transforms, size);
 		}
@@ -2066,12 +2062,12 @@ func void after_loading_texture(s_game_renderer* game_renderer)
 	game_renderer->transform_arena_index = new_index;
 }
 
-func s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, b8 do_depth)
+static s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, b8 do_depth)
 {
 	// @Fixme(tkap, 11/10/2023): handle this
 	assert(!do_depth);
 
-	s_framebuffer result = zero;
+	s_framebuffer result = {};
 
 	gl(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 	gl(glGenFramebuffers(1, &result.gpu_id));
@@ -2079,7 +2075,7 @@ func s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, b8 do_depth
 
 	gl(glGenTextures(1, &result.texture.gpu_id));
 	gl(glBindTexture(GL_TEXTURE_2D, result.texture.gpu_id));
-	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_window.width, g_window.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, null));
+	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_window.width, g_window.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 	gl(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, result.texture.gpu_id, 0));
@@ -2099,7 +2095,7 @@ func s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, b8 do_depth
 	return &game_renderer->framebuffers[index];
 }
 
-func void after_making_framebuffer(int index, s_game_renderer* game_renderer)
+static void after_making_framebuffer(int index, s_game_renderer* game_renderer)
 {
 	int size = sizeof(*game_renderer->framebuffers[0].transforms) * game_renderer->textures.count * e_blend_mode_count;
 	s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
@@ -2112,7 +2108,7 @@ func void after_making_framebuffer(int index, s_game_renderer* game_renderer)
 
 }
 
-func void write_embed_file()
+static void write_embed_file()
 {
 	constexpr int max_chars = 100 * c_mb;
 	assert(g_do_embed);
@@ -2129,7 +2125,7 @@ func void write_embed_file()
 		fread(data, 1, file_size, file);
 		u8* cursor = data;
 
-		builder->add_line("global constexpr u8 embed%i[%u] = {", embed_i, file_size);
+		builder->add_line("static constexpr u8 embed%i[%u] = {", embed_i, file_size);
 		for(u64 i = 0; i < file_size; i++) {
 			builder->add("%u,", *cursor);
 			cursor++;
@@ -2140,13 +2136,13 @@ func void write_embed_file()
 		free(data);
 	}
 
-	builder->add_line("global constexpr u8* embed_data[%i] = {", g_to_embed.count);
+	builder->add_line("static constexpr u8* embed_data[%i] = {", g_to_embed.count);
 	foreach_val(embed_i, embed, g_to_embed) {
 		builder->add("(u8*)embed%i,", embed_i);
 	}
 	builder->add_line("\n};");
 
-	builder->add_line("global constexpr int embed_sizes[%i] = {", g_to_embed.count);
+	builder->add_line("static constexpr int embed_sizes[%i] = {", g_to_embed.count);
 	foreach_val(embed_i, embed, g_to_embed) {
 		builder->add("array_count(embed%i),", embed_i);
 	}
@@ -2163,7 +2159,7 @@ func void write_embed_file()
 	exit(0);
 }
 
-func s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena)
+static s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena)
 {
 	if(g_do_embed) {
 		g_to_embed.add(path);
@@ -2187,20 +2183,20 @@ func s_font* load_font(s_game_renderer* game_renderer, const char* path, int fon
 	return &game_renderer->fonts[index];
 }
 
-func s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena)
+static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena)
 {
 	u8* file_data = (u8*)read_file(path, arena);
 	return load_font_from_data(file_data, font_size, arena);
 }
 
-func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena)
+static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena)
 {
-	s_font font = zero;
+	s_font font = {};
 	font.size = (float)font_size;
 
 	assert(file_data);
 
-	stbtt_fontinfo info = zero;
+	stbtt_fontinfo info = {};
 	stbtt_InitFont(&info, file_data, 0);
 
 	stbtt_GetFontVMetrics(&info, &font.ascent, &font.descent, &font.line_gap);
@@ -2219,10 +2215,10 @@ func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena
 
 	for(int char_i = 0; char_i < max_chars; char_i++)
 	{
-		s_glyph glyph = zero;
+		s_glyph glyph = {};
 		u8* bitmap = stbtt_GetCodepointBitmap(&info, 0, font.scale, char_i, &glyph.width, &glyph.height, 0, 0);
 		stbtt_GetCodepointBox(&info, char_i, &glyph.x0, &glyph.y0, &glyph.x1, &glyph.y1);
-		stbtt_GetGlyphHMetrics(&info, char_i, &glyph.advance_width, null);
+		stbtt_GetGlyphHMetrics(&info, char_i, &glyph.advance_width, NULL);
 
 		font.glyph_arr[char_i] = glyph;
 		bitmap_arr[bitmap_count++] = bitmap;
@@ -2266,7 +2262,7 @@ func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena
 
 	for(int bitmap_i = 0; bitmap_i < bitmap_count; bitmap_i++)
 	{
-		stbtt_FreeBitmap(bitmap_arr[bitmap_i], null);
+		stbtt_FreeBitmap(bitmap_arr[bitmap_i], NULL);
 	}
 
 	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR);
@@ -2274,7 +2270,7 @@ func s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena
 	return font;
 }
 
-func b8 set_shader_float(const char* uniform_name, float val)
+static b8 set_shader_float(const char* uniform_name, float val)
 {
 	// @TODO(tkap, 18/10/2023): Change this when we support multiple shaders (if ever)
 	int location = gl(glGetUniformLocation(g_platform_renderer.programs[e_shader_default], uniform_name));
@@ -2283,7 +2279,7 @@ func b8 set_shader_float(const char* uniform_name, float val)
 	return true;
 }
 
-func b8 set_shader_v2(const char* uniform_name, s_v2 val)
+static b8 set_shader_v2(const char* uniform_name, s_v2 val)
 {
 	// @TODO(tkap, 18/10/2023): Change this when we support multiple shaders (if ever)
 	int location = gl(glGetUniformLocation(g_platform_renderer.programs[e_shader_default], uniform_name));
@@ -2296,7 +2292,7 @@ func b8 set_shader_v2(const char* uniform_name, s_v2 val)
 
 
 [[nodiscard]]
-func constexpr s_v4 rgb(int hex)
+static constexpr s_v4 rgb(int hex)
 {
 	s_v4 result;
 	result.x = ((hex & 0xFF0000) >> 16) / 255.0f;
@@ -2307,7 +2303,7 @@ func constexpr s_v4 rgb(int hex)
 }
 
 [[nodiscard]]
-func constexpr s_v4 rgba(int hex)
+static constexpr s_v4 rgba(int hex)
 {
 	s_v4 result;
 	result.x = ((hex & 0xFF000000) >> 24) / 255.0f;
@@ -2318,7 +2314,7 @@ func constexpr s_v4 rgba(int hex)
 }
 
 [[nodiscard]]
-func u32 hash(const char* text)
+static u32 hash(const char* text)
 {
 	assert(text);
 	u32 hash = 5381;
@@ -2333,18 +2329,18 @@ func u32 hash(const char* text)
 }
 
 
-func b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
+static b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
 {
 	return pos0.x + size0.x > pos1.x && pos0.x < pos1.x + size1.x &&
 		pos0.y + size0.y > pos1.y && pos0.y < pos1.y + size1.y;
 }
 
-func b8 mouse_collides_rect_topleft(s_v2 mouse, s_v2 pos, s_v2 size)
+static b8 mouse_collides_rect_topleft(s_v2 mouse, s_v2 pos, s_v2 size)
 {
 	return rect_collides_rect_topleft(mouse, v2(1, 1), pos, size);
 }
 
-func s_v4 brighter(s_v4 color, float val)
+static s_v4 brighter(s_v4 color, float val)
 {
 	color.x = clamp(color.x * val, 0.0f, 1.0f);
 	color.y = clamp(color.y * val, 0.0f, 1.0f);
@@ -2352,22 +2348,22 @@ func s_v4 brighter(s_v4 color, float val)
 	return color;
 }
 
-func b8 floats_equal(float a, float b)
+static b8 floats_equal(float a, float b)
 {
 	return (a >= b - epsilon && a <= b + epsilon);
 }
 
-func float ilerp(float start, float end, float val)
+static float ilerp(float start, float end, float val)
 {
 	float b = end - start;
 	if(floats_equal(b, 0)) { return val; }
 	return (val - start) / b;
 }
 
-func char* format_text(const char* text, ...)
+static char* format_text(const char* text, ...)
 {
-	global constexpr int max_format_text_buffers = 16;
-	global constexpr int max_text_buffer_length = 256;
+	static constexpr int max_format_text_buffers = 16;
+	static constexpr int max_text_buffer_length = 256;
 
 	static char buffers[max_format_text_buffers][max_text_buffer_length] = {};
 	static int index = 0;

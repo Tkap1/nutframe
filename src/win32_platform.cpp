@@ -105,52 +105,52 @@ struct s_voice : IXAudio2VoiceCallback
 	#pragma warning(pop)
 };
 
-func void create_window(int width, int height);
-func WPARAM remap_key_if_necessary(WPARAM vk, LPARAM lparam);
-func PROC load_gl_func(const char* name);
-func b8 init_audio();
-func b8 play_sound(s_sound* sound);
-func void init_performance();
-func f64 get_seconds();
-func void set_vsync(b8 val);
-func int cycle_between_available_resolutions(int current);
-func void center_window();
-func s_v2i set_actual_window_size(int width, int height);
-func void wide_to_unicode(wchar_t* wide, char* out);
-func u32 get_random_seed();
-func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
-func s_sound load_sound_from_file(const char* path, s_lin_arena* arena);
-func s_sound load_sound_from_data(u8* data);
-func b8 thread_safe_set_bool_to_true(volatile int* var);
+static void create_window(int width, int height);
+static WPARAM remap_key_if_necessary(WPARAM vk, LPARAM lparam);
+static PROC load_gl_func(const char* name);
+static b8 init_audio();
+static b8 play_sound(s_sound* sound);
+static void init_performance();
+static f64 get_seconds();
+static void set_vsync(b8 val);
+static int cycle_between_available_resolutions(int current);
+static void center_window();
+static s_v2i set_actual_window_size(int width, int height);
+static void wide_to_unicode(wchar_t* wide, char* out);
+static u32 get_random_seed();
+static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
+static s_sound load_sound_from_file(const char* path, s_lin_arena* arena);
+static s_sound load_sound_from_data(u8* data);
+static b8 thread_safe_set_bool_to_true(volatile int* var);
 
 #ifdef m_debug
-func DWORD WINAPI watch_dir(void* arg);
+static DWORD WINAPI watch_dir(void* arg);
 #endif // m_debug
 
-global constexpr int c_num_channels = 2;
-global constexpr int c_sample_rate = 44100;
-global constexpr int c_max_concurrent_sounds = 32;
+static constexpr int c_num_channels = 2;
+static constexpr int c_sample_rate = 44100;
+static constexpr int c_max_concurrent_sounds = 32;
 
-global s_input g_input;
-global s_input g_logic_input;
-global s_voice voice_arr[c_max_concurrent_sounds];
-global u64 g_cycle_frequency;
-global u64 g_start_cycles;
+static s_input g_input;
+static s_input g_logic_input;
+static s_voice voice_arr[c_max_concurrent_sounds];
+static u64 g_cycle_frequency;
+static u64 g_start_cycles;
 
 // @Note(tkap, 11/10/2023): File watch
-global constexpr int c_max_files = 16;
-global volatile int g_file_write = 0;
-global int g_file_read = 0;
-global char g_files[c_max_files][MAX_PATH];
+static constexpr int c_max_files = 16;
+static volatile int g_file_write = 0;
+static int g_file_read = 0;
+static char g_files[c_max_files][MAX_PATH];
 
 static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 
 #ifdef m_debug
 // @TODO(tkap, 18/10/2023): We probably don't want this now that we have the file watcher thing going
-global FILETIME last_dll_write_time;
-func b8 need_to_reload_dll(const char* path);
-func HMODULE load_dll(const char* path);
-func void unload_dll(HMODULE dll);
+static FILETIME last_dll_write_time;
+static b8 need_to_reload_dll(const char* path);
+static HMODULE load_dll(const char* path);
+static void unload_dll(HMODULE dll);
 #endif // m_debug
 
 #ifdef m_debug
@@ -170,9 +170,9 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	}
 	#endif // m_debug
 
-	s_game_renderer* game_renderer = null;
-	s_lin_arena platform_frame_arena = zero;
-	s_lin_arena game_frame_arena = zero;
+	s_game_renderer* game_renderer = NULL;
+	s_lin_arena platform_frame_arena = {};
+	s_lin_arena game_frame_arena = {};
 
 	g_window.width = (int)c_base_res.x;
 	g_window.height = (int)c_base_res.y;
@@ -195,7 +195,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	init_performance();
 
 	#ifdef m_debug
-	CreateThread(null, 0, watch_dir, null, 0, null);
+	CreateThread(NULL, 0, watch_dir, NULL, 0, NULL);
 	#endif // m_debug
 
 	wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)load_gl_func("wglSwapIntervalEXT");
@@ -204,13 +204,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	#undef X
 
 	#ifdef m_debug
-	t_update_game* update_game = null;
-	HMODULE dll = null;
+	t_update_game* update_game = NULL;
+	HMODULE dll = NULL;
 	#endif // m_debug
-	void* game_memory = null;
+	void* game_memory = NULL;
 
 	{
-		s_lin_arena all = zero;
+		s_lin_arena all = {};
 		all.capacity = 100 * c_mb;
 
 		// @Note(tkap, 26/06/2023): We expect this memory to be zero'd
@@ -227,7 +227,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		game_renderer->arenas[1] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
 		game_renderer->transform_arenas[0] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
 		game_renderer->transform_arenas[1] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
-		game_renderer->textures.add(zero);
+		game_renderer->textures.add({});
 		after_loading_texture(game_renderer);
 	}
 
@@ -256,8 +256,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		game_renderer->total_time += time_passed;
 		start_of_frame_seconds = seconds;
 
-		MSG msg = zero;
-		while(PeekMessage(&msg, null, 0, 0, PM_REMOVE) > 0)
+		MSG msg = {};
+		while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) > 0)
 		{
 			if(msg.message == WM_QUIT)
 			{
@@ -322,8 +322,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			while(g_file_read < g_file_write)
 			{
 				char* file_path = g_files[g_file_read % c_max_files];
-				b8 is_vertex = strstr(file_path, ".vertex") != null;
-				b8 is_fragment = strstr(file_path, ".fragment") != null;
+				b8 is_vertex = strstr(file_path, ".vertex") != NULL;
+				b8 is_fragment = strstr(file_path, ".fragment") != NULL;
 				b8 advance_file = true;
 				if(is_vertex || is_fragment)
 				{
@@ -442,7 +442,7 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 			int is_echo = is_down && ((lparam >> 30) & 1);
 			if(key < c_max_keys && !is_echo)
 			{
-				s_stored_input si = zero;
+				s_stored_input si = {};
 				si.key = key;
 				si.is_down = is_down;
 				apply_event_to_input(&g_input, si);
@@ -468,7 +468,7 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 			goto deez;
 		{
 			deez:
-			s_stored_input si = zero;
+			s_stored_input si = {};
 			si.key = key;
 			si.is_down = is_down;
 			apply_event_to_input(&g_input, si);
@@ -485,17 +485,17 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 	return result;
 }
 
-func void create_window(int width, int height)
+static void create_window(int width, int height)
 {
 	const char* class_name = "DigHard_CLASS";
-	HINSTANCE instance = GetModuleHandle(null);
+	HINSTANCE instance = GetModuleHandle(NULL);
 
-	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = null;
-	PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = null;
+	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = NULL;
+	PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = NULL;
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		dummy start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
-		WNDCLASSEX window_class = zero;
+		WNDCLASSEX window_class = {};
 		window_class.cbSize = sizeof(window_class);
 		window_class.style = CS_OWNDC;
 		window_class.lpfnWndProc = DefWindowProc;
@@ -509,16 +509,16 @@ func void create_window(int width, int height)
 			"dummy",
 			WS_OVERLAPPEDWINDOW,
 			CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-			null,
-			null,
+			NULL,
+			NULL,
 			instance,
-			null
+			NULL
 		);
 		assert(dummy_window != INVALID_HANDLE_VALUE);
 
 		HDC dc = GetDC(dummy_window);
 
-		PIXELFORMATDESCRIPTOR pfd = zero;
+		PIXELFORMATDESCRIPTOR pfd = {};
 		pfd.nSize = sizeof(pfd);
 		pfd.nVersion = 1;
 		pfd.dwFlags = PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_DRAW_TO_WINDOW;
@@ -535,7 +535,7 @@ func void create_window(int width, int height)
 		wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)load_gl_func("wglCreateContextAttribsARB");
 		wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATARBPROC)load_gl_func("wglChoosePixelFormatARB");
 
-		check(wglMakeCurrent(null, null));
+		check(wglMakeCurrent(NULL, NULL));
 		check(wglDeleteContext(glrc));
 		check(ReleaseDC(dummy_window, dc));
 		check(DestroyWindow(dummy_window));
@@ -546,19 +546,19 @@ func void create_window(int width, int height)
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		window start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
-		WNDCLASSEX window_class = zero;
+		WNDCLASSEX window_class = {};
 		window_class.cbSize = sizeof(window_class);
 		window_class.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
 		window_class.lpfnWndProc = window_proc;
 		window_class.lpszClassName = class_name;
 		window_class.hInstance = instance;
-		window_class.hCursor = LoadCursor(null, IDC_ARROW);
+		window_class.hCursor = LoadCursor(NULL, IDC_ARROW);
 		window_class.hIcon = LoadIcon(instance, MAKEINTRESOURCE(MY_ICON));
 		check(RegisterClassEx(&window_class));
 
 		DWORD style = (WS_OVERLAPPEDWINDOW | WS_VISIBLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX;
 		// DWORD style = WS_POPUP | WS_VISIBLE;
-		RECT rect = zero;
+		RECT rect = {};
 		rect.right = width;
 		rect.bottom = height;
 		AdjustWindowRect(&rect, style, false);
@@ -569,10 +569,10 @@ func void create_window(int width, int height)
 			"DigHard",
 			style,
 			CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top,
-			null,
-			null,
+			NULL,
+			NULL,
 			instance,
-			null
+			NULL
 		);
 		assert(g_window.handle != INVALID_HANDLE_VALUE);
 
@@ -593,11 +593,11 @@ func void create_window(int width, int height)
 			0
 		};
 
-		PIXELFORMATDESCRIPTOR pfd = zero;
+		PIXELFORMATDESCRIPTOR pfd = {};
 		pfd.nSize = sizeof(pfd);
 		int format;
 		u32 num_formats;
-		check(wglChoosePixelFormatARB(g_window.dc, pixel_attribs, null, 1, &format, &num_formats));
+		check(wglChoosePixelFormatARB(g_window.dc, pixel_attribs, NULL, 1, &format, &num_formats));
 		check(DescribePixelFormat(g_window.dc, format, sizeof(pfd), &pfd));
 		SetPixelFormat(g_window.dc, format, &pfd);
 
@@ -609,13 +609,13 @@ func void create_window(int width, int height)
 			// WGL_CONTEXT_DEBUG_BIT_ARB,
 			0
 		};
-		HGLRC glrc = wglCreateContextAttribsARB(g_window.dc, null, gl_attribs);
+		HGLRC glrc = wglCreateContextAttribsARB(g_window.dc, NULL, gl_attribs);
 		check(wglMakeCurrent(g_window.dc, glrc));
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		window end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 }
 
-func PROC load_gl_func(const char* name)
+static PROC load_gl_func(const char* name)
 {
 	PROC result = wglGetProcAddress(name);
 	if(!result)
@@ -627,7 +627,7 @@ func PROC load_gl_func(const char* name)
 }
 
 // @Note(tkap, 16/05/2023): https://stackoverflow.com/a/15977613
-func WPARAM remap_key_if_necessary(WPARAM vk, LPARAM lparam)
+static WPARAM remap_key_if_necessary(WPARAM vk, LPARAM lparam)
 {
 	WPARAM new_vk = vk;
 	UINT scancode = (lparam & 0x00ff0000) >> 16;
@@ -659,20 +659,20 @@ func WPARAM remap_key_if_necessary(WPARAM vk, LPARAM lparam)
 	return new_vk;
 }
 
-func b8 init_audio()
+static b8 init_audio()
 {
-	HRESULT hr = CoInitializeEx(null, COINIT_MULTITHREADED);
+	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	if(FAILED(hr)) { return false; }
 
-	IXAudio2* xaudio2 = null;
+	IXAudio2* xaudio2 = NULL;
 	hr = XAudio2Create(&xaudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
 	if(FAILED(hr)) { return false; }
 
-	IXAudio2MasteringVoice* master_voice = null;
+	IXAudio2MasteringVoice* master_voice = NULL;
 	hr = xaudio2->CreateMasteringVoice(&master_voice);
 	if(FAILED(hr)) { return false; }
 
-	WAVEFORMATEX wave = zero;
+	WAVEFORMATEX wave = {};
 	wave.wFormatTag = WAVE_FORMAT_PCM;
 	wave.nChannels = c_num_channels;
 	wave.nSamplesPerSec = c_sample_rate;
@@ -683,7 +683,7 @@ func b8 init_audio()
 	for(int voice_i = 0; voice_i < c_max_concurrent_sounds; voice_i++)
 	{
 		s_voice* voice = &voice_arr[voice_i];
-		hr = xaudio2->CreateSourceVoice(&voice->voice, &wave, 0, XAUDIO2_DEFAULT_FREQ_RATIO, voice, null, null);
+		hr = xaudio2->CreateSourceVoice(&voice->voice, &wave, 0, XAUDIO2_DEFAULT_FREQ_RATIO, voice, NULL, NULL);
 		voice->voice->SetVolume(0.25f);
 		if(FAILED(hr)) { return false; }
 	}
@@ -692,18 +692,18 @@ func b8 init_audio()
 
 }
 
-func b8 play_sound(s_sound* sound)
+static b8 play_sound(s_sound* sound)
 {
 	if(!g_platform_data.is_window_active) { return false; }
 	assert(sound->sample_count > 0);
 	assert(sound->samples);
 
-	XAUDIO2_BUFFER buffer = zero;
+	XAUDIO2_BUFFER buffer = {};
 	buffer.Flags = XAUDIO2_END_OF_STREAM;
 	buffer.AudioBytes = sound->sample_count * c_num_channels * sizeof(s16);
 	buffer.pAudioData = (BYTE*)sound->samples;
 
-	s_voice* curr_voice = null;
+	s_voice* curr_voice = NULL;
 	for(int voice_i = 0; voice_i < c_max_concurrent_sounds; voice_i++)
 	{
 		s_voice* voice = &voice_arr[voice_i];
@@ -717,7 +717,7 @@ func b8 play_sound(s_sound* sound)
 		}
 	}
 
-	if(curr_voice == null) { return false; }
+	if(curr_voice == NULL) { return false; }
 
 	HRESULT hr = curr_voice->voice->SubmitSourceBuffer(&buffer);
 	if(FAILED(hr)) { return false; }
@@ -728,25 +728,25 @@ func b8 play_sound(s_sound* sound)
 	return true;
 }
 
-func b8 thread_safe_set_bool_to_true(volatile int* var)
+static b8 thread_safe_set_bool_to_true(volatile int* var)
 {
 	return InterlockedCompareExchange((LONG*)var, true, false) == false;
 }
 
-func void init_performance()
+static void init_performance()
 {
 	QueryPerformanceFrequency((LARGE_INTEGER*)&g_cycle_frequency);
 	QueryPerformanceCounter((LARGE_INTEGER*)&g_start_cycles);
 }
 
-func f64 get_seconds()
+static f64 get_seconds()
 {
 	u64 now;
 	QueryPerformanceCounter((LARGE_INTEGER*)&now);
 	return (now - g_start_cycles) / (f64)g_cycle_frequency;
 }
 
-func void set_vsync(b8 val)
+static void set_vsync(b8 val)
 {
 	if(wglSwapIntervalEXT)
 	{
@@ -754,10 +754,10 @@ func void set_vsync(b8 val)
 	}
 }
 
-func int cycle_between_available_resolutions(int current)
+static int cycle_between_available_resolutions(int current)
 {
 	HMONITOR monitor = MonitorFromWindow(g_window.handle, MONITOR_DEFAULTTOPRIMARY);
-	MONITORINFO info = zero;
+	MONITORINFO info = {};
 	info.cbSize = sizeof(info);
 	BOOL result = GetMonitorInfoA(monitor, &info);
 	if(!result) { return current; }
@@ -789,23 +789,23 @@ func int cycle_between_available_resolutions(int current)
 
 }
 
-func s_v2i set_actual_window_size(int width, int height)
+static s_v2i set_actual_window_size(int width, int height)
 {
 	LONG style = GetWindowLongA(g_window.handle, GWL_STYLE);
-	RECT rect = zero;
+	RECT rect = {};
 	rect.right = width;
 	rect.bottom = height;
 	AdjustWindowRect(&rect, style, false);
 	int true_width = rect.right - rect.left;
 	int true_height = rect.bottom - rect.top;
-	SetWindowPos(g_window.handle, null, 0, 0, true_width, true_height, SWP_NOMOVE | SWP_NOZORDER);
+	SetWindowPos(g_window.handle, NULL, 0, 0, true_width, true_height, SWP_NOMOVE | SWP_NOZORDER);
 	return v2i(true_width, true_height);
 }
 
-func void center_window()
+static void center_window()
 {
 	HMONITOR monitor = MonitorFromWindow(g_window.handle, MONITOR_DEFAULTTOPRIMARY);
-	MONITORINFO info = zero;
+	MONITORINFO info = {};
 	info.cbSize = sizeof(info);
 	BOOL result = GetMonitorInfoA(monitor, &info);
 	if(!result) { return; }
@@ -817,22 +817,22 @@ func void center_window()
 
 	int center_x = (info.rcMonitor.left + info.rcMonitor.right) / 2 - window_width / 2;
 	int center_y = (info.rcMonitor.top + info.rcMonitor.bottom) / 2 - window_height / 2;
-	SetWindowPos(g_window.handle, null, center_x, center_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	SetWindowPos(g_window.handle, NULL, center_x, center_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
 #ifdef m_debug
-func DWORD WINAPI watch_dir(void* arg)
+static DWORD WINAPI watch_dir(void* arg)
 {
 	unreferenced(arg);
 
-	HANDLE handle = CreateFile(".", FILE_LIST_DIRECTORY, FILE_SHARE_READ|FILE_SHARE_WRITE, null, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, null);
+	HANDLE handle = CreateFile(".", FILE_LIST_DIRECTORY, FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 	while(true)
 	{
 		DWORD bytes_read;
-		FILE_NOTIFY_INFORMATION buffer[16] = zero;
+		FILE_NOTIFY_INFORMATION buffer[16] = {};
 		BOOL result = ReadDirectoryChangesW(
 			handle, buffer, sizeof(buffer), true, FILE_NOTIFY_CHANGE_LAST_WRITE,
-			&bytes_read, null, null
+			&bytes_read, NULL, NULL
 		);
 		assert(result);
 		if(bytes_read <= 0) { continue; }
@@ -840,7 +840,7 @@ func DWORD WINAPI watch_dir(void* arg)
 		FILE_NOTIFY_INFORMATION* current = &buffer[0];
 		while(true)
 		{
-			char file_path[MAX_PATH] = zero;
+			char file_path[MAX_PATH] = {};
 			wide_to_unicode(current->FileName, file_path);
 			str_replace(file_path, "\\", "/");
 
@@ -857,23 +857,23 @@ func DWORD WINAPI watch_dir(void* arg)
 }
 #endif // m_debug
 
-func void wide_to_unicode(wchar_t* wide, char* out)
+static void wide_to_unicode(wchar_t* wide, char* out)
 {
 	assert(wide);
-	int required_buffer_size = WideCharToMultiByte(CP_UTF8, 0, wide, -1, null, 0, null, null);
+	int required_buffer_size = WideCharToMultiByte(CP_UTF8, 0, wide, -1, NULL, 0, NULL, NULL);
 	assert(required_buffer_size > 0);
 	assert(required_buffer_size <= MAX_PATH);
 
 	// char* out_unicode = (char*)la_get(frame_arena, MAX_PATH);
-	WideCharToMultiByte(CP_UTF8, 0, wide, -1, out, required_buffer_size, null, null);
+	WideCharToMultiByte(CP_UTF8, 0, wide, -1, out, required_buffer_size, NULL, NULL);
 }
 
-func u32 get_random_seed()
+static u32 get_random_seed()
 {
 	return (u32)__rdtsc();
 }
 
-func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
+static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
 {
 	if(g_do_embed) {
 		g_to_embed.add(path);
@@ -895,16 +895,16 @@ func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin
 	return &platform_data->sounds[index];
 }
 
-func s_sound load_sound_from_file(const char* path, s_lin_arena* arena)
+static s_sound load_sound_from_file(const char* path, s_lin_arena* arena)
 {
 	u8* data = (u8*)read_file(path, arena);
 	assert(data);
 	return load_sound_from_data(data);
 }
 
-func s_sound load_sound_from_data(u8* data)
+static s_sound load_sound_from_data(u8* data)
 {
-	s_sound sound = zero;
+	s_sound sound = {};
 
 	s_riff_chunk riff = *(s_riff_chunk*)data;
 	data += sizeof(riff);
@@ -925,9 +925,9 @@ func s_sound load_sound_from_data(u8* data)
 }
 
 #ifdef m_debug
-func b8 need_to_reload_dll(const char* path)
+static b8 need_to_reload_dll(const char* path)
 {
-	WIN32_FIND_DATAA find_data = zero;
+	WIN32_FIND_DATAA find_data = {};
 	HANDLE handle = FindFirstFileA(path, &find_data);
 	if(handle == INVALID_HANDLE_VALUE) { assert(false); return false; }
 
@@ -940,14 +940,14 @@ func b8 need_to_reload_dll(const char* path)
 	return result;
 }
 
-func HMODULE load_dll(const char* path)
+static HMODULE load_dll(const char* path)
 {
 	HMODULE result = LoadLibrary(path);
 	assert(result);
 	return result;
 }
 
-func void unload_dll(HMODULE dll)
+static void unload_dll(HMODULE dll)
 {
 	check(FreeLibrary(dll));
 }
