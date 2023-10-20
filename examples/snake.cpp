@@ -18,20 +18,6 @@ enum e_state
 	e_state_victory,
 };
 
-enum e_ui
-{
-	e_ui_nothing,
-	e_ui_hovered,
-	e_ui_pressed,
-	e_ui_active,
-};
-
-struct s_ui_interaction
-{
-	b8 pressed_this_frame;
-	e_ui state;
-};
-
 struct s_snake
 {
 	s_v2i pos;
@@ -49,18 +35,6 @@ union s_var_value
 {
 	float val_float;
 	int val_int;
-};
-
-struct s_ui_id
-{
-	u32 id;
-};
-
-struct s_ui
-{
-	b8 pressed_present;
-	s_ui_id hovered;
-	s_ui_id pressed;
 };
 
 struct s_var
@@ -84,7 +58,6 @@ struct s_game
 	s_texture snake_tail;
 	s_texture apple_texture;
 	s_texture noise;
-	s_texture checkmark_texture;
 	s_sarray<s_v2i, 4> inputs;
 	s_v2i last_dir;
 	s_snake snake[c_max_snake_len];
@@ -119,14 +92,9 @@ global s_ui g_ui;
 #endif // m_debug
 
 func s_v2i spawn_apple();
+func s_var* get_var_by_ptr(void* ptr);
 template <typename t>
 func void live_variable_(t* ptr, const char* name, t min_val, t max_val, b8 display);
-func s_ui_interaction ui_button(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size);
-template <typename t>
-func t ui_slider(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, t min_val, t max_val, t curr_val);
-func void ui_request_pressed(u32 id);
-func void ui_checkbox(const char* text, s_v2 pos, s_v2 size, b8* val);
-func s_var* get_var_by_ptr(void* ptr);
 
 
 #ifdef m_build_dll
@@ -151,7 +119,6 @@ m_update_game(update_game)
 		game->snake_tail = g_r->load_texture(renderer, "examples/snake_tail.png");
 		game->noise = g_r->load_texture(renderer, "examples/noise.png");
 		game->apple_texture = g_r->load_texture(renderer, "examples/apple.png");
-		game->checkmark_texture = g_r->load_texture(renderer, "examples/checkmark.png");
 		game->font = g_r->load_font(renderer, "examples/consola.ttf", 96, platform_data->frame_arena);
 		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->text_framebuffer = g_r->make_framebuffer(renderer, false);
@@ -177,7 +144,7 @@ m_update_game(update_game)
 
 	if(game->show_live_vars) {
 		s_v2 pos = game->vars_pos;
-		s_ui_interaction interaction = ui_button("Move", pos, v2(32), null, 32);
+		s_ui_interaction interaction = ui_button(g_r, &g_ui, "Move", pos, v2(32), null, 32, g_input, mouse);
 		if(interaction.state == e_ui_pressed) {
 			if(interaction.pressed_this_frame) {
 				game->vars_pos_offset = mouse - pos;
@@ -201,22 +168,25 @@ m_update_game(update_game)
 			s_v2 slider_pos = pos;
 			draw_text(g_r, var.name, text_pos, 15, font_size, rgb(0xffffff), false, game->font);
 			if(var.type == e_var_type_int) {
-				*(int*)var.ptr = ui_slider(var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr);
+				*(int*)var.ptr = ui_slider(
+					g_r, &g_ui, var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, g_input, mouse
+				);
 			}
 			else if(var.type == e_var_type_float) {
 				*(float*)var.ptr = ui_slider(
-					var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr
+					g_r, &g_ui, var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr,
+					g_input, mouse
 				);
 			}
 			else if(var.type == e_var_type_bool) {
 				s_v2 temp = slider_pos;
 				temp.x += 100 - 24;
-				ui_checkbox(var.name, temp, v2(48), (b8*)var.ptr);
+				ui_checkbox(g_r, &g_ui, var.name, temp, v2(48), (b8*)var.ptr, g_input, mouse);
 			}
 			pos.y += 50;
 		}
 
-		if(ui_button("Save", pos, v2(200, 48), game->font, font_size).state == e_ui_active) {
+		if(ui_button(g_r, &g_ui, "Save", pos, v2(200, 48), game->font, font_size, g_input, mouse).state == e_ui_active) {
 			s_str_builder<10 * c_kb> builder;
 			foreach_val(var_i, var, game->variables) {
 				if(var.type == e_var_type_int) {
@@ -362,11 +332,7 @@ m_update_game(update_game)
 	game->variables.count = 0;
 	#endif // m_debug
 
-	g_ui.hovered.id = 0;
-	if(!g_ui.pressed_present && g_ui.pressed.id != 0) {
-		ui_request_pressed(0);
-	}
-	g_ui.pressed_present = false;
+	reset_ui(&g_ui);
 
 }
 
@@ -434,170 +400,4 @@ func s_var* get_var_by_ptr(void* ptr)
 	return null;
 }
 #endif // m_debug
-
-func void ui_request_hovered(u32 id)
-{
-	if(g_ui.pressed.id != 0) { return; }
-	g_ui.hovered.id = id;
-}
-
-func void ui_request_pressed(u32 id)
-{
-	g_ui.hovered.id = 0;
-	g_ui.pressed.id = id;
-}
-
-func void ui_request_active(u32 id)
-{
-	unreferenced(id);
-	g_ui.hovered.id = 0;
-	g_ui.pressed.id = 0;
-}
-
-func s_ui_interaction ui_button(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size)
-{
-	s_ui_interaction result = zero;
-	u32 id = hash(text);
-	s_v4 button_color = rgb(0x217278);
-	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
-	if(hovered) {
-		ui_request_hovered(id);
-	}
-	if(g_ui.hovered.id == id) {
-		result.state = e_ui_hovered;
-		button_color = brighter(button_color, 1.4f);
-		if(hovered && is_key_pressed(g_input, c_left_mouse)) {
-			result.pressed_this_frame = true;
-			ui_request_pressed(id);
-		}
-		else if(!hovered) {
-			ui_request_hovered(0);
-		}
-	}
-	if(g_ui.pressed.id == id) {
-		result.state = e_ui_pressed;
-		g_ui.pressed_present = true;
-		button_color = brighter(button_color, 0.6f);
-		if(is_key_released(g_input, c_left_mouse)) {
-			if(hovered) {
-				result.state = e_ui_active;
-				ui_request_active(id);
-			}
-			else {
-				ui_request_pressed(0);
-			}
-		}
-	}
-
-	draw_rect(g_r, pos, 10, size, button_color, zero, {.origin_offset = c_origin_topleft});
-	if(font) {
-		s_v2 text_pos = pos;
-		text_pos += size / 2;
-		draw_text(g_r, text, text_pos, 11, font_size, rgb(0xFB9766), true, font);
-	}
-	return result;
-}
-
-template <typename t>
-func t ui_slider(const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, t min_val, t max_val, t curr_val)
-{
-	constexpr b8 is_int = is_same<t, int>;
-	constexpr b8 is_float = is_same<t, float>;
-	static_assert(is_int || is_float);
-
-	t result = curr_val;
-	u32 id = hash(text);
-	s_v4 button_color = rgb(0x217278);
-	s_v4 handle_color = rgb(0xEA5D58);
-	s_v2 handle_size = v2(size.y);
-	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
-	if(hovered) {
-		ui_request_hovered(id);
-	}
-	if(g_ui.hovered.id == id) {
-		button_color = brighter(button_color, 1.4f);
-		if(hovered && is_key_pressed(g_input, c_left_mouse)) {
-			ui_request_pressed(id);
-		}
-		else if(!hovered) {
-			ui_request_hovered(0);
-		}
-	}
-	if(g_ui.pressed.id == id) {
-		g_ui.pressed_present = true;
-		button_color = brighter(button_color, 0.6f);
-		if(is_key_released(g_input, c_left_mouse)) {
-			if(hovered) {
-				ui_request_active(id);
-			}
-			else {
-				ui_request_pressed(0);
-			}
-		}
-		float percent;
-		if(is_key_down(g_input, c_key_left_ctrl)) {
-			percent = ilerp(handle_size.x * 0.5f, c_base_res.x - handle_size.x * 0.5f, mouse.x);
-		}
-		else {
-			percent = ilerp(pos.x + handle_size.x * 0.5f, pos.x + size.x - handle_size.x * 0.5f, mouse.x);
-		}
-		result = (t)lerp((float)min_val, (float)max_val, percent);
-	}
-	result = clamp(result, min_val, max_val);
-
-	s_v2 handle_pos = v2(
-		pos.x + ilerp((float)min_val, (float)max_val, (float)result) * (size.x - handle_size.y),
-		pos.y - handle_size.y / 2 + size.y / 2
-	);
-
-	draw_rect(g_r, pos, 10, size, button_color, zero, {.origin_offset = c_origin_topleft});
-	draw_rect(g_r, handle_pos, 11, handle_size, handle_color, zero, {.flags = e_render_flag_circle, .origin_offset = c_origin_topleft});
-	s_v2 text_pos = pos;
-	text_pos += size / 2;
-	if(is_int) {
-		draw_text(g_r, format_text("%i", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
-	}
-	else if(is_float) {
-		draw_text(g_r, format_text("%.2f", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
-	}
-	return result;
-}
-
-func void ui_checkbox(const char* text, s_v2 pos, s_v2 size, b8* val)
-{
-	assert(val);
-	u32 id = hash(text);
-	s_v4 button_color = rgb(0x217278);
-	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
-	if(hovered) {
-		ui_request_hovered(id);
-	}
-	if(g_ui.hovered.id == id) {
-		button_color = brighter(button_color, 1.4f);
-		if(hovered && is_key_pressed(g_input, c_left_mouse)) {
-			ui_request_pressed(id);
-		}
-		else if(!hovered) {
-			ui_request_hovered(0);
-		}
-	}
-	if(g_ui.pressed.id == id) {
-		g_ui.pressed_present = true;
-		button_color = brighter(button_color, 0.6f);
-		if(is_key_released(g_input, c_left_mouse)) {
-			if(hovered) {
-				*val = !(*val);
-				ui_request_active(id);
-			}
-			else {
-				ui_request_pressed(0);
-			}
-		}
-	}
-
-	draw_rect(g_r, pos, 10, size, button_color, zero, {.origin_offset = c_origin_topleft});
-	if(*val) {
-		draw_texture(g_r, pos, 11, size, make_color(0,1,0), game->checkmark_texture, zero, {.origin_offset = c_origin_topleft});
-	}
-}
 

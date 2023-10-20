@@ -1308,6 +1308,8 @@ struct s_game_renderer
 	t_set_shader_v2 set_shader_v2;
 	f64 total_time;
 
+	s_texture checkmark_texture;
+
 	int transform_arena_index;
 	s_lin_arena transform_arenas[2];
 	int arena_index;
@@ -1687,6 +1689,9 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 		assert(program);
 		platform_renderer->programs[shader_i] = program;
 	}
+
+	// @Fixme(tkap, 20/10/2023): path
+	game_renderer->checkmark_texture = load_texture(game_renderer, "examples/checkmark.png");
 
 	gl(glUseProgram(platform_renderer->programs[e_shader_default]));
 
@@ -2387,3 +2392,213 @@ static char* format_text(const char* text, ...)
 
 	return current_buffer;
 }
+
+
+// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+enum e_ui
+{
+	e_ui_nothing,
+	e_ui_hovered,
+	e_ui_pressed,
+	e_ui_active,
+};
+
+struct s_ui_interaction
+{
+	b8 pressed_this_frame;
+	e_ui state;
+};
+
+struct s_ui_id
+{
+	u32 id;
+};
+
+struct s_ui
+{
+	b8 pressed_present;
+	s_ui_id hovered;
+	s_ui_id pressed;
+};
+
+static void ui_request_hovered(s_ui* ui, u32 id)
+{
+	if(ui->pressed.id != 0) { return; }
+	ui->hovered.id = id;
+}
+
+static void ui_request_pressed(s_ui* ui, u32 id)
+{
+	ui->hovered.id = 0;
+	ui->pressed.id = id;
+}
+
+static void ui_request_active(s_ui* ui, u32 id)
+{
+	unreferenced(id);
+	ui->hovered.id = 0;
+	ui->pressed.id = 0;
+}
+
+static s_ui_interaction ui_button(
+	s_game_renderer* game_renderer, s_ui* ui, const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, s_input* input, s_v2 mouse
+)
+{
+	s_ui_interaction result = {};
+	u32 id = hash(text);
+	s_v4 button_color = rgb(0x217278);
+	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
+	if(hovered) {
+		ui_request_hovered(ui, id);
+	}
+	if(ui->hovered.id == id) {
+		result.state = e_ui_hovered;
+		button_color = brighter(button_color, 1.4f);
+		if(hovered && is_key_pressed(input, c_left_mouse)) {
+			result.pressed_this_frame = true;
+			ui_request_pressed(ui, id);
+		}
+		else if(!hovered) {
+			ui_request_hovered(ui, 0);
+		}
+	}
+	if(ui->pressed.id == id) {
+		result.state = e_ui_pressed;
+		ui->pressed_present = true;
+		button_color = brighter(button_color, 0.6f);
+		if(is_key_released(input, c_left_mouse)) {
+			if(hovered) {
+				result.state = e_ui_active;
+				ui_request_active(ui, id);
+			}
+			else {
+				ui_request_pressed(ui, 0);
+			}
+		}
+	}
+
+	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
+	if(font) {
+		s_v2 text_pos = pos;
+		text_pos += size / 2;
+		draw_text(game_renderer, text, text_pos, 11, font_size, rgb(0xFB9766), true, font);
+	}
+	return result;
+}
+
+template <typename t>
+static t ui_slider(
+	s_game_renderer* game_renderer, s_ui* ui, const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, t min_val, t max_val, t curr_val, s_input* input, s_v2 mouse
+)
+{
+	constexpr b8 is_int = is_same<t, int>;
+	constexpr b8 is_float = is_same<t, float>;
+	static_assert(is_int || is_float);
+
+	t result = curr_val;
+	u32 id = hash(text);
+	s_v4 button_color = rgb(0x217278);
+	s_v4 handle_color = rgb(0xEA5D58);
+	s_v2 handle_size = v2(size.y);
+	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
+	if(hovered) {
+		ui_request_hovered(ui, id);
+	}
+	if(ui->hovered.id == id) {
+		button_color = brighter(button_color, 1.4f);
+		if(hovered && is_key_pressed(input, c_left_mouse)) {
+			ui_request_pressed(ui, id);
+		}
+		else if(!hovered) {
+			ui_request_hovered(ui, 0);
+		}
+	}
+	if(ui->pressed.id == id) {
+		ui->pressed_present = true;
+		button_color = brighter(button_color, 0.6f);
+		if(is_key_released(input, c_left_mouse)) {
+			if(hovered) {
+				ui_request_active(ui, id);
+			}
+			else {
+				ui_request_pressed(ui, 0);
+			}
+		}
+		float percent;
+		if(is_key_down(input, c_key_left_ctrl)) {
+			percent = ilerp(handle_size.x * 0.5f, c_base_res.x - handle_size.x * 0.5f, mouse.x);
+		}
+		else {
+			percent = ilerp(pos.x + handle_size.x * 0.5f, pos.x + size.x - handle_size.x * 0.5f, mouse.x);
+		}
+		result = (t)lerp((float)min_val, (float)max_val, percent);
+	}
+	result = clamp(result, min_val, max_val);
+
+	s_v2 handle_pos = v2(
+		pos.x + ilerp((float)min_val, (float)max_val, (float)result) * (size.x - handle_size.y),
+		pos.y - handle_size.y / 2 + size.y / 2
+	);
+
+	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, handle_pos, 11, handle_size, handle_color, {}, {.flags = e_render_flag_circle, .origin_offset = c_origin_topleft});
+	s_v2 text_pos = pos;
+	text_pos += size / 2;
+	if(is_int) {
+		draw_text(game_renderer, format_text("%i", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	}
+	else if(is_float) {
+		draw_text(game_renderer, format_text("%.2f", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	}
+	return result;
+}
+
+static void ui_checkbox(s_game_renderer* game_renderer, s_ui* ui, const char* text, s_v2 pos, s_v2 size, b8* val, s_input* input, s_v2 mouse)
+{
+	assert(val);
+	u32 id = hash(text);
+	s_v4 button_color = rgb(0x217278);
+	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
+	if(hovered) {
+		ui_request_hovered(ui, id);
+	}
+	if(ui->hovered.id == id) {
+		button_color = brighter(button_color, 1.4f);
+		if(hovered && is_key_pressed(input, c_left_mouse)) {
+			ui_request_pressed(ui, id);
+		}
+		else if(!hovered) {
+			ui_request_hovered(ui, 0);
+		}
+	}
+	if(ui->pressed.id == id) {
+		ui->pressed_present = true;
+		button_color = brighter(button_color, 0.6f);
+		if(is_key_released(input, c_left_mouse)) {
+			if(hovered) {
+				*val = !(*val);
+				ui_request_active(ui, id);
+			}
+			else {
+				ui_request_pressed(ui, 0);
+			}
+		}
+	}
+
+	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
+	if(*val) {
+		draw_texture(game_renderer, pos, 11, size, make_color(0,1,0), game_renderer->checkmark_texture, {}, {.origin_offset = c_origin_topleft});
+	}
+}
+
+static void reset_ui(s_ui* ui)
+{
+	ui->hovered.id = 0;
+	if(!ui->pressed_present && ui->pressed.id != 0) {
+		ui_request_pressed(ui, 0);
+	}
+	ui->pressed_present = false;
+}
+
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
