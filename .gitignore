@@ -34,7 +34,6 @@ build/**
 .tags
 save_state
 generate_ctags.bat
-build_clang.bat
 *.rdbg
 *_output.txt
 *.zip

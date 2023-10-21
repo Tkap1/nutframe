@@ -2012,7 +2012,7 @@ static void do_game_layer(
 	s_game_renderer* game_renderer, void* game_memory
 	#ifndef m_sdl
 	, t_update_game update_game
-	#endif m_sdl
+	#endif
 )
 {
 	#ifdef m_debug
