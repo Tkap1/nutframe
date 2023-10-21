@@ -80,7 +80,13 @@ void main()
 	vec4 color;
 
 	if((v_flags & 1) != 0) {
-		color = texture(in_texture, v_uv) * v_color;
+		vec4 c = texture(in_texture, v_uv);
+		if((v_flags & 8) != 0) {
+			color = vec4(1.0, 1.0, 1.0, c.r) * v_color;
+		}
+		else {
+			color = c * v_color;
+		}
 		color.rgb = mix(color.rgb, v_mix_color.rgb, v_mix_weight);
 	}
 	else {
@@ -130,4 +136,3 @@ void main()
 
 	out_color = color;
 }
-

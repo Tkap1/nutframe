@@ -119,7 +119,7 @@ m_update_game(update_game)
 		game->snake_tail = g_r->load_texture(renderer, "examples/snake_tail.png");
 		game->noise = g_r->load_texture(renderer, "examples/noise.png");
 		game->apple_texture = g_r->load_texture(renderer, "examples/apple.png");
-		game->font = g_r->load_font(renderer, "examples/consola.ttf", 96, platform_data->frame_arena);
+		game->font = g_r->load_font(renderer, "examples/consola.ttf", 128, platform_data->frame_arena);
 		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->text_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/eat_apple.wav", platform_data->frame_arena);
@@ -149,43 +149,44 @@ m_update_game(update_game)
 				game->vars_pos_offset = g_mouse - pos;
 			}
 			s_v2 m = g_mouse;
-			m.x = clamp(g_mouse.x, 0.0f, c_base_res.x - 32);
-			m.y = clamp(g_mouse.y, 0.0f, c_base_res.y - 32);
 			m -= game->vars_pos_offset;
+			m.x = clamp(m.x, 0.0f, c_base_res.x - 32);
+			m.y = clamp(m.y, 0.0f, c_base_res.y - 32);
 			game->vars_pos = m;
 			pos = m;
 		}
 		pos += v2(100);
 
 		constexpr float font_size = 24;
+		constexpr float button_height = 32;
 
 		foreach_val(var_i, var, game->variables) {
 			if(!var.display) { continue; }
 			s_v2 text_pos = pos;
 			text_pos.x -= 300;
-			text_pos.y += 24 - font_size * 0.5f;
+			text_pos.y += button_height / 2.0f - font_size * 0.5f;
 			s_v2 slider_pos = pos;
 			draw_text(g_r, var.name, text_pos, 15, font_size, rgb(0xffffff), false, game->font);
 			if(var.type == e_var_type_int) {
 				*(int*)var.ptr = ui_slider(
-					g_r, &g_ui, var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, g_input, g_mouse
+					g_r, &g_ui, var.name, slider_pos, v2(200.0f, button_height), game->font, font_size, var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, g_input, g_mouse
 				);
 			}
 			else if(var.type == e_var_type_float) {
 				*(float*)var.ptr = ui_slider(
-					g_r, &g_ui, var.name, slider_pos, v2(200, 48), game->font, font_size, var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr,
+					g_r, &g_ui, var.name, slider_pos, v2(200.0f, button_height), game->font, font_size, var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr,
 					g_input, g_mouse
 				);
 			}
 			else if(var.type == e_var_type_bool) {
 				s_v2 temp = slider_pos;
-				temp.x += 100 - 24;
-				ui_checkbox(g_r, &g_ui, var.name, temp, v2(48), (b8*)var.ptr, g_input, g_mouse);
+				temp.x += 100 - button_height / 2.0f;
+				ui_checkbox(g_r, &g_ui, var.name, temp, v2(button_height), (b8*)var.ptr, g_input, g_mouse);
 			}
-			pos.y += 50;
+			pos.y += button_height + 4.0f;
 		}
 
-		if(ui_button(g_r, &g_ui, "Save", pos, v2(200, 48), game->font, font_size, g_input, g_mouse).state == e_ui_active) {
+		if(ui_button(g_r, &g_ui, "Save", pos, v2(200.0f, button_height), game->font, font_size, g_input, g_mouse).state == e_ui_active) {
 			s_str_builder<10 * c_kb> builder;
 			foreach_val(var_i, var, game->variables) {
 				if(var.type == e_var_type_int) {

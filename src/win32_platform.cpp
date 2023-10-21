@@ -220,7 +220,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		#else // m_debug
 		void* base_address = NULL;
 		#endif
-		// @Note(tkap, 26/06/2023): We expect this memory to be zero'd (VirtualAlloc zeroes it)
+		// @Note(tkap, 26/06/2023): We expect this memory to be zero'd (VirtualAlloc zeroes it). Other platforms should call memset if needed
 		all.memory = VirtualAlloc(base_address, all.capacity, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
 		game_renderer = (s_game_renderer*)la_get(&all, sizeof(s_game_renderer));
@@ -386,7 +386,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 								break;
 							}
 							gl(glDeleteTextures(1, &texture.gpu_id));
-							s_texture new_texture = load_texture_from_data(data, width, height, GL_LINEAR);
+							s_texture new_texture = load_texture_from_data(data, width, height, GL_LINEAR, GL_RGBA);
 							new_texture.game_id = texture_i;
 							new_texture.path = file_path;
 							stbi_image_free(data);

@@ -548,7 +548,7 @@ static void after_making_framebuffer(int index, s_game_renderer* game_renderer);
 static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
 static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
 static s_texture load_texture(s_game_renderer* game_renderer, const char* path);
-static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering);
+static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering, int format);
 
 static char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = NULL)
 {
@@ -1158,6 +1158,7 @@ enum e_render_flags
 	e_render_flag_use_texture = 1 << 0,
 	e_render_flag_flip_x = 1 << 1,
 	e_render_flag_circle = 1 << 2,
+	e_render_flag_text = 1 << 3,
 };
 
 struct s_sound
@@ -1474,7 +1475,7 @@ static void draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		glyph_pos.y += -glyph.y0 * scale;
 
 		glyph_pos.y += text_size.y;
-		t.flags |= e_render_flag_use_texture;
+		t.flags |= e_render_flag_use_texture | e_render_flag_text;
 		t.pos = glyph_pos;
 
 		s_v2 center = t.pos + t.draw_size / 2 * v2(1, -1);
@@ -2018,13 +2019,13 @@ static s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 	return result;
 }
 
-static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering)
+static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering, int format)
 {
 	assert(data);
 	u32 id;
 	gl(glGenTextures(1, &id));
 	gl(glBindTexture(GL_TEXTURE_2D, id));
-	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data));
+	gl(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering));
@@ -2041,7 +2042,7 @@ static s_texture load_texture_from_file(const char* path, u32 filtering)
 	int width, height, num_channels;
 	void* data = stbi_load(path, &width, &height, &num_channels, 4);
 	assert(data);
-	s_texture texture = load_texture_from_data(data, width, height, filtering);
+	s_texture texture = load_texture_from_data(data, width, height, filtering, GL_RGBA);
 	stbi_image_free(data);
 	return texture;
 }
@@ -2217,6 +2218,8 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 	int rows = ceilfi((max_chars - columns) / (float)columns) + 1;
 
 	int total_width = floorfi((float)(columns * (font_size + padding)));
+	// @Note(tkap, 20/10/2023): We need to align the texture width to 4 bytes! Very important! Thanks to tk_dev
+	total_width = (total_width + 3) & ~3;
 	int total_height = floorfi((float)(rows * (font_size + padding)));
 
 	for(int char_i = 0; char_i < max_chars; char_i++)
@@ -2230,7 +2233,7 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 		bitmap_arr[bitmap_count++] = bitmap;
 	}
 
-	u8* gl_bitmap = (u8*)la_get_zero(arena, sizeof(u8) * 4 * total_width * total_height);
+	u8* gl_bitmap = (u8*)la_get_zero(arena, sizeof(u8) * 1 * total_width * total_height);
 
 	for(int char_i = 0; char_i < max_chars; char_i++)
 	{
@@ -2245,11 +2248,8 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 				int current_x = floorfi((float)(column * (font_size + padding)));
 				int current_y = floorfi((float)(row * (font_size + padding)));
 				u8 src_pixel = bitmap[x + y * glyph->width];
-				u8* dst_pixel = &gl_bitmap[((current_x + x) + (current_y + y) * total_width) * 4];
-				dst_pixel[0] = 255;
-				dst_pixel[1] = 255;
-				dst_pixel[2] = 255;
-				dst_pixel[3] = src_pixel;
+				u8* dst_pixel = &gl_bitmap[((current_x + x) + (current_y + y) * total_width)];
+				dst_pixel[0] = src_pixel;
 			}
 		}
 
@@ -2271,7 +2271,7 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 		stbtt_FreeBitmap(bitmap_arr[bitmap_i], NULL);
 	}
 
-	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR);
+	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR, GL_RED);
 
 	return font;
 }
