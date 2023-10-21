@@ -1,17 +1,12 @@
 #define m_game
 
 #include "../../src/platform_shared.h"
-#include "../../src/variables.h"
+#include "variables.h"
 
-#define zero {}
-#define func static
-#define global static
-#define null NULL
-
-global constexpr int c_tile_count = 12;
-global constexpr int c_max_snake_len = c_tile_count * c_tile_count / 2;
-global constexpr int c_score_to_win = 20;
-global constexpr int c_tile_size = 64;
+static constexpr int c_tile_count = 12;
+static constexpr int c_max_snake_len = c_tile_count * c_tile_count / 2;
+static constexpr int c_score_to_win = 20;
+static constexpr int c_tile_size = 64;
 
 enum e_state
 {
@@ -50,12 +45,12 @@ struct s_game
 	float snake_apple_time;
 };
 
-global s_input* g_input;
-global s_game* game;
-global s_game_renderer* g_r;
-global s_v2 g_mouse;
+static s_input* g_input;
+static s_game* game;
+static s_game_renderer* g_r;
+static s_v2 g_mouse;
 
-func s_v2i spawn_apple();
+static s_v2i spawn_apple();
 
 #ifdef m_build_dll
 extern "C" {
@@ -84,9 +79,10 @@ m_update_game(update_game)
 		game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/snake/eat_apple.wav", platform_data->frame_arena);
 		game->reset_level = true;
 		game->font = &renderer->fonts[0];
+		platform_data->variables_path = "examples/snake/variables.h";
 	}
 
-	draw_texture(g_r, c_half_res, 0, c_base_res, make_color(1), game->noise, zero, {.effect_id = 1});
+	draw_texture(g_r, c_half_res, 0, c_base_res, make_color(1), game->noise, {}, {.effect_id = 1});
 	renderer->set_shader_float("snake_apple_time", game->snake_apple_time);
 	game->snake_apple_time = at_least(0.0f, game->snake_apple_time - (float)platform_data->frame_time);
 
@@ -98,7 +94,7 @@ m_update_game(update_game)
 		case e_state_play: {
 			if(game->reset_level) {
 				game->reset_level = false;
-				game->snake[0] = zero;
+				game->snake[0] = {};
 				game->last_dir = v2i(1, 0);
 				game->snake_len = 1;
 				game->apple = spawn_apple();
@@ -182,12 +178,12 @@ m_update_game(update_game)
 				else { texture = game->snake_body; }
 				s_snake s = game->snake[snake_i];
 				draw_texture(g_r,
-					v2(s.pos * c_tile_size), 1, v2(c_tile_size), make_color(1), texture, zero, {.rotation = s.rotation, .origin_offset = c_origin_topleft}
+					v2(s.pos * c_tile_size), 1, v2(c_tile_size), make_color(1), texture, {}, {.rotation = s.rotation, .origin_offset = c_origin_topleft}
 				);
 			}
 
 			draw_texture(g_r,
-				v2(game->apple * c_tile_size), 2, v2(c_tile_size), make_color(1), game->apple_texture, zero, {.origin_offset = c_origin_topleft}
+				v2(game->apple * c_tile_size), 2, v2(c_tile_size), make_color(1), game->apple_texture, {}, {.origin_offset = c_origin_topleft}
 			);
 		} break;
 
@@ -225,7 +221,7 @@ m_update_game(update_game)
 }
 #endif // m_build_dll
 
-func s_v2i spawn_apple()
+static s_v2i spawn_apple()
 {
 	s_v2i pos;
 	while(true) {

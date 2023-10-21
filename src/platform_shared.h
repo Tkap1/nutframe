@@ -1426,6 +1426,7 @@ struct s_platform_data
 	t_read_file read_file;
 	t_write_file write_file;
 	void (*reset_ui)();
+	char* variables_path;
 
 	#ifdef m_debug
 	s_v2 vars_pos;
@@ -2084,7 +2085,12 @@ static void do_game_layer(
 				}
 				invalid_else;
 			}
-			write_file("src/variables.h", builder.data, builder.len);
+			if(g_platform_data.variables_path == NULL) {
+				printf("Path to variables file is not set!!\n");
+			}
+			else {
+				write_file(g_platform_data.variables_path, builder.data, builder.len);
+			}
 		}
 	}
 
