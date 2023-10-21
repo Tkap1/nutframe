@@ -35,6 +35,12 @@ typedef uint32_t b32;
 
 typedef double f64;
 
+#ifdef __EMSCRIPTEN__
+#define m_gl_single_channel GL_LUMINANCE
+#else // __EMSCRIPTEN__
+#define m_gl_single_channel GL_RED
+#endif // __EMSCRIPTEN__
+
 #define assert(cond) do { if(!(cond)) { on_failed_assert(#cond, __FILE__, __LINE__); } } while(0)
 #define unreferenced(thing) (void)thing;
 #define check(cond) do { if(!(cond)) { error(false); }} while(0)
@@ -317,6 +323,142 @@ struct s_font
 	s_glyph glyph_arr[1024];
 };
 
+[[nodiscard]]
+static u32 hash(const char* text)
+{
+	assert(text);
+	u32 hash = 5381;
+	while(true)
+	{
+		int c = *text;
+		text += 1;
+		if(!c) { break; }
+		hash = ((hash << 5) + hash) + c;
+	}
+	return hash;
+}
+
+[[nodiscard]]
+static constexpr s_v4 rgb(int hex)
+{
+	s_v4 result;
+	result.x = ((hex & 0xFF0000) >> 16) / 255.0f;
+	result.y = ((hex & 0x00FF00) >> 8) / 255.0f;
+	result.z = ((hex & 0x0000FF)) / 255.0f;
+	result.w = 1;
+	return result;
+}
+
+[[nodiscard]]
+static constexpr s_v4 rgba(int hex)
+{
+	s_v4 result;
+	result.x = ((hex & 0xFF000000) >> 24) / 255.0f;
+	result.y = ((hex & 0x00FF0000) >> 16) / 255.0f;
+	result.z = ((hex & 0x0000FF00) >> 8) / 255.0f;
+	result.w = ((hex & 0x000000FF) >> 0) / 255.0f;
+	return result;
+}
+
+template <typename t>
+static t at_least(t a, t b)
+{
+	return a > b ? a : b;
+}
+
+template <typename t>
+static t at_most(t a, t b)
+{
+	return b > a ? a : b;
+}
+
+static b8 floats_equal(float a, float b)
+{
+	return (a >= b - epsilon && a <= b + epsilon);
+}
+
+static float ilerp(float start, float end, float val)
+{
+	float b = end - start;
+	if(floats_equal(b, 0)) { return val; }
+	return (val - start) / b;
+}
+
+template <typename t>
+static t clamp(t current, t min_val, t max_val)
+{
+	return at_most(max_val, at_least(min_val, current));
+}
+
+static s_v4 brighter(s_v4 color, float val)
+{
+	color.x = clamp(color.x * val, 0.0f, 1.0f);
+	color.y = clamp(color.y * val, 0.0f, 1.0f);
+	color.z = clamp(color.z * val, 0.0f, 1.0f);
+	return color;
+}
+
+template <typename T>
+static constexpr s_v2 v2(T x, T y)
+{
+	s_v2 result;
+	result.x = (float)x;
+	result.y = (float)y;
+	return result;
+}
+
+static constexpr s_v2 v2(s_v2i v)
+{
+	return v2(v.x, v.y);
+}
+
+template <typename T>
+static constexpr s_v2 v2(T v)
+{
+	s_v2 result;
+	result.x = (float)v;
+	result.y = (float)v;
+	return result;
+}
+
+static char* format_text(const char* text, ...)
+{
+	static constexpr int max_format_text_buffers = 16;
+	static constexpr int max_text_buffer_length = 256;
+
+	static char buffers[max_format_text_buffers][max_text_buffer_length] = {};
+	static int index = 0;
+
+	char* current_buffer = buffers[index];
+	memset(current_buffer, 0, max_text_buffer_length);
+
+	va_list args;
+	va_start(args, text);
+	#ifdef m_debug
+	int written = vsnprintf(current_buffer, max_text_buffer_length, text, args);
+	assert(written > 0 && written < max_text_buffer_length);
+	#else
+	vsnprintf(current_buffer, max_text_buffer_length, text, args);
+	#endif
+	va_end(args);
+
+	index += 1;
+	if(index >= max_format_text_buffers) { index = 0; }
+
+	return current_buffer;
+}
+
+static b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
+{
+	return pos0.x + size0.x > pos1.x && pos0.x < pos1.x + size1.x &&
+		pos0.y + size0.y > pos1.y && pos0.y < pos1.y + size1.y;
+}
+
+static b8 mouse_collides_rect_topleft(s_v2 mouse, s_v2 pos, s_v2 size)
+{
+	return rect_collides_rect_topleft(mouse, v2(1, 1), pos, size);
+}
+
 
 static constexpr int c_max_arena_push = 16;
 struct s_lin_arena
@@ -583,19 +725,6 @@ static b8 write_file(const char* path, void* data, u64 size)
 
 #endif // m_game
 
-template <typename t>
-static t at_least(t a, t b)
-{
-	return a > b ? a : b;
-}
-
-template <typename t>
-static t at_most(t a, t b)
-{
-	return b > a ? a : b;
-}
-
-
 struct s_rng
 {
 	u32 seed;
@@ -677,30 +806,6 @@ struct s_rng
 	}
 
 };
-
-
-template <typename T>
-static constexpr s_v2 v2(T x, T y)
-{
-	s_v2 result;
-	result.x = (float)x;
-	result.y = (float)y;
-	return result;
-}
-
-static constexpr s_v2 v2(s_v2i v)
-{
-	return v2(v.x, v.y);
-}
-
-template <typename T>
-static constexpr s_v2 v2(T v)
-{
-	s_v2 result;
-	result.x = (float)v;
-	result.y = (float)v;
-	return result;
-}
 
 static constexpr s_v2i v2i(int x, int y)
 {
@@ -810,14 +915,6 @@ static void operator*=(s_v2& a, float b)
 	a.x *= b;
 	a.y *= b;
 }
-
-
-template <typename t>
-static t clamp(t current, t min_val, t max_val)
-{
-	return at_most(max_val, at_least(min_val, current));
-}
-
 
 static s_v2 v2_rotate_around(s_v2 v, s_v2 pivot, float angle)
 {
@@ -1268,6 +1365,43 @@ struct s_render_data
 	s_framebuffer* framebuffer;
 };
 
+enum e_var_type
+{
+	e_var_type_int,
+	e_var_type_float,
+	e_var_type_bool,
+};
+
+union s_var_value
+{
+	float val_float;
+	int val_int;
+};
+
+struct s_var
+{
+	b8 display;
+	e_var_type type;
+	void* ptr;
+	const char* name;
+	s_var_value min_val;
+	s_var_value max_val;
+};
+
+enum e_ui
+{
+	e_ui_nothing,
+	e_ui_hovered,
+	e_ui_pressed,
+	e_ui_active,
+};
+
+struct s_ui_interaction
+{
+	b8 pressed_this_frame;
+	e_ui state;
+};
+
 struct s_platform_data
 {
 	b8 recompiled;
@@ -1290,6 +1424,14 @@ struct s_platform_data
 	t_cycle_between_available_resolutions cycle_between_available_resolutions;
 	t_read_file read_file;
 	t_write_file write_file;
+	void (*reset_ui)();
+
+	#ifdef m_debug
+	s_v2 vars_pos;
+	s_v2 vars_pos_offset;
+	b8 show_live_vars;
+	s_sarray<s_var, 128> vars;
+	#endif // m_debug
 };
 
 #ifndef m_game
@@ -1626,9 +1768,335 @@ static constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 	},
 };
 
+struct s_ui_id
+{
+	u32 id;
+};
+
+struct s_ui
+{
+	b8 pressed_present;
+	s_ui_id hovered;
+	s_ui_id pressed;
+};
+
+
+static s_ui g_ui = {};
+
+static void ui_request_hovered(s_ui* ui, u32 id)
+{
+	if(ui->pressed.id != 0) { return; }
+	ui->hovered.id = id;
+}
+
+static void ui_request_pressed(s_ui* ui, u32 id)
+{
+	ui->hovered.id = 0;
+	ui->pressed.id = id;
+}
+
+static void ui_request_active(s_ui* ui, u32 id)
+{
+	unreferenced(id);
+	ui->hovered.id = 0;
+	ui->pressed.id = 0;
+}
+
+static s_ui_interaction ui_button(
+	s_game_renderer* game_renderer, const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, s_input* input, s_v2 mouse
+)
+{
+	s_ui_interaction result = {};
+	u32 id = hash(text);
+	s_v4 button_color = rgb(0x217278);
+	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
+	if(hovered) {
+		ui_request_hovered(&g_ui, id);
+	}
+	if(g_ui.hovered.id == id) {
+		result.state = e_ui_hovered;
+		button_color = brighter(button_color, 1.4f);
+		if(hovered && is_key_pressed(input, c_left_mouse)) {
+			result.pressed_this_frame = true;
+			ui_request_pressed(&g_ui, id);
+		}
+		else if(!hovered) {
+			ui_request_hovered(&g_ui, 0);
+		}
+	}
+	if(g_ui.pressed.id == id) {
+		result.state = e_ui_pressed;
+		g_ui.pressed_present = true;
+		button_color = brighter(button_color, 0.6f);
+		if(is_key_released(input, c_left_mouse)) {
+			if(hovered) {
+				result.state = e_ui_active;
+				ui_request_active(&g_ui, id);
+			}
+			else {
+				ui_request_pressed(&g_ui, 0);
+			}
+		}
+	}
+
+	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
+	if(font) {
+		s_v2 text_pos = pos;
+		text_pos += size / 2;
+		draw_text(game_renderer, text, text_pos, 11, font_size, rgb(0xFB9766), true, font);
+	}
+	return result;
+}
+
+template <typename t>
+static t ui_slider(
+	s_game_renderer* game_renderer, const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, t min_val, t max_val, t curr_val, s_input* input, s_v2 mouse
+)
+{
+	constexpr b8 is_int = is_same<t, int>;
+	constexpr b8 is_float = is_same<t, float>;
+	static_assert(is_int || is_float);
+
+	t result = curr_val;
+	u32 id = hash(text);
+	s_v4 button_color = rgb(0x217278);
+	s_v4 handle_color = rgb(0xEA5D58);
+	s_v2 handle_size = v2(size.y);
+	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
+	if(hovered) {
+		ui_request_hovered(&g_ui, id);
+	}
+	if(g_ui.hovered.id == id) {
+		button_color = brighter(button_color, 1.4f);
+		if(hovered && is_key_pressed(input, c_left_mouse)) {
+			ui_request_pressed(&g_ui, id);
+		}
+		else if(!hovered) {
+			ui_request_hovered(&g_ui, 0);
+		}
+	}
+	if(g_ui.pressed.id == id) {
+		g_ui.pressed_present = true;
+		button_color = brighter(button_color, 0.6f);
+		if(is_key_released(input, c_left_mouse)) {
+			if(hovered) {
+				ui_request_active(&g_ui, id);
+			}
+			else {
+				ui_request_pressed(&g_ui, 0);
+			}
+		}
+		float percent;
+		if(is_key_down(input, c_key_left_ctrl)) {
+			percent = ilerp(handle_size.x * 0.5f, c_base_res.x - handle_size.x * 0.5f, mouse.x);
+		}
+		else {
+			percent = ilerp(pos.x + handle_size.x * 0.5f, pos.x + size.x - handle_size.x * 0.5f, mouse.x);
+		}
+		result = (t)lerp((float)min_val, (float)max_val, percent);
+	}
+	result = clamp(result, min_val, max_val);
+
+	s_v2 handle_pos = v2(
+		pos.x + ilerp((float)min_val, (float)max_val, (float)result) * (size.x - handle_size.y),
+		pos.y - handle_size.y / 2 + size.y / 2
+	);
+
+	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, handle_pos, 11, handle_size, handle_color, {}, {.flags = e_render_flag_circle, .origin_offset = c_origin_topleft});
+	s_v2 text_pos = pos;
+	text_pos += size / 2;
+	if(is_int) {
+		draw_text(game_renderer, format_text("%i", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	}
+	else if(is_float) {
+		draw_text(game_renderer, format_text("%.2f", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	}
+	return result;
+}
+
+static void ui_checkbox(s_game_renderer* game_renderer, const char* text, s_v2 pos, s_v2 size, b8* val, s_input* input, s_v2 mouse)
+{
+	assert(val);
+	u32 id = hash(text);
+	s_v4 button_color = rgb(0x217278);
+	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
+	if(hovered) {
+		ui_request_hovered(&g_ui, id);
+	}
+	if(g_ui.hovered.id == id) {
+		button_color = brighter(button_color, 1.4f);
+		if(hovered && is_key_pressed(input, c_left_mouse)) {
+			ui_request_pressed(&g_ui, id);
+		}
+		else if(!hovered) {
+			ui_request_hovered(&g_ui, 0);
+		}
+	}
+	if(g_ui.pressed.id == id) {
+		g_ui.pressed_present = true;
+		button_color = brighter(button_color, 0.6f);
+		if(is_key_released(input, c_left_mouse)) {
+			if(hovered) {
+				*val = !(*val);
+				ui_request_active(&g_ui, id);
+			}
+			else {
+				ui_request_pressed(&g_ui, 0);
+			}
+		}
+	}
+
+	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
+	if(*val) {
+		draw_texture(game_renderer, pos, 11, size, make_color(0,1,0), game_renderer->checkmark_texture, {}, {.origin_offset = c_origin_topleft});
+	}
+}
+
 static b8 g_do_embed = false;
 static s_sarray<const char*, 128> g_to_embed;
 static int g_asset_index = 0;
+
+static void write_embed_file()
+{
+	constexpr int max_chars = 100 * c_mb;
+	assert(g_do_embed);
+	s_str_builder<max_chars>* builder = (s_str_builder<max_chars>*)malloc(sizeof(s_str_builder<max_chars>));
+	builder->tab_count = 0;
+	builder->len = 0;
+	foreach_val(embed_i, embed, g_to_embed) {
+		FILE* file = fopen(embed, "rb");
+		assert(file);
+		fseek(file, 0, SEEK_END);
+		u64 file_size = ftell(file);
+		fseek(file, 0, SEEK_SET);
+		u8* data = (u8*)malloc(file_size);
+		fread(data, 1, file_size, file);
+		u8* cursor = data;
+
+		builder->add_line("static constexpr u8 embed%i[%u] = {", embed_i, file_size);
+		for(u64 i = 0; i < file_size; i++) {
+			builder->add("%u,", *cursor);
+			cursor++;
+		}
+		builder->add_line("\n};");
+
+		fclose(file);
+		free(data);
+	}
+
+	builder->add_line("static constexpr u8* embed_data[%i] = {", g_to_embed.count);
+	foreach_val(embed_i, embed, g_to_embed) {
+		builder->add("(u8*)embed%i,", embed_i);
+	}
+	builder->add_line("\n};");
+
+	builder->add_line("static constexpr int embed_sizes[%i] = {", g_to_embed.count);
+	foreach_val(embed_i, embed, g_to_embed) {
+		builder->add("array_count(embed%i),", embed_i);
+	}
+	builder->add_line("\n};");
+
+	{
+		FILE* file = fopen("src/embed.h", "wb");
+		fwrite(builder->data, 1, builder->len, file);
+		fclose(file);
+	}
+
+	printf("Successfully created embed.h!\n");
+
+	exit(0);
+}
+
+static void do_game_layer(
+	s_game_renderer* game_renderer, void* game_memory
+	#ifndef m_sdl
+	, t_update_game update_game
+	#endif m_sdl
+)
+{
+	#ifdef m_debug
+
+	if(is_key_pressed(g_platform_data.input, c_key_f1)) {
+		g_platform_data.show_live_vars = !g_platform_data.show_live_vars;
+	}
+
+	if(g_platform_data.show_live_vars) {
+		s_v2 pos = g_platform_data.vars_pos;
+		s_ui_interaction interaction = ui_button(game_renderer, "Move", pos, v2(32), NULL, 32, g_platform_data.input, g_platform_data.mouse);
+		if(interaction.state == e_ui_pressed) {
+			if(interaction.pressed_this_frame) {
+				g_platform_data.vars_pos_offset = g_platform_data.mouse - pos;
+			}
+			s_v2 m = g_platform_data.mouse;
+			m -= g_platform_data.vars_pos_offset;
+			m.x = clamp(m.x, 0.0f, c_base_res.x - 32);
+			m.y = clamp(m.y, 0.0f, c_base_res.y - 32);
+			g_platform_data.vars_pos = m;
+			pos = m;
+		}
+		pos += v2(100);
+
+		constexpr float font_size = 24;
+		constexpr float button_height = 32;
+
+		foreach_val(var_i, var, g_platform_data.vars) {
+			if(!var.display) { continue; }
+			s_v2 text_pos = pos;
+			text_pos.x -= 300;
+			text_pos.y += button_height / 2.0f - font_size * 0.5f;
+			s_v2 slider_pos = pos;
+			draw_text(game_renderer, var.name, text_pos, 15, font_size, rgb(0xffffff), false, &game_renderer->fonts[0]);
+			if(var.type == e_var_type_int) {
+				*(int*)var.ptr = ui_slider(
+					game_renderer, var.name, slider_pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size,
+					var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, g_platform_data.input, g_platform_data.mouse
+				);
+			}
+			else if(var.type == e_var_type_float) {
+				*(float*)var.ptr = ui_slider(
+					game_renderer, var.name, slider_pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size,
+					var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr, g_platform_data.input, g_platform_data.mouse
+				);
+			}
+			else if(var.type == e_var_type_bool) {
+				s_v2 temp = slider_pos;
+				temp.x += 100 - button_height / 2.0f;
+				ui_checkbox(game_renderer, var.name, temp, v2(button_height), (b8*)var.ptr, g_platform_data.input, g_platform_data.mouse);
+			}
+			pos.y += button_height + 4.0f;
+		}
+
+		if(ui_button(
+				game_renderer, "Save", pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size, g_platform_data.input, g_platform_data.mouse
+			).state == e_ui_active) {
+			s_str_builder<10 * c_kb> builder;
+			foreach_val(var_i, var, g_platform_data.vars) {
+				if(var.type == e_var_type_int) {
+					builder.add_line("static int %s = %i;", var.name, *(int*)var.ptr);
+				}
+				else if(var.type == e_var_type_float) {
+					builder.add_line("static float %s = %ff;", var.name, *(float*)var.ptr);
+				}
+				else if(var.type == e_var_type_bool) {
+					builder.add_line("static b8 %s = %s;", var.name, *(b8*)var.ptr ? "true" : "false");
+				}
+				invalid_else;
+			}
+			write_file("src/variables.h", builder.data, builder.len);
+		}
+	}
+
+	g_platform_data.vars.count = 0;
+	#endif // m_debug
+
+	update_game(&g_platform_data, game_memory, game_renderer);
+	g_platform_data.recompiled = false;
+
+	if(g_do_embed) {
+		write_embed_file();
+	}
+}
 
 static void on_gl_error(const char* expr, int error)
 {
@@ -2115,57 +2583,6 @@ static void after_making_framebuffer(int index, s_game_renderer* game_renderer)
 
 }
 
-static void write_embed_file()
-{
-	constexpr int max_chars = 100 * c_mb;
-	assert(g_do_embed);
-	s_str_builder<max_chars>* builder = (s_str_builder<max_chars>*)malloc(sizeof(s_str_builder<max_chars>));
-	builder->tab_count = 0;
-	builder->len = 0;
-	foreach_val(embed_i, embed, g_to_embed) {
-		FILE* file = fopen(embed, "rb");
-		assert(file);
-		fseek(file, 0, SEEK_END);
-		u64 file_size = ftell(file);
-		fseek(file, 0, SEEK_SET);
-		u8* data = (u8*)malloc(file_size);
-		fread(data, 1, file_size, file);
-		u8* cursor = data;
-
-		builder->add_line("static constexpr u8 embed%i[%u] = {", embed_i, file_size);
-		for(u64 i = 0; i < file_size; i++) {
-			builder->add("%u,", *cursor);
-			cursor++;
-		}
-		builder->add_line("\n};");
-
-		fclose(file);
-		free(data);
-	}
-
-	builder->add_line("static constexpr u8* embed_data[%i] = {", g_to_embed.count);
-	foreach_val(embed_i, embed, g_to_embed) {
-		builder->add("(u8*)embed%i,", embed_i);
-	}
-	builder->add_line("\n};");
-
-	builder->add_line("static constexpr int embed_sizes[%i] = {", g_to_embed.count);
-	foreach_val(embed_i, embed, g_to_embed) {
-		builder->add("array_count(embed%i),", embed_i);
-	}
-	builder->add_line("\n};");
-
-	{
-		FILE* file = fopen("src/embed.h", "wb");
-		fwrite(builder->data, 1, builder->len, file);
-		fclose(file);
-	}
-
-	printf("Successfully created embed.h!\n");
-
-	exit(0);
-}
-
 static s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena)
 {
 	if(g_do_embed) {
@@ -2271,7 +2688,7 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 		stbtt_FreeBitmap(bitmap_arr[bitmap_i], NULL);
 	}
 
-	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR, GL_RED);
+	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR, m_gl_single_channel);
 
 	return font;
 }
@@ -2296,309 +2713,80 @@ static b8 set_shader_v2(const char* uniform_name, s_v2 val)
 
 #endif // m_game
 
+// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		live variable start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+#ifdef m_game
 
-[[nodiscard]]
-static constexpr s_v4 rgb(int hex)
-{
-	s_v4 result;
-	result.x = ((hex & 0xFF0000) >> 16) / 255.0f;
-	result.y = ((hex & 0x00FF00) >> 8) / 255.0f;
-	result.z = ((hex & 0x0000FF)) / 255.0f;
-	result.w = 1;
-	return result;
-}
+#ifdef m_debug
+#define live_variable(vars, var, min_val, max_val, display) live_variable_(vars, &var, #var, min_val, max_val, display)
+#else // m_debug
+#define live_variable(vars, var, min_val, max_val, display)
+#endif // m_debug
 
-[[nodiscard]]
-static constexpr s_v4 rgba(int hex)
-{
-	s_v4 result;
-	result.x = ((hex & 0xFF000000) >> 24) / 255.0f;
-	result.y = ((hex & 0x00FF0000) >> 16) / 255.0f;
-	result.z = ((hex & 0x0000FF00) >> 8) / 255.0f;
-	result.w = ((hex & 0x000000FF) >> 0) / 255.0f;
-	return result;
-}
+#endif // m_game
 
-[[nodiscard]]
-static u32 hash(const char* text)
-{
-	assert(text);
-	u32 hash = 5381;
-	while(true)
-	{
-		int c = *text;
-		text += 1;
-		if(!c) { break; }
-		hash = ((hash << 5) + hash) + c;
-	}
-	return hash;
-}
+#if defined(m_debug)
 
-
-static b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
-{
-	return pos0.x + size0.x > pos1.x && pos0.x < pos1.x + size1.x &&
-		pos0.y + size0.y > pos1.y && pos0.y < pos1.y + size1.y;
-}
-
-static b8 mouse_collides_rect_topleft(s_v2 mouse, s_v2 pos, s_v2 size)
-{
-	return rect_collides_rect_topleft(mouse, v2(1, 1), pos, size);
-}
-
-static s_v4 brighter(s_v4 color, float val)
-{
-	color.x = clamp(color.x * val, 0.0f, 1.0f);
-	color.y = clamp(color.y * val, 0.0f, 1.0f);
-	color.z = clamp(color.z * val, 0.0f, 1.0f);
-	return color;
-}
-
-static b8 floats_equal(float a, float b)
-{
-	return (a >= b - epsilon && a <= b + epsilon);
-}
-
-static float ilerp(float start, float end, float val)
-{
-	float b = end - start;
-	if(floats_equal(b, 0)) { return val; }
-	return (val - start) / b;
-}
-
-static char* format_text(const char* text, ...)
-{
-	static constexpr int max_format_text_buffers = 16;
-	static constexpr int max_text_buffer_length = 256;
-
-	static char buffers[max_format_text_buffers][max_text_buffer_length] = {};
-	static int index = 0;
-
-	char* current_buffer = buffers[index];
-	memset(current_buffer, 0, max_text_buffer_length);
-
-	va_list args;
-	va_start(args, text);
-	#ifdef m_debug
-	int written = vsnprintf(current_buffer, max_text_buffer_length, text, args);
-	assert(written > 0 && written < max_text_buffer_length);
-	#else
-	vsnprintf(current_buffer, max_text_buffer_length, text, args);
-	#endif
-	va_end(args);
-
-	index += 1;
-	if(index >= max_format_text_buffers) { index = 0; }
-
-	return current_buffer;
-}
-
-
-// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-
-enum e_ui
-{
-	e_ui_nothing,
-	e_ui_hovered,
-	e_ui_pressed,
-	e_ui_active,
-};
-
-struct s_ui_interaction
-{
-	b8 pressed_this_frame;
-	e_ui state;
-};
-
-struct s_ui_id
-{
-	u32 id;
-};
-
-struct s_ui
-{
-	b8 pressed_present;
-	s_ui_id hovered;
-	s_ui_id pressed;
-};
-
-static void ui_request_hovered(s_ui* ui, u32 id)
-{
-	if(ui->pressed.id != 0) { return; }
-	ui->hovered.id = id;
-}
-
-static void ui_request_pressed(s_ui* ui, u32 id)
-{
-	ui->hovered.id = 0;
-	ui->pressed.id = id;
-}
-
-static void ui_request_active(s_ui* ui, u32 id)
-{
-	unreferenced(id);
-	ui->hovered.id = 0;
-	ui->pressed.id = 0;
-}
-
-static s_ui_interaction ui_button(
-	s_game_renderer* game_renderer, s_ui* ui, const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, s_input* input, s_v2 mouse
-)
-{
-	s_ui_interaction result = {};
-	u32 id = hash(text);
-	s_v4 button_color = rgb(0x217278);
-	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
-	if(hovered) {
-		ui_request_hovered(ui, id);
-	}
-	if(ui->hovered.id == id) {
-		result.state = e_ui_hovered;
-		button_color = brighter(button_color, 1.4f);
-		if(hovered && is_key_pressed(input, c_left_mouse)) {
-			result.pressed_this_frame = true;
-			ui_request_pressed(ui, id);
-		}
-		else if(!hovered) {
-			ui_request_hovered(ui, 0);
-		}
-	}
-	if(ui->pressed.id == id) {
-		result.state = e_ui_pressed;
-		ui->pressed_present = true;
-		button_color = brighter(button_color, 0.6f);
-		if(is_key_released(input, c_left_mouse)) {
-			if(hovered) {
-				result.state = e_ui_active;
-				ui_request_active(ui, id);
-			}
-			else {
-				ui_request_pressed(ui, 0);
-			}
-		}
-	}
-
-	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
-	if(font) {
-		s_v2 text_pos = pos;
-		text_pos += size / 2;
-		draw_text(game_renderer, text, text_pos, 11, font_size, rgb(0xFB9766), true, font);
-	}
-	return result;
-}
+static s_var* get_var_by_ptr(s_sarray<s_var, 128>* vars, void* ptr);
 
 template <typename t>
-static t ui_slider(
-	s_game_renderer* game_renderer, s_ui* ui, const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, t min_val, t max_val, t curr_val, s_input* input, s_v2 mouse
-)
+static void live_variable_(s_sarray<s_var, 128>* vars, t* ptr, const char* name, t min_val, t max_val, b8 display)
 {
 	constexpr b8 is_int = is_same<t, int>;
 	constexpr b8 is_float = is_same<t, float>;
-	static_assert(is_int || is_float);
-
-	t result = curr_val;
-	u32 id = hash(text);
-	s_v4 button_color = rgb(0x217278);
-	s_v4 handle_color = rgb(0xEA5D58);
-	s_v2 handle_size = v2(size.y);
-	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
-	if(hovered) {
-		ui_request_hovered(ui, id);
+	constexpr b8 is_bool = is_same<t, b8>;
+	static_assert(is_int || is_float || is_bool);
+	s_var var = {};
+	var.display = display;
+	var.ptr = ptr;
+	var.name = name;
+	if constexpr(is_int) {
+		var.type = e_var_type_int;
+		var.min_val.val_int = min_val;
+		var.max_val.val_int = max_val;
 	}
-	if(ui->hovered.id == id) {
-		button_color = brighter(button_color, 1.4f);
-		if(hovered && is_key_pressed(input, c_left_mouse)) {
-			ui_request_pressed(ui, id);
-		}
-		else if(!hovered) {
-			ui_request_hovered(ui, 0);
-		}
+	else if constexpr(is_float) {
+		var.type = e_var_type_float;
+		var.min_val.val_float = min_val;
+		var.max_val.val_float = max_val;
 	}
-	if(ui->pressed.id == id) {
-		ui->pressed_present = true;
-		button_color = brighter(button_color, 0.6f);
-		if(is_key_released(input, c_left_mouse)) {
-			if(hovered) {
-				ui_request_active(ui, id);
-			}
-			else {
-				ui_request_pressed(ui, 0);
-			}
-		}
-		float percent;
-		if(is_key_down(input, c_key_left_ctrl)) {
-			percent = ilerp(handle_size.x * 0.5f, c_base_res.x - handle_size.x * 0.5f, mouse.x);
-		}
-		else {
-			percent = ilerp(pos.x + handle_size.x * 0.5f, pos.x + size.x - handle_size.x * 0.5f, mouse.x);
-		}
-		result = (t)lerp((float)min_val, (float)max_val, percent);
+	else if constexpr(is_bool) {
+		var.type = e_var_type_bool;
 	}
-	result = clamp(result, min_val, max_val);
-
-	s_v2 handle_pos = v2(
-		pos.x + ilerp((float)min_val, (float)max_val, (float)result) * (size.x - handle_size.y),
-		pos.y - handle_size.y / 2 + size.y / 2
-	);
-
-	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
-	draw_rect(game_renderer, handle_pos, 11, handle_size, handle_color, {}, {.flags = e_render_flag_circle, .origin_offset = c_origin_topleft});
-	s_v2 text_pos = pos;
-	text_pos += size / 2;
-	if(is_int) {
-		draw_text(game_renderer, format_text("%i", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	s_var* temp = get_var_by_ptr(vars, ptr);
+	if(temp) {
+		*temp = var;
 	}
-	else if(is_float) {
-		draw_text(game_renderer, format_text("%.2f", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
+	else {
+		vars->add(var);
 	}
-	return result;
 }
 
-static void ui_checkbox(s_game_renderer* game_renderer, s_ui* ui, const char* text, s_v2 pos, s_v2 size, b8* val, s_input* input, s_v2 mouse)
+static s_var* get_var_by_ptr(s_sarray<s_var, 128>* vars, void* ptr)
 {
-	assert(val);
-	u32 id = hash(text);
-	s_v4 button_color = rgb(0x217278);
-	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
-	if(hovered) {
-		ui_request_hovered(ui, id);
+	for(int var_i = 0; var_i < vars->count; var_i++)
+	{
+		s_var* var = vars->get_ptr(var_i);
+		if(var->ptr == ptr) { return var; }
 	}
-	if(ui->hovered.id == id) {
-		button_color = brighter(button_color, 1.4f);
-		if(hovered && is_key_pressed(input, c_left_mouse)) {
-			ui_request_pressed(ui, id);
-		}
-		else if(!hovered) {
-			ui_request_hovered(ui, 0);
-		}
-	}
-	if(ui->pressed.id == id) {
-		ui->pressed_present = true;
-		button_color = brighter(button_color, 0.6f);
-		if(is_key_released(input, c_left_mouse)) {
-			if(hovered) {
-				*val = !(*val);
-				ui_request_active(ui, id);
-			}
-			else {
-				ui_request_pressed(ui, 0);
-			}
-		}
-	}
-
-	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
-	if(*val) {
-		draw_texture(game_renderer, pos, 11, size, make_color(0,1,0), game_renderer->checkmark_texture, {}, {.origin_offset = c_origin_topleft});
-	}
+	return NULL;
 }
 
-static void reset_ui(s_ui* ui)
+#endif
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		live variable end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+#ifndef m_game
+
+static void reset_ui()
 {
-	ui->hovered.id = 0;
-	if(!ui->pressed_present && ui->pressed.id != 0) {
-		ui_request_pressed(ui, 0);
+	g_ui.hovered.id = 0;
+	if(!g_ui.pressed_present && g_ui.pressed.id != 0) {
+		ui_request_pressed(&g_ui, 0);
 	}
-	ui->pressed_present = false;
+	g_ui.pressed_present = false;
 }
+
+#endif // m_game
 
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

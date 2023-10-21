@@ -37,6 +37,7 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../examples/noise.png@examples/noise.png
 	set comp=!comp! --preload-file ../examples/eat_apple.wav@examples/eat_apple.wav
 	set comp=!comp! --preload-file ../examples/consola.ttf@examples/consola.ttf
+	set comp=!comp! --preload-file ../examples/checkmark.png@examples/checkmark.png
 	@REM set comp=!comp! -fsanitize=address
 )
 

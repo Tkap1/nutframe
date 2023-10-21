@@ -24,29 +24,6 @@ struct s_snake
 	float rotation;
 };
 
-enum e_var_type
-{
-	e_var_type_int,
-	e_var_type_float,
-	e_var_type_bool,
-};
-
-union s_var_value
-{
-	float val_float;
-	int val_int;
-};
-
-struct s_var
-{
-	b8 display;
-	e_var_type type;
-	void* ptr;
-	const char* name;
-	s_var_value min_val;
-	s_var_value max_val;
-};
-
 struct s_game
 {
 	b8 initialized;
@@ -70,32 +47,14 @@ struct s_game
 	s_sound* eat_apple_sound;
 	s_v2 snake_light_pos;
 	float snake_apple_time;
-
-	#ifdef m_debug
-	s_v2 vars_pos;
-	s_v2 vars_pos_offset;
-	s_sarray<s_var, 16> variables;
-	b8 show_live_vars;
-	#endif // m_debug
 };
 
 global s_input* g_input;
 global s_game* game;
 global s_game_renderer* g_r;
 global s_v2 g_mouse;
-global s_ui g_ui;
-
-#ifdef m_debug
-#define live_variable(var, min_val, max_val, display) live_variable_(&var, #var, min_val, max_val, display)
-#else // m_debug
-#define live_variable(var, min_val, max_val, display)
-#endif // m_debug
 
 func s_v2i spawn_apple();
-func s_var* get_var_by_ptr(void* ptr);
-template <typename t>
-func void live_variable_(t* ptr, const char* name, t min_val, t max_val, b8 display);
-
 
 #ifdef m_build_dll
 extern "C" {
@@ -130,80 +89,10 @@ m_update_game(update_game)
 	renderer->set_shader_float("snake_apple_time", game->snake_apple_time);
 	game->snake_apple_time = at_least(0.0f, game->snake_apple_time - (float)platform_data->frame_time);
 
-	live_variable(c_apple_light_duration, 0.0f, 5.0f, true);
-	live_variable(c_move_delay, 0.01f, 0.5f, true);
-	live_variable(c_tile_size, 64, 65, true);
-	live_variable(c_self_collision, (b8)0, (b8)0, true);
-
-	#ifdef m_debug
-
-	if(is_key_pressed(g_input, c_key_f1)) {
-		game->show_live_vars = !game->show_live_vars;
-	}
-
-	if(game->show_live_vars) {
-		s_v2 pos = game->vars_pos;
-		s_ui_interaction interaction = ui_button(g_r, &g_ui, "Move", pos, v2(32), null, 32, g_input, g_mouse);
-		if(interaction.state == e_ui_pressed) {
-			if(interaction.pressed_this_frame) {
-				game->vars_pos_offset = g_mouse - pos;
-			}
-			s_v2 m = g_mouse;
-			m -= game->vars_pos_offset;
-			m.x = clamp(m.x, 0.0f, c_base_res.x - 32);
-			m.y = clamp(m.y, 0.0f, c_base_res.y - 32);
-			game->vars_pos = m;
-			pos = m;
-		}
-		pos += v2(100);
-
-		constexpr float font_size = 24;
-		constexpr float button_height = 32;
-
-		foreach_val(var_i, var, game->variables) {
-			if(!var.display) { continue; }
-			s_v2 text_pos = pos;
-			text_pos.x -= 300;
-			text_pos.y += button_height / 2.0f - font_size * 0.5f;
-			s_v2 slider_pos = pos;
-			draw_text(g_r, var.name, text_pos, 15, font_size, rgb(0xffffff), false, game->font);
-			if(var.type == e_var_type_int) {
-				*(int*)var.ptr = ui_slider(
-					g_r, &g_ui, var.name, slider_pos, v2(200.0f, button_height), game->font, font_size, var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, g_input, g_mouse
-				);
-			}
-			else if(var.type == e_var_type_float) {
-				*(float*)var.ptr = ui_slider(
-					g_r, &g_ui, var.name, slider_pos, v2(200.0f, button_height), game->font, font_size, var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr,
-					g_input, g_mouse
-				);
-			}
-			else if(var.type == e_var_type_bool) {
-				s_v2 temp = slider_pos;
-				temp.x += 100 - button_height / 2.0f;
-				ui_checkbox(g_r, &g_ui, var.name, temp, v2(button_height), (b8*)var.ptr, g_input, g_mouse);
-			}
-			pos.y += button_height + 4.0f;
-		}
-
-		if(ui_button(g_r, &g_ui, "Save", pos, v2(200.0f, button_height), game->font, font_size, g_input, g_mouse).state == e_ui_active) {
-			s_str_builder<10 * c_kb> builder;
-			foreach_val(var_i, var, game->variables) {
-				if(var.type == e_var_type_int) {
-					builder.add_line("static int %s = %i;", var.name, *(int*)var.ptr);
-				}
-				else if(var.type == e_var_type_float) {
-					builder.add_line("static float %s = %ff;", var.name, *(float*)var.ptr);
-				}
-				else if(var.type == e_var_type_bool) {
-					builder.add_line("static b8 %s = %s;", var.name, *(b8*)var.ptr ? "true" : "false");
-				}
-				invalid_else;
-			}
-			platform_data->write_file("src/variables.h", builder.data, builder.len);
-		}
-	}
-	#endif // m_debug
+	live_variable(&platform_data->vars, c_apple_light_duration, 0.0f, 5.0f, true);
+	live_variable(&platform_data->vars, c_move_delay, 0.01f, 0.5f, true);
+	live_variable(&platform_data->vars, c_tile_size, 64, 65, true);
+	live_variable(&platform_data->vars, c_self_collision, (b8)0, (b8)0, true);
 
 	switch(game->state) {
 		case e_state_play: {
@@ -328,11 +217,7 @@ m_update_game(update_game)
 		g_input->keys[i].count = 0;
 	}
 
-	#ifdef m_debug
-	game->variables.count = 0;
-	#endif // m_debug
-
-	reset_ui(&g_ui);
+	platform_data->reset_ui();
 
 }
 
@@ -358,46 +243,4 @@ func s_v2i spawn_apple()
 	return pos;
 }
 
-#ifdef m_debug
-template <typename t>
-func void live_variable_(t* ptr, const char* name, t min_val, t max_val, b8 display)
-{
-	constexpr b8 is_int = is_same<t, int>;
-	constexpr b8 is_float = is_same<t, float>;
-	constexpr b8 is_bool = is_same<t, b8>;
-	static_assert(is_int || is_float || is_bool);
-	s_var var = zero;
-	var.display = display;
-	var.ptr = ptr;
-	var.name = name;
-	if constexpr(is_int) {
-		var.type = e_var_type_int;
-		var.min_val.val_int = min_val;
-		var.max_val.val_int = max_val;
-	}
-	else if constexpr(is_float) {
-		var.type = e_var_type_float;
-		var.min_val.val_float = min_val;
-		var.max_val.val_float = max_val;
-	}
-	else if constexpr(is_bool) {
-		var.type = e_var_type_bool;
-	}
-	s_var* temp = get_var_by_ptr(ptr);
-	if(temp) {
-		*temp = var;
-	}
-	else {
-		game->variables.add(var);
-	}
-}
-
-func s_var* get_var_by_ptr(void* ptr)
-{
-	foreach_ptr(var_i, var, game->variables) {
-		if(var->ptr == ptr) { return var; }
-	}
-	return null;
-}
-#endif // m_debug
 

@@ -7,6 +7,7 @@
 #include <windows.h>
 #endif
 
+#pragma warning(push, 0)
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "SDL_mixer.h"
@@ -17,7 +18,6 @@
 #include "emscripten/html5.h"
 #endif // __EMSCRIPTEN__
 
-#pragma warning(push, 0)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-value"
 #define STB_IMAGE_IMPLEMENTATION
@@ -43,29 +43,29 @@ static s_window g_window;
 
 #include "platform_shared.h"
 
-func b8 play_sound(s_sound* sound);
-func void set_vsync(b8 val);
+static b8 play_sound(s_sound* sound);
+static void set_vsync(b8 val);
 void printProgramLog( GLuint program );
-func void do_one_frame();
-func u32 get_random_seed();
-func int sdl_key_to_windows_key(int key);
-func f64 get_seconds();
-func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
-func Mix_Chunk* load_sound_from_file(const char* path);
-func Mix_Chunk* load_sound_from_data(u8* data, int data_size);
+static void do_one_frame();
+static u32 get_random_seed();
+static int sdl_key_to_windows_key(int key);
+static f64 get_seconds();
+static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
+static Mix_Chunk* load_sound_from_file(const char* path);
+static Mix_Chunk* load_sound_from_data(u8* data, int data_size);
 
-global s_input g_input;
-global s_input g_logic_input;
-global u64 g_cycle_frequency;
-global u64 g_start_cycles;
-global SDL_GLContext gContext;
-global SDL_Window* gWindow = null;
-global f64 g_start_of_frame_seconds = 0;
+static s_input g_input;
+static s_input g_logic_input;
+static u64 g_cycle_frequency;
+static u64 g_start_cycles;
+static SDL_GLContext gContext;
+static SDL_Window* gWindow = NULL;
+static f64 g_start_of_frame_seconds = 0;
 
-global void* g_game_memory;
-global s_game_renderer* g_game_renderer;
-global s_sarray<Mix_Chunk*, 16> g_sdl_audio;
-s_lin_arena g_game_frame_arena = zero;
+static void* g_game_memory;
+static s_game_renderer* g_game_renderer;
+static s_sarray<Mix_Chunk*, 16> g_sdl_audio;
+s_lin_arena g_game_frame_arena = {};
 
 #if defined(m_debug) || !defined(_WIN32)
 int main(int argc, char** argv)
@@ -135,7 +135,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		return 1;
 	}
 
-	s_lin_arena platform_frame_arena = zero;
+	s_lin_arena platform_frame_arena = {};
 
 	#ifdef m_debug
 	unreferenced(argc);
@@ -147,7 +147,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	// g_platform_funcs.cycle_between_available_resolutions = cycle_between_available_resolutions;
 
 	{
-		s_lin_arena all = zero;
+		s_lin_arena all = {};
 		all.capacity = 20 * c_mb;
 
 		// @Note(tkap, 26/06/2023): We expect this memory to be zero'd
@@ -165,7 +165,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_game_renderer->arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
 		g_game_renderer->transform_arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
 		g_game_renderer->transform_arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		g_game_renderer->textures.add(zero);
+		g_game_renderer->textures.add({});
 		after_loading_texture(g_game_renderer);
 	}
 
@@ -184,6 +184,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_platform_data.play_sound = play_sound;
 	g_platform_data.read_file = read_file;
 	g_platform_data.write_file = write_file;
+	g_platform_data.reset_ui = reset_ui;
 
 	#ifdef __EMSCRIPTEN__
 	// emscripten_request_animation_frame_loop(do_one_frame, &foo);
@@ -200,12 +201,12 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 }
 
-func void set_vsync(b8 val)
+static void set_vsync(b8 val)
 {
 	SDL_GL_SetSwapInterval(val ? 1 : 0);
 }
 
-func void do_one_frame()
+static void do_one_frame()
 {
 	f64 seconds = get_seconds();
 	f64 time_passed = seconds - g_start_of_frame_seconds;
@@ -237,7 +238,19 @@ func void do_one_frame()
 				int key = sdl_key_to_windows_key(e.key.keysym.sym);
 				if(key == -1) { break; }
 				b8 is_down = e.type == SDL_KEYDOWN;
-				s_stored_input si = zero;
+				s_stored_input si = {};
+				si.key = key;
+				si.is_down = is_down;
+				apply_event_to_input(&g_input, si);
+				apply_event_to_input(&g_logic_input, si);
+			} break;
+
+			case SDL_MOUSEBUTTONDOWN:
+			case SDL_MOUSEBUTTONUP:
+			{
+				int key = sdl_key_to_windows_key(e.button.button);
+				b8 is_down = e.type == SDL_MOUSEBUTTONDOWN;
+				s_stored_input si = {};
 				si.key = key;
 				si.is_down = is_down;
 				apply_event_to_input(&g_input, si);
@@ -260,12 +273,7 @@ func void do_one_frame()
 	}
 	// g_platform_data.is_window_active = GetActiveWindow() == g_window.handle;
 
-	update_game(&g_platform_data, g_game_memory, g_game_renderer);
-	g_platform_data.recompiled = false;
-
-	if(g_do_embed) {
-		write_embed_file();
-	}
+	do_game_layer(g_game_renderer, g_game_memory);
 
 	gl_render(&g_platform_renderer, g_game_renderer);
 
@@ -273,11 +281,11 @@ func void do_one_frame()
 	// return result;
 }
 
-func u32 get_random_seed() {
+static u32 get_random_seed() {
 	return (u32)SDL_GetPerformanceCounter();
 }
 
-func int sdl_key_to_windows_key(int key) {
+static int sdl_key_to_windows_key(int key) {
 
 	breakable_block {
 		if(key >= SDLK_a && key <= SDLK_z) {
@@ -295,6 +303,7 @@ func int sdl_key_to_windows_key(int key) {
 			int sdl;
 			int win;
 		};
+
 		constexpr s_key_map map[] = {
 			{.sdl = SDLK_UP, .win = c_key_up},
 			{.sdl = SDLK_DOWN, .win = c_key_down},
@@ -308,6 +317,8 @@ func int sdl_key_to_windows_key(int key) {
 			{.sdl = SDLK_RSHIFT, .win = c_key_right_shift},
 			{.sdl = SDLK_ESCAPE, .win = c_key_escape},
 			{.sdl = SDLK_RETURN, .win = c_key_enter},
+			{.sdl = SDL_BUTTON_LEFT, .win = c_left_mouse},
+			{.sdl = SDL_BUTTON_RIGHT, .win = c_right_mouse},
 		};
 
 		b8 handled = false;
@@ -327,19 +338,19 @@ func int sdl_key_to_windows_key(int key) {
 	return key;
 }
 
-func f64 get_seconds()
+static f64 get_seconds()
 {
 	u64 now =	SDL_GetPerformanceCounter();
 	return (now - g_start_cycles) / (f64)g_cycle_frequency;
 }
 
-func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
+static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
 {
 	if(g_do_embed) {
 		g_to_embed.add(path);
 	}
 
-	s_sound sound = zero;
+	s_sound sound = {};
 
 	#ifdef m_debug
 
@@ -359,14 +370,14 @@ func s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin
 	return &platform_data->sounds[index];
 }
 
-func Mix_Chunk* load_sound_from_file(const char* path)
+static Mix_Chunk* load_sound_from_file(const char* path)
 {
 	Mix_Chunk* chunk = Mix_LoadWAV(path);
 	assert(chunk);
 	return chunk;
 }
 
-func Mix_Chunk* load_sound_from_data(u8* data, int data_size)
+static Mix_Chunk* load_sound_from_data(u8* data, int data_size)
 {
 	SDL_RWops* idk = SDL_RWFromMem(data, data_size);
 	Mix_Chunk* chunk = Mix_LoadWAV_RW(idk, 1);
@@ -374,7 +385,7 @@ func Mix_Chunk* load_sound_from_data(u8* data, int data_size)
 	return chunk;
 }
 
-func b8 play_sound(s_sound* sound)
+static b8 play_sound(s_sound* sound)
 {
 	Mix_Chunk* chunk = g_sdl_audio[sound->index];
 	if(Mix_PlayChannel(-1, chunk, 0) == -1) {

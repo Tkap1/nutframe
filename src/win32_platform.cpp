@@ -284,6 +284,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.play_sound = play_sound;
 		g_platform_data.read_file = read_file;
 		g_platform_data.write_file = write_file;
+		g_platform_data.reset_ui = reset_ui;
 		// g_platform_data.show_cursor = ShowCursor;
 		g_platform_data.cycle_between_available_resolutions = cycle_between_available_resolutions;
 
@@ -312,12 +313,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.mouse.y = (float)p.y;
 		g_platform_data.is_window_active = GetActiveWindow() == g_window.handle;
 
-		update_game(&g_platform_data, game_memory, game_renderer);
-		g_platform_data.recompiled = false;
-
-		if(g_do_embed) {
-			write_embed_file();
-		}
+		do_game_layer(game_renderer, game_memory, update_game);
 
 		gl_render(&g_platform_renderer, game_renderer);
 
