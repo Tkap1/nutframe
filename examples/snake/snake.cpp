@@ -1,7 +1,7 @@
 #define m_game
 
-#include "../src/platform_shared.h"
-#include "../src/variables.h"
+#include "../../src/platform_shared.h"
+#include "../../src/variables.h"
 
 #define zero {}
 #define func static
@@ -11,6 +11,7 @@
 global constexpr int c_tile_count = 12;
 global constexpr int c_max_snake_len = c_tile_count * c_tile_count / 2;
 global constexpr int c_score_to_win = 20;
+global constexpr int c_tile_size = 64;
 
 enum e_state
 {
@@ -43,8 +44,8 @@ struct s_game
 	s_v2i apple;
 	s_rng rng;
 	b8 reset_level;
-	s_font* font;
 	s_sound* eat_apple_sound;
+	s_font* font;
 	s_v2 snake_light_pos;
 	float snake_apple_time;
 };
@@ -73,16 +74,16 @@ m_update_game(update_game)
 		game->initialized = true;
 		game->rng.seed = platform_data->get_random_seed();
 		g_r->set_vsync(true);
-		game->snake_head = g_r->load_texture(renderer, "examples/snake_head.png");
-		game->snake_body = g_r->load_texture(renderer, "examples/snake_body.png");
-		game->snake_tail = g_r->load_texture(renderer, "examples/snake_tail.png");
-		game->noise = g_r->load_texture(renderer, "examples/noise.png");
-		game->apple_texture = g_r->load_texture(renderer, "examples/apple.png");
-		game->font = g_r->load_font(renderer, "examples/consola.ttf", 128, platform_data->frame_arena);
+		game->snake_head = g_r->load_texture(renderer, "examples/snake/snake_head.png");
+		game->snake_body = g_r->load_texture(renderer, "examples/snake/snake_body.png");
+		game->snake_tail = g_r->load_texture(renderer, "examples/snake/snake_tail.png");
+		game->noise = g_r->load_texture(renderer, "examples/snake/noise.png");
+		game->apple_texture = g_r->load_texture(renderer, "examples/snake/apple.png");
 		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		game->text_framebuffer = g_r->make_framebuffer(renderer, false);
-		game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/eat_apple.wav", platform_data->frame_arena);
+		game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/snake/eat_apple.wav", platform_data->frame_arena);
 		game->reset_level = true;
+		game->font = &renderer->fonts[0];
 	}
 
 	draw_texture(g_r, c_half_res, 0, c_base_res, make_color(1), game->noise, zero, {.effect_id = 1});
@@ -91,7 +92,6 @@ m_update_game(update_game)
 
 	live_variable(&platform_data->vars, c_apple_light_duration, 0.0f, 5.0f, true);
 	live_variable(&platform_data->vars, c_move_delay, 0.01f, 0.5f, true);
-	live_variable(&platform_data->vars, c_tile_size, 64, 65, true);
 	live_variable(&platform_data->vars, c_self_collision, (b8)0, (b8)0, true);
 
 	switch(game->state) {

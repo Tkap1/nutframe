@@ -5,16 +5,6 @@ cls
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 set comp=
-@REM set comp=!comp! --shell-file ..\shell.html
-@REM set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
-@REM set comp=!comp! --preload-file ../shaders/fragment.fragment@shaders/fragment.fragment
-@REM set comp=!comp! --preload-file ../assets/noise.png@assets/noise.png
-@REM set comp=!comp! --preload-file ../examples/snake_head.png@examples/snake_head.png
-@REM set comp=!comp! --preload-file ../examples/snake_body.png@examples/snake_body.png
-@REM set comp=!comp! --preload-file ../examples/snake_tail.png@examples/snake_tail.png
-@REM set comp=!comp! --preload-file ../examples/apple.png@examples/apple.png
-@REM set comp=!comp! --preload-file ../examples/sound.wav@examples/sound.wav
-@REM set comp=!comp! --preload-file ../examples/consola.ttf@examples/consola.ttf
 set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl"
 set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
 set comp=!comp! -lSDL2_mixer
@@ -30,14 +20,14 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
 	set comp=!comp! --preload-file ../shaders/fragment.fragment@shaders/fragment.fragment
 	set comp=!comp! --preload-file ../assets/noise.png@assets/noise.png
-	set comp=!comp! --preload-file ../examples/snake_head.png@examples/snake_head.png
-	set comp=!comp! --preload-file ../examples/snake_body.png@examples/snake_body.png
-	set comp=!comp! --preload-file ../examples/snake_tail.png@examples/snake_tail.png
-	set comp=!comp! --preload-file ../examples/apple.png@examples/apple.png
-	set comp=!comp! --preload-file ../examples/noise.png@examples/noise.png
-	set comp=!comp! --preload-file ../examples/eat_apple.wav@examples/eat_apple.wav
-	set comp=!comp! --preload-file ../examples/consola.ttf@examples/consola.ttf
-	set comp=!comp! --preload-file ../examples/checkmark.png@examples/checkmark.png
+	set comp=!comp! --preload-file ../examples/snake/snake_head.png@examples/snake/snake_head.png
+	set comp=!comp! --preload-file ../examples/snake/snake_body.png@examples/snake/snake_body.png
+	set comp=!comp! --preload-file ../examples/snake/snake_tail.png@examples/snake/snake_tail.png
+	set comp=!comp! --preload-file ../examples/snake/apple.png@examples/snake/apple.png
+	set comp=!comp! --preload-file ../examples/snake/noise.png@examples/snake/noise.png
+	set comp=!comp! --preload-file ../examples/snake/eat_apple.wav@examples/snake/eat_apple.wav
+	set comp=!comp! --preload-file ../examples/snake/consola.ttf@examples/snake/consola.ttf
+	set comp=!comp! --preload-file ../examples/snake/checkmark.png@examples/snake/checkmark.png
 	@REM set comp=!comp! -fsanitize=address
 )
 

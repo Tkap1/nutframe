@@ -691,6 +691,7 @@ static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* 
 static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
 static s_texture load_texture(s_game_renderer* game_renderer, const char* path);
 static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering, int format);
+static s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena);
 
 static char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = NULL)
 {
@@ -2160,7 +2161,9 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	}
 
 	// @Fixme(tkap, 20/10/2023): path
-	game_renderer->checkmark_texture = load_texture(game_renderer, "examples/checkmark.png");
+	game_renderer->checkmark_texture = load_texture(game_renderer, "assets/checkmark.png");
+
+	load_font(game_renderer, "assets/consola.ttf", 128, arena);
 
 	gl(glUseProgram(platform_renderer->programs[e_shader_default]));
 
