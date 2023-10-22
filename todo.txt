@@ -52,4 +52,9 @@ Aruseus: have you tried SDL_GL_GetProcAddress?
 	maybe we can ditch glew with this? fuck glew baseg
 
 
-mode (or map?) where each time someone gets in the whole, the hole teleports
+golf:
+	mode (or map?) where each time someone gets in the whole, the hole teleports
+	rcrnstn: A other target that sometimes jumps around that, if you land on it, makes everyone else do a random push
+	better graphics 4head
+	angle indicator thing
+	why does pushx push you?? parsing bug?? investigate

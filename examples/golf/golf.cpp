@@ -36,6 +36,7 @@ enum e_layer
 	e_layer_tile,
 	e_layer_hole,
 	e_layer_ball,
+	e_layer_ui,
 };
 
 enum e_map_editor_state
@@ -49,6 +50,7 @@ enum e_map
 {
 	e_map_001,
 	e_map_002,
+	e_map_003,
 	e_map_count,
 };
 
@@ -77,13 +79,6 @@ struct s_str
 	int len;
 };
 
-struct s_collision
-{
-	s_v2 normal;
-	s_v2 tile_pos;
-	s_v2 tile_center;
-};
-
 struct s_map_editor
 {
 	e_map_editor_state state;
@@ -105,6 +100,7 @@ struct s_game
 	s_map_editor editor;
 	s_map maps[e_map_count];
 	b8 has_beat_level[c_max_balls];
+	s_texture angle_indicator;
 };
 
 global s_input* g_input;
@@ -113,6 +109,7 @@ global s_game_renderer* g_r;
 global s_v2 g_mouse;
 
 func s_sarray<c2Manifold, 16> get_collisions(c2Circle circle, s_map* map);
+func s_sarray<u8, 16> get_interactive_tile_collisions(c2Circle circle, s_map* map);
 func s_v2 v2(c2v v);
 func void make_process_close_when_app_closes(HANDLE process);
 func s_sarray<s_str, 128> get_chat_messages(s_platform_data* platform_data);
@@ -141,8 +138,9 @@ m_update_game(update_game)
 		game->font = &renderer->fonts[0];
 		g_r->set_vsync(true);
 		platform_data->variables_path = "examples/golf/variables.h";
+		game->angle_indicator = g_r->load_texture(g_r, "examples/golf/angle_indicator.png");
 
-		game->curr_map = 1;
+		game->curr_map = 2;
 		for(int map_i = 0; map_i < e_map_count; map_i++) {
 			char* file_path = format_text("map%i", map_i);
 			load_map(file_path, platform_data, &game->maps[map_i]);
@@ -176,6 +174,8 @@ m_update_game(update_game)
 	live_variable(&platform_data->vars, c_tile_size, 4, 128, true);
 	live_variable(&platform_data->vars, c_ball_impulse, 100.0f, 2000.0f, true);
 	live_variable(&platform_data->vars, c_ball_radius, 16.0f, 128.0f, true);
+	live_variable(&platform_data->vars, c_angle_indicator_x, 0.0f, 1.0f, true);
+	live_variable(&platform_data->vars, c_angle_indicator_y, 0.0f, 1.0f, true);
 
 	float delta = (float)platform_data->frame_time;
 
@@ -190,7 +190,7 @@ m_update_game(update_game)
 		content.len = msg.len - index - 1;
 
 		if(game->state == e_state_join) {
-			if(content.len >= 5 && strncmp(content.data, "!join", 5) == 0) {
+			if(content.len >= 4 && strncmp(content.data, "join", 4) == 0) {
 				s_ball* already_present = get_ball_by_name(user);
 				if(!already_present) {
 					s_ball ball = zero;
@@ -228,10 +228,12 @@ m_update_game(update_game)
 				game->state = e_state_map_editor;
 			}
 			draw_map(&game->maps[game->curr_map]);
+			draw_texture(g_r, c_base_res * v2(c_angle_indicator_x, c_angle_indicator_y), e_layer_ui, v2(128), make_color(1), game->angle_indicator);
 		} break;
 
 		case e_state_play: {
 			draw_map(&game->maps[game->curr_map]);
+			draw_texture(g_r, c_base_res * v2(c_angle_indicator_x, c_angle_indicator_y), e_layer_ui, v2(128), make_color(1), game->angle_indicator);
 		} break;
 
 		case e_state_map_editor: {
@@ -255,7 +257,7 @@ m_update_game(update_game)
 				case e_map_editor_state_default: {
 					s_v2 pos = c_base_res * v2(0.7f, 0.1f);
 					b8 click_handled = false;
-					for(int i = 0; i < 2; i++) {
+					for(int i = 0; i < 3; i++) {
 						s_ui_interaction interaction = platform_data->ui_button(g_r, format_text("%i", i), pos, v2(64), game->font, 32.0f, g_input, g_mouse);
 						if(interaction.state == e_ui_pressed) { click_handled = true; }
 						else if(interaction.state == e_ui_active) {
@@ -290,7 +292,7 @@ m_update_game(update_game)
 					}
 
 					if(!click_handled && is_key_down(g_input, c_left_mouse)) {
-						if(is_valid_index(index, 128, 128)) {
+						if(is_valid_index(index, c_max_tiles, c_max_tiles)) {
 							if(editor->curr_tile == 69) {
 								editor->map.hole = index;
 							}
@@ -314,7 +316,7 @@ m_update_game(update_game)
 					}
 
 					if(is_key_down(g_input, c_right_mouse)) {
-						if(is_valid_index(index, 128, 128)) {
+						if(is_valid_index(index, c_max_tiles, c_max_tiles)) {
 							editor->map.tiles_active[index.y][index.x] = false;
 							editor->map.tiles[index.y][index.x] = editor->curr_tile;
 						}
@@ -382,6 +384,17 @@ m_update_game(update_game)
 	foreach_ptr(ball_i, ball, game->balls) {
 		s_map* map = &game->maps[game->curr_map];
 		ball->c.r = c_ball_radius;
+
+		{
+			auto collisions = get_interactive_tile_collisions(ball->c, map);
+			float mul = 1.0f;
+			foreach_val(tile_i, tile, collisions) {
+				mul += 0.03f;
+			}
+			ball->vel *= mul;
+		}
+		ball->vel.x = clamp(ball->vel.x, -3000.0f, 3000.0f);
+		ball->vel.y = clamp(ball->vel.y, -3000.0f, 3000.0f);
 
 		for(int i = 0; i < 10; i++) {
 			s_v2 movement = ball->vel * 0.1f;
@@ -473,6 +486,35 @@ func s_sarray<c2Manifold, 16> get_collisions(c2Circle circle, s_map* map)
 	return result;
 }
 
+func s_sarray<u8, 16> get_interactive_tile_collisions(c2Circle circle, s_map* map)
+{
+	s_sarray<u8, 16> result;
+	s_v2i index = v2i(floorfi(circle.p.x / c_tile_size), floorfi(circle.p.y / c_tile_size));
+
+	for(int y = -1; y <= 1; y++) {
+		for(int x = -1; x <= 1; x++) {
+			s_v2i new_index = index + v2i(x, y);
+			if(!is_valid_index(new_index, c_max_tiles, c_max_tiles)) { continue; }
+			if(!map->tiles_active[new_index.y][new_index.x]) { continue; }
+			if(map->tiles[new_index.y][new_index.x] != 2) { continue; }
+
+			s_v2 tile_pos = v2(new_index.x * c_tile_size, new_index.y * c_tile_size);
+			c2AABB aabb = zero;
+			aabb.min.x = tile_pos.x;
+			aabb.min.y = tile_pos.y;
+			aabb.max.x = tile_pos.x + c_tile_size;
+			aabb.max.y = tile_pos.y + c_tile_size;
+			c2Manifold m = zero;
+			b8 collides = c2CircletoAABB(circle, aabb) != 0;
+			if(collides) {
+				result.add(map->tiles[new_index.y][new_index.x]);
+			}
+		}
+	}
+
+	return result;
+}
+
 func s_v2 v2(c2v v)
 {
 	return v2(v.x, v.y);
@@ -531,35 +573,22 @@ func b8 is_number(char c)
 	return c >= '0' && c <= '9';
 }
 
-func int parse_int(char* in, char** out) {
-	*out = null;
+func int parse_int(char *in, char **out)
+{
 	int result = 0;
-	int index = 0;
-	b8 found_number = false;
-	while(true) {
-		char c = in[index];
-
-		// @Note(tkap, 21/10/2023): Allow spaces at beginning
-		if(!found_number && c == ' ') {
-			index += 1;
-			continue;
-		}
-
-		if(is_number(c)) {
-			index += 1;
-			found_number = true;
-		}
-		else {
-			if(found_number) {
-				char buffer[1024] = zero;
-				memcpy(buffer, in, index);
-				result = atoi(buffer);
-				*out = in + index;
-			}
-			break;
-		}
+	while(*in && *in <= ' ') { in++; }
+	int sign = 1;
+	while(*in == '-') {
+		++in;
+		sign *= -1;
 	}
-	return result;
+	b8 found_number = false;
+	while(is_number(*in)) {
+		result = result * 10 + (*in++ - '0');
+		found_number = true;
+	}
+	if(found_number) { *out = in; }
+	return result * sign;
 }
 
 func s_ball* get_ball_by_name(s_str name)
@@ -592,6 +621,9 @@ func void draw_map(s_map* map)
 			else if(map->tiles[y][x] == 1) {
 				draw_rect(g_r, v2(x * c_tile_size, y * c_tile_size), e_layer_tile, v2(c_tile_size - grid), rgb(0xC2BD95), {}, {.origin_offset = c_origin_topleft});
 			}
+			else if(map->tiles[y][x] == 2) {
+				draw_rect(g_r, v2(x * c_tile_size, y * c_tile_size), e_layer_tile, v2(c_tile_size - grid), rgb(0xA2BDA5), {}, {.origin_offset = c_origin_topleft});
+			}
 		}
 	}
 
@@ -609,6 +641,7 @@ func void draw_map(s_map* map)
 func void load_map(char* file_path, s_platform_data* platform_data, s_map* out_map)
 {
 	u8* data = (u8*)platform_data->read_file(file_path, platform_data->frame_arena, null);
+	if(!data) { return; }
 	u8* cursor = data;
 	int version = *(int*)cursor;
 	cursor += sizeof(int);
