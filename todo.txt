@@ -47,3 +47,9 @@ we could actually get it down to 1 file with a bunch of #ifdefs. but we still ne
 
 
 way of specifying window size
+
+Aruseus: have you tried SDL_GL_GetProcAddress?
+	maybe we can ditch glew with this? fuck glew baseg
+
+
+mode (or map?) where each time someone gets in the whole, the hole teleports

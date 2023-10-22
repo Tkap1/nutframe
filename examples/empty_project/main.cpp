@@ -8,10 +8,10 @@ struct s_game
 	s_rng rng;
 };
 
-global s_input* g_input;
-global s_game* game;
-global s_game_renderer* g_r;
-global s_v2 g_mouse;
+static s_input* g_input;
+static s_game* game;
+static s_game_renderer* g_r;
+static s_v2 g_mouse;
 
 #ifdef m_build_dll
 extern "C" {

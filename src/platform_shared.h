@@ -448,18 +448,6 @@ static char* format_text(const char* text, ...)
 	return current_buffer;
 }
 
-static b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
-{
-	return pos0.x + size0.x > pos1.x && pos0.x < pos1.x + size1.x &&
-		pos0.y + size0.y > pos1.y && pos0.y < pos1.y + size1.y;
-}
-
-static b8 mouse_collides_rect_topleft(s_v2 mouse, s_v2 pos, s_v2 size)
-{
-	return rect_collides_rect_topleft(mouse, v2(1, 1), pos, size);
-}
-
-
 static constexpr int c_max_arena_push = 16;
 struct s_lin_arena
 {
@@ -835,6 +823,14 @@ static s_v2 operator+(s_v2 a, s_v2 b)
 	return result;
 }
 
+static s_v2i operator+(s_v2i a, s_v2i b)
+{
+	s_v2i result;
+	result.x = a.x + b.x;
+	result.y = a.y + b.y;
+	return result;
+}
+
 static s_v2 operator+(s_v2 a, float b)
 {
 	s_v2 result;
@@ -972,6 +968,18 @@ static float lerp(float a, float b, float t)
 	return a + (b - a) * t;
 }
 
+template <typename t>
+static t max(t a, t b)
+{
+	return a >= b ? a : b;
+}
+
+template <typename t>
+static t min(t a, t b)
+{
+	return a <= b ? a : b;
+}
+
 static int roundfi(float x)
 {
 	return (int)roundf(x);
@@ -1016,6 +1024,51 @@ static s_v2 v2_from_angle(float angle)
 		sinf(angle)
 	);
 }
+
+static float sign(float x)
+{
+	return x >= 0 ? 1.0f : -1.0f;
+}
+
+static float deg_to_rad(float d)
+{
+	return d * (pi / 180.f);
+}
+
+
+static b8 rect_collides_circle_topleft(s_v2 rect_pos, s_v2 rect_size, s_v2 center, float radius)
+{
+	s_v2 rect_center = rect_pos + rect_size * 0.5f;
+	b8 collision = false;
+
+	float dx = fabsf(center.x - rect_center.x);
+	float dy = fabsf(center.y - rect_center.y);
+
+	if(dx > (rect_size.x/2.0f + radius)) { return false; }
+	if(dy > (rect_size.y/2.0f + radius)) { return false; }
+
+	if(dx <= (rect_size.x/2.0f)) { return true; }
+	if(dy <= (rect_size.y/2.0f)) { return true; }
+
+	float cornerDistanceSq = (dx - rect_size.x/2.0f)*(dx - rect_size.x/2.0f) +
+													(dy - rect_size.y/2.0f)*(dy - rect_size.y/2.0f);
+
+	collision = (cornerDistanceSq <= (radius*radius));
+
+	return collision;
+}
+
+static b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
+{
+	return pos0.x + size0.x > pos1.x && pos0.x < pos1.x + size1.x &&
+		pos0.y + size0.y > pos1.y && pos0.y < pos1.y + size1.y;
+}
+
+static b8 mouse_collides_rect_topleft(s_v2 mouse, s_v2 pos, s_v2 size)
+{
+	return rect_collides_rect_topleft(mouse, v2(1, 1), pos, size);
+}
+
 
 static int double_until_greater_or_equal(int current, int target)
 {
@@ -1097,6 +1150,33 @@ static s_v2 v2_normalized(s_v2 v)
 	}
 	return result;
 }
+
+static s_v2 v2_rand_normalized(s_rng* rng)
+{
+	return v2_normalized(v2(
+		(float)rng->randf2(),
+		(float)rng->randf2()
+	));
+}
+
+static float v2_dot(s_v2 a, s_v2 b)
+{
+	float dot = a.x * b.x + a.y * b.y;
+	return dot;
+}
+
+static s_v2 v2_reflect(s_v2 v, s_v2 normal)
+{
+	s_v2 result;
+
+	float dotProduct = v2_dot(v, normal);
+
+	result.x = v.x - (2.0f * normal.x) * dotProduct;
+	result.y = v.y - (2.0f * normal.y) * dotProduct;
+
+	return result;
+}
+
 
 static float range_lerp(float input_val, float input_start, float input_end, float output_start, float output_end)
 {
@@ -1426,6 +1506,7 @@ struct s_platform_data
 	t_read_file read_file;
 	t_write_file write_file;
 	void (*reset_ui)();
+	s_ui_interaction (*ui_button)(s_game_renderer*, const char*, s_v2, s_v2, s_font*, float, s_input*, s_v2);
 	char* variables_path;
 
 	#ifdef m_debug
@@ -2103,6 +2184,8 @@ static void do_game_layer(
 	if(g_do_embed) {
 		write_embed_file();
 	}
+
+	g_platform_data.frame_arena->used = 0;
 }
 
 static void on_gl_error(const char* expr, int error)

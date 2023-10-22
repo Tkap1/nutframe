@@ -285,6 +285,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.read_file = read_file;
 		g_platform_data.write_file = write_file;
 		g_platform_data.reset_ui = reset_ui;
+		g_platform_data.ui_button = ui_button;
 		// g_platform_data.show_cursor = ShowCursor;
 		g_platform_data.cycle_between_available_resolutions = cycle_between_available_resolutions;
 

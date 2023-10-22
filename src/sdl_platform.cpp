@@ -185,6 +185,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_platform_data.read_file = read_file;
 	g_platform_data.write_file = write_file;
 	g_platform_data.reset_ui = reset_ui;
+	g_platform_data.ui_button = ui_button;
 
 	#ifdef __EMSCRIPTEN__
 	// emscripten_request_animation_frame_loop(do_one_frame, &foo);

@@ -43,3 +43,6 @@ generate_ctags.bat
 *.data
 *.wasm.map
 embed.h
+chat_messages.txt
+__pycache__
+secret.py

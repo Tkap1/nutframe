@@ -164,12 +164,6 @@ func s_v3 hsv_to_rgb(s_v3 colour)
 	return rgb;
 }
 
-template <typename t>
-func t max(t a, t b)
-{
-	return a >= b ? a : b;
-}
-
 func b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
 {
 	return pos0.x + size0.x > pos1.x && pos0.x < pos1.x + size1.x &&
@@ -194,7 +188,6 @@ func s_v2 random_point_in_rect_topleft(s_v2 pos, s_v2 size, s_rng* rng)
 		pos.y + rng->randf32() * size.y
 	);
 }
-
 
 func s_v2 v2_rotated(s_v2 v, float angle)
 {
