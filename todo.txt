@@ -65,3 +65,9 @@ golf:
 
 	WinterCoding: I wonder if you could make some bot whisper you, then use the whisper window as a control for the ball so chat don't get spammed? Don't know though.
 	akthemadman: would be cool if shots would be fired all at once. i.e. turn based
+
+	add an argument to join that is the texture/shader index
+
+	particles
+
+	realSuperku: mr tkat streamer what if you keep track of a moving average of player finish positions (normalized by player count). the better the position, the fancier the golfball looks, or like shit if you are not doing well. could be :) :( smileys also, with a golden smiley being the best. duckYep

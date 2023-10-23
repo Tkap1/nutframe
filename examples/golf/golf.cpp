@@ -23,10 +23,13 @@ global constexpr char* c_python_path = "C:/Users/34687/AppData/Local/Programs/Py
 // @Note(tkap, 22/10/2023): If we change this we break the stored maps! Careful!
 global constexpr int c_max_tiles = 128;
 global constexpr int c_max_balls = 128;
+global constexpr float c_seconds_after_first_beat = 120.0f;
 
 enum e_state
 {
 	e_state_play,
+	e_state_stats,
+	e_state_victory,
 	e_state_map_editor,
 };
 
@@ -59,7 +62,20 @@ struct s_ball
 	c2Circle c;
 	s_v2 vel;
 	s_v4 color;
+	int push_count;
 };
+
+struct s_name_and_push_count
+{
+	int total_count;
+	int level_count;
+	char* name;
+};
+
+static bool operator>(s_name_and_push_count a, s_name_and_push_count b)
+{
+	return a.total_count > b.total_count;
+}
 
 #pragma pack(push, 1)
 struct s_map
@@ -87,9 +103,19 @@ struct s_map_editor
 	s_v2i shift_index;
 };
 
+struct s_game_transient
+{
+	int push_count[c_max_balls];
+	b8 has_beat_level[c_max_balls];
+	s_v2 spawn_offset;
+	float first_beat_time;
+	float stats_timer;
+};
+
 struct s_game
 {
 	b8 initialized;
+	b8 reset_level;
 	int last_chat_file_offset;
 	e_state state;
 	s_rng rng;
@@ -98,11 +124,11 @@ struct s_game
 	int curr_map;
 	s_map_editor editor;
 	s_map maps[e_map_count];
-	b8 has_beat_level[c_max_balls];
 	s_texture angle_indicator;
 	s_sound* push_sounds[3];
 	s_sound* collide_sound;
 	s_sound* win_sound;
+	s_game_transient transient;
 };
 
 global s_input* g_input;
@@ -110,17 +136,23 @@ global s_game* game;
 global s_game_renderer* g_r;
 global s_v2 g_mouse;
 
+
 func s_sarray<c2Manifold, 16> get_collisions(c2Circle circle, s_map* map);
 func s_sarray<u8, 16> get_interactive_tile_collisions(c2Circle circle, s_map* map);
 func s_v2 v2(c2v v);
 func void make_process_close_when_app_closes(HANDLE process);
 func s_sarray<s_str, 128> get_chat_messages(s_platform_data* platform_data);
 func int parse_int(char* in, char** out);
-func s_ball* get_ball_by_name(s_str name);
+func int get_ball_by_name(s_str name);
 func b8 is_valid_index(s_v2i index, int width, int height);
 func void draw_map(s_map* map);
 func void load_map(char* file_path, s_platform_data* platform_data, s_map* out_map);
 func s_v2 tile_index_to_pos(s_v2i index);
+func s_v2 tile_index_to_tile_center(s_v2i index);
+func b8 has_anyone_beaten_level();
+func b8 has_everyone_beaten_level();
+func void move_ball_to_spawn(s_ball* ball, s_map* map);
+func b8 are_we_on_last_map();
 
 #ifdef m_build_dll
 extern "C" {
@@ -139,6 +171,7 @@ m_update_game(update_game)
 		game->rng.seed = platform_data->get_random_seed();
 		game->font = &renderer->fonts[0];
 		g_r->set_vsync(true);
+		game->reset_level = true;
 		platform_data->variables_path = "examples/golf/variables.h";
 		game->angle_indicator = g_r->load_texture(g_r, "examples/golf/angle_indicator.png");
 		game->push_sounds[0] = platform_data->load_sound(platform_data, "examples/golf/push1.wav", platform_data->frame_arena);
@@ -147,7 +180,7 @@ m_update_game(update_game)
 		game->collide_sound = platform_data->load_sound(platform_data, "examples/golf/collide.wav", platform_data->frame_arena);
 		game->win_sound = platform_data->load_sound(platform_data, "examples/golf/win.wav", platform_data->frame_arena);
 
-		game->curr_map = 1;
+		game->curr_map = 0;
 		for(int map_i = 0; map_i < e_map_count; map_i++) {
 			char* file_path = format_text("map%i", map_i);
 			load_map(file_path, platform_data, &game->maps[map_i]);
@@ -198,12 +231,11 @@ m_update_game(update_game)
 
 		if(game->state == e_state_play) {
 			if(content.len >= 4 && strncmp(content.data, "join", 4) == 0) {
-				s_ball* already_present = get_ball_by_name(user);
-				if(!already_present) {
+				int already_present_index = get_ball_by_name(user);
+				if(already_present_index < 0) {
 					s_ball ball = zero;
 					s_map* map = &game->maps[game->curr_map];
-					ball.c.p.x = tile_index_to_pos(map->spawn).x + c_tile_size / 2.0f;
-					ball.c.p.y = tile_index_to_pos(map->spawn).y + c_tile_size / 2.0f;
+					move_ball_to_spawn(&ball, map);
 					ball.c.r = c_ball_radius;
 					memcpy(ball.name, user.data, user.len);
 					game->balls.add(ball);
@@ -213,8 +245,8 @@ m_update_game(update_game)
 
 		// printf("%.*s: %.*s\n", user.len, user.data, content.len, content.data);
 		if(content.len > 4 && strncmp(content.data, "push", 4) == 0) {
-			char* out;
-			char* out2;
+			char* out = null;
+			char* out2 = null;
 			int angle = parse_int(content.data + 4, &out);
 			if(!out) { continue; }
 			int strength = parse_int(out, &out2);
@@ -222,10 +254,17 @@ m_update_game(update_game)
 			strength = clamp(strength, 1, 100);
 			// printf("%i, %i\n", angle, strength);
 
-			s_ball* ball = get_ball_by_name(user);
-			if(ball) {
+			int ball_index = get_ball_by_name(user);
+			if(ball_index >= 0) {
+				s_ball* ball = &game->balls[ball_index];
 				platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
 				ball->vel += v2_from_angle(deg_to_rad((float)angle)) * range_lerp((float)strength, 1, 100, 25, 2000);
+
+				if(!game->transient.has_beat_level[ball_index]) {
+					game->transient.push_count[ball_index] += 1;
+					ball->push_count += 1;
+				}
+
 			}
 		}
 	}
@@ -233,6 +272,17 @@ m_update_game(update_game)
 	switch(game->state) {
 
 		case e_state_play: {
+			if(game->reset_level) {
+				memset(&game->transient, 0, sizeof(game->transient));
+				game->reset_level = false;
+				game->transient.spawn_offset.x = (float)game->rng.randf2() * c_ball_radius * 2;
+				game->transient.spawn_offset.y = (float)game->rng.randf2() * c_ball_radius * 2;
+
+				s_map* map = &game->maps[game->curr_map];
+				foreach_ptr(ball_i, ball, game->balls) {
+					move_ball_to_spawn(ball, map);
+				}
+			}
 			if(is_key_pressed(g_input, c_key_f2)) {
 				game->state = e_state_map_editor;
 			}
@@ -247,6 +297,118 @@ m_update_game(update_game)
 				draw_text(g_r, "Type push angle strength", pos, e_layer_ui, 24.0f, color, false, game->font);
 			}
 
+			{
+				s_v2 pos = c_base_res * v2(0.5f, 0.5f);
+				if(has_anyone_beaten_level()) {
+					float time_left = c_seconds_after_first_beat - ((float)renderer->total_time - game->transient.first_beat_time);
+					if(time_left <= 0 || has_everyone_beaten_level()) {
+						game->state = e_state_stats;
+					}
+					draw_text(g_r, format_text("%.0f", time_left), pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
+				}
+			}
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ball update start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			foreach_ptr(ball_i, ball, game->balls) {
+				s_map* map = &game->maps[game->curr_map];
+				ball->c.r = c_ball_radius;
+
+				{
+					auto collisions = get_interactive_tile_collisions(ball->c, map);
+					float mul = 1.0f;
+					foreach_val(tile_i, tile, collisions) {
+						mul += 0.03f;
+					}
+					ball->vel *= mul;
+				}
+				ball->vel.x = clamp(ball->vel.x, -3000.0f, 3000.0f);
+				ball->vel.y = clamp(ball->vel.y, -3000.0f, 3000.0f);
+
+				for(int i = 0; i < 10; i++) {
+					s_v2 movement = ball->vel * 0.1f;
+
+					ball->c.p.x += movement.x * delta;
+					ball->c.p.y += movement.y * delta;
+					auto collisions = get_collisions(ball->c, map);
+					if(collisions.count > 0) {
+						c2Manifold c = collisions[0];
+
+						ball->c.p.x -= (c.depths[0]) * c.n.x;
+						ball->c.p.y -= (c.depths[0]) * c.n.y;
+						ball->vel = v2_reflect(ball->vel, v2(c.n));
+						platform_data->play_sound(game->collide_sound);
+						break;
+					}
+				}
+
+				if(is_key_pressed(g_input, c_left_mouse)) {
+					game->balls[0].c.p.x = g_mouse.x;
+					game->balls[0].c.p.y = g_mouse.y;
+				}
+
+				s_v2 hole_pos = tile_index_to_pos(map->hole) + v2(c_tile_size * 0.5f);
+				b8 in_hole = c2CircletoCircle(ball->c, {.p = {hole_pos.x, hole_pos.y}, .r = c_ball_radius * 2.0f}) != 0;
+
+				ball->vel *= 0.99f;
+				s_v4 color = rgb(0x0D232D);
+				if(game->transient.has_beat_level[ball_i]) {
+					color = brighter(rgb(0xA4BB96), 1.2f);
+				}
+				draw_rect(g_r, v2(ball->c.p), e_layer_ball, v2(ball->c.r * 2.0f), color, {}, {.flags = e_render_flag_circle});
+				if(!in_hole) {
+					draw_text(g_r, ball->name, v2(ball->c.p), 50, 24, make_color(1), true, game->font);
+				}
+
+				// @Note(tkap, 22/10/2023): Check for win
+				float length = v2_length(ball->vel);
+				if(in_hole && length < 0.3f && !game->transient.has_beat_level[ball_i]) {
+					platform_data->play_sound(game->win_sound);
+					printf("%s has beaten the level!\n", ball->name);
+
+					if(!has_anyone_beaten_level()) {
+						game->transient.first_beat_time = (float)renderer->total_time;
+					}
+					game->transient.has_beat_level[ball_i] = true;
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ball update end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+		} break;
+
+		case e_state_stats: {
+			game->transient.stats_timer += delta;
+			s_sarray<s_name_and_push_count, c_max_balls> arr;
+			foreach_ptr(ball_i, ball, game->balls) {
+				if(!game->transient.has_beat_level[ball_i]) { continue; }
+				s_name_and_push_count x = zero;
+				x.name = ball->name;
+				x.total_count = ball->push_count;
+				x.level_count = game->transient.push_count[ball_i];
+				arr.add(x);
+			}
+			arr.small_sort();
+
+			s_v2 pos = c_base_res * v2(0.5f, 0.1f);
+			foreach_val(x_i, x, arr) {
+				draw_text(g_r, format_text("%s %i %i", x.name, x.level_count, x.total_count), pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
+				pos.y += 64.0f;
+			}
+			if(game->transient.stats_timer >= 10 || is_key_pressed(g_input, c_key_enter)) {
+				game->reset_level = true;
+				if(are_we_on_last_map()) {
+					game->state = e_state_victory;
+				}
+				else {
+					game->state = e_state_play;
+					game->curr_map += 1;
+				}
+			}
+
+		} break;
+
+		case e_state_victory: {
+			s_v2 pos = c_base_res * v2(0.5f, 0.5f);
+			draw_text(g_r, "That's it lol", pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
 		} break;
 
 		case e_state_map_editor: {
@@ -392,67 +554,6 @@ m_update_game(update_game)
 			draw_map(&editor->map);
 		} break;
 	}
-
-	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ball update start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-	foreach_ptr(ball_i, ball, game->balls) {
-		s_map* map = &game->maps[game->curr_map];
-		ball->c.r = c_ball_radius;
-
-		{
-			auto collisions = get_interactive_tile_collisions(ball->c, map);
-			float mul = 1.0f;
-			foreach_val(tile_i, tile, collisions) {
-				mul += 0.03f;
-			}
-			ball->vel *= mul;
-		}
-		ball->vel.x = clamp(ball->vel.x, -3000.0f, 3000.0f);
-		ball->vel.y = clamp(ball->vel.y, -3000.0f, 3000.0f);
-
-		for(int i = 0; i < 10; i++) {
-			s_v2 movement = ball->vel * 0.1f;
-
-			ball->c.p.x += movement.x * delta;
-			ball->c.p.y += movement.y * delta;
-			auto collisions = get_collisions(ball->c, map);
-			if(collisions.count > 0) {
-				c2Manifold c = collisions[0];
-
-				ball->c.p.x -= (c.depths[0]) * c.n.x;
-				ball->c.p.y -= (c.depths[0]) * c.n.y;
-				ball->vel = v2_reflect(ball->vel, v2(c.n));
-				platform_data->play_sound(game->collide_sound);
-				break;
-			}
-		}
-
-		if(is_key_pressed(g_input, c_left_mouse)) {
-			game->balls[0].c.p.x = g_mouse.x;
-			game->balls[0].c.p.y = g_mouse.y;
-		}
-
-		s_v2 hole_pos = tile_index_to_pos(map->hole) + v2(c_tile_size * 0.5f);
-		b8 in_hole = c2CircletoCircle(ball->c, {.p = {hole_pos.x, hole_pos.y}, .r = c_ball_radius * 2.0f}) != 0;
-
-		ball->vel *= 0.99f;
-		s_v4 color = rgb(0x0D232D);
-		if(game->has_beat_level[ball_i]) {
-			color = brighter(rgb(0xA4BB96), 1.2f);
-		}
-		draw_rect(g_r, v2(ball->c.p), e_layer_ball, v2(ball->c.r * 2.0f), color, {}, {.flags = e_render_flag_circle});
-		if(!in_hole) {
-			draw_text(g_r, ball->name, v2(ball->c.p), 50, 24, make_color(1), true, game->font);
-		}
-
-		// @Note(tkap, 22/10/2023): Check for win
-		float length = v2_length(ball->vel);
-		if(in_hole && length < 0.3f && !game->has_beat_level[ball_i]) {
-			game->has_beat_level[ball_i] = true;
-			platform_data->play_sound(game->win_sound);
-			printf("%s has beaten the level!\n", ball->name);
-		}
-	}
-	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ball update end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 	for(int i = 0; i < c_max_keys; i++) {
@@ -606,14 +707,14 @@ func int parse_int(char *in, char **out)
 	return result * sign;
 }
 
-func s_ball* get_ball_by_name(s_str name)
+func int get_ball_by_name(s_str name)
 {
 	foreach_ptr(ball_i, ball, game->balls) {
 		if(strncmp(ball->name, name.data, name.len) == 0) {
-			return ball;
+			return ball_i;
 		}
 	}
-	return null;
+	return -1;
 }
 
 func s_v2 tile_index_to_pos(s_v2i index)
@@ -621,6 +722,14 @@ func s_v2 tile_index_to_pos(s_v2i index)
 	return v2(
 		index.x * c_tile_size,
 		index.y * c_tile_size
+	);
+}
+
+func s_v2 tile_index_to_tile_center(s_v2i index)
+{
+	return v2(
+		index.x * c_tile_size + c_tile_size * 0.5f,
+		index.y * c_tile_size + c_tile_size * 0.5f
 	);
 }
 
@@ -666,4 +775,35 @@ func void load_map(char* file_path, s_platform_data* platform_data, s_map* out_m
 	else {
 		memcpy(out_map, cursor, sizeof(s_map));
 	}
+}
+
+func b8 has_anyone_beaten_level()
+{
+	for(int i = 0; i < game->balls.count; i++) {
+		if(game->transient.has_beat_level[i]) {
+			return true;
+		}
+	}
+	return false;
+}
+
+func b8 has_everyone_beaten_level()
+{
+	for(int i = 0; i < game->balls.count; i++) {
+		if(!game->transient.has_beat_level[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+func void move_ball_to_spawn(s_ball* ball, s_map* map)
+{
+	ball->c.p.x = tile_index_to_tile_center(map->spawn).x + game->transient.spawn_offset.x;
+	ball->c.p.y = tile_index_to_tile_center(map->spawn).y + game->transient.spawn_offset.y;
+}
+
+func b8 are_we_on_last_map()
+{
+	return game->curr_map >= e_map_count - 1;
 }
