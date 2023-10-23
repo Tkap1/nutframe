@@ -1,8 +1,11 @@
 #define m_game
 
+#pragma comment(lib, "Shlwapi.lib")
+
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <shlwapi.h>
 
 #pragma warning(push, 0)
 #define CUTE_C2_IMPLEMENTATION
@@ -38,6 +41,7 @@ enum e_layer
 	e_layer_tile,
 	e_layer_hole,
 	e_layer_ball,
+	e_layer_tile_ghost,
 	e_layer_ui,
 };
 
@@ -98,9 +102,10 @@ struct s_map_editor
 {
 	e_map_editor_state state;
 	int save_index;
-	u8 curr_tile;
+	int curr_tile;
 	s_map map;
 	s_v2i shift_index;
+	s_sarray<s_v2i, c_max_tiles * c_max_tiles> selected;
 };
 
 struct s_game_transient
@@ -153,6 +158,9 @@ func b8 has_anyone_beaten_level();
 func b8 has_everyone_beaten_level();
 func void move_ball_to_spawn(s_ball* ball, s_map* map);
 func b8 are_we_on_last_map();
+func b8 are_we_placing(s_map_editor* editor);
+func b8 is_something_selected(s_map_editor* editor);
+func void draw_tile(s_game_renderer* renderer, s_v2 pos, e_layer layer, s_v2 size, int type, s_render_data render_data = {}, s_transform t = {});
 
 #ifdef m_build_dll
 extern "C" {
@@ -179,6 +187,8 @@ m_update_game(update_game)
 		game->push_sounds[2] = platform_data->load_sound(platform_data, "examples/golf/push3.wav", platform_data->frame_arena);
 		game->collide_sound = platform_data->load_sound(platform_data, "examples/golf/collide.wav", platform_data->frame_arena);
 		game->win_sound = platform_data->load_sound(platform_data, "examples/golf/win.wav", platform_data->frame_arena);
+
+		game->editor.curr_tile = -1;
 
 		game->curr_map = 0;
 		for(int map_i = 0; map_i < e_map_count; map_i++) {
@@ -210,6 +220,16 @@ m_update_game(update_game)
 		}
 
 	}
+
+	#ifdef m_debug
+	if(platform_data->loaded_a_state) {
+		game->last_chat_file_offset = 0;
+		char* path = "chat_messages.txt";
+		if(PathFileExistsA(path)) {
+			while(DeleteFile(path) == 0) {}
+		}
+	}
+	#endif // m_debug
 
 	live_variable(&platform_data->vars, c_tile_size, 4, 128, true);
 	live_variable(&platform_data->vars, c_ball_impulse, 100.0f, 2000.0f, true);
@@ -432,33 +452,47 @@ m_update_game(update_game)
 				case e_map_editor_state_default: {
 					s_v2 pos = c_base_res * v2(0.7f, 0.1f);
 					b8 click_handled = false;
-					for(int i = 0; i < 3; i++) {
-						s_ui_interaction interaction = platform_data->ui_button(g_r, format_text("%i", i), pos, v2(64), game->font, 32.0f, g_input, g_mouse);
-						if(interaction.state == e_ui_pressed) { click_handled = true; }
-						else if(interaction.state == e_ui_active) {
-							editor->curr_tile = (u8)i;
+
+					s_v2i index = v2i(floorfi(g_mouse.x / c_tile_size), floorfi(g_mouse.y / c_tile_size));
+
+					if(is_key_pressed(g_input, c_key_escape)) {
+						if(is_something_selected(editor)) {
+							editor->selected.count = 0;
 						}
-						pos.x += 68.0f;
-					}
-					{
-						pos = c_base_res * v2(0.7f, 0.1f);
-						pos.y += 68.0f;
-						s_ui_interaction interaction = platform_data->ui_button(g_r, "Hole", pos, v2(64), game->font, 32.0f, g_input, g_mouse);
-						if(interaction.state == e_ui_pressed) { click_handled = true; }
-						else if(interaction.state == e_ui_active) {
-							editor->curr_tile = 69;
-						}
-						pos.x += 68.0f;
-					}
-					{
-						s_ui_interaction interaction = platform_data->ui_button(g_r, "Spawn", pos, v2(64), game->font, 32.0f, g_input, g_mouse);
-						if(interaction.state == e_ui_pressed) { click_handled = true; }
-						else if(interaction.state == e_ui_active) {
-							editor->curr_tile = 70;
+						else if(are_we_placing(editor)) {
+							editor->curr_tile = -1;
 						}
 					}
 
-					s_v2i index = v2i(floorfi(g_mouse.x / c_tile_size), floorfi(g_mouse.y / c_tile_size));
+					if(!is_something_selected(editor) && !are_we_placing(editor)) {
+						for(int i = 0; i < 3; i++) {
+							s_ui_interaction interaction = platform_data->ui_button(g_r, format_text("%i", i), pos, v2(64), game->font, 32.0f, g_input, g_mouse);
+							if(interaction.state == e_ui_pressed) { click_handled = true; }
+							else if(interaction.state == e_ui_active) {
+								editor->curr_tile = (u8)i;
+							}
+							pos.x += 68.0f;
+						}
+
+						{
+							pos = c_base_res * v2(0.7f, 0.1f);
+							pos.y += 68.0f;
+							s_ui_interaction interaction = platform_data->ui_button(g_r, "Hole", pos, v2(64), game->font, 32.0f, g_input, g_mouse);
+							if(interaction.state == e_ui_pressed) { click_handled = true; }
+							else if(interaction.state == e_ui_active) {
+								editor->curr_tile = 69;
+							}
+							pos.x += 68.0f;
+						}
+						{
+							s_ui_interaction interaction = platform_data->ui_button(g_r, "Spawn", pos, v2(64), game->font, 32.0f, g_input, g_mouse);
+							if(interaction.state == e_ui_pressed) { click_handled = true; }
+							else if(interaction.state == e_ui_active) {
+								editor->curr_tile = 70;
+							}
+						}
+					}
+
 					if(is_key_pressed(g_input, c_key_left_shift)) {
 						editor->shift_index = index;
 					}
@@ -467,25 +501,46 @@ m_update_game(update_game)
 					}
 
 					if(!click_handled && is_key_down(g_input, c_left_mouse)) {
-						if(is_valid_index(index, c_max_tiles, c_max_tiles)) {
-							if(editor->curr_tile == 69) {
-								editor->map.hole = index;
-							}
-							else if(editor->curr_tile == 70) {
-								editor->map.spawn = index;
-							}
-							else {
-								int x_min = min(index.x, editor->shift_index.x);
-								int y_min = min(index.y, editor->shift_index.y);
-								int x_max = max(index.x, editor->shift_index.x) + 1;
-								int y_max = max(index.y, editor->shift_index.y) + 1;
-								for(int y = y_min; y < y_max; y++) {
-									for(int x = x_min; x < x_max; x++) {
-										if(!is_valid_index(v2i(x, y), c_max_tiles, c_max_tiles)) { continue; }
-										editor->map.tiles_active[y][x] = true;
-										editor->map.tiles[y][x] = editor->curr_tile;
+						if(are_we_placing(editor)) {
+							if(is_valid_index(index, c_max_tiles, c_max_tiles)) {
+								if(editor->curr_tile == 69) {
+									editor->map.hole = index;
+								}
+								else if(editor->curr_tile == 70) {
+									editor->map.spawn = index;
+								}
+								else {
+									int x_min = min(index.x, editor->shift_index.x);
+									int y_min = min(index.y, editor->shift_index.y);
+									int x_max = max(index.x, editor->shift_index.x) + 1;
+									int y_max = max(index.y, editor->shift_index.y) + 1;
+									for(int y = y_min; y < y_max; y++) {
+										for(int x = x_min; x < x_max; x++) {
+											if(!is_valid_index(v2i(x, y), c_max_tiles, c_max_tiles)) { continue; }
+											editor->map.tiles_active[y][x] = true;
+											editor->map.tiles[y][x] = (u8)editor->curr_tile;
+										}
 									}
 								}
+							}
+						}
+						else {
+
+						}
+					}
+
+					if(are_we_placing(editor) && is_valid_index(index, c_max_tiles, c_max_tiles)) {
+						int x_min = min(index.x, editor->shift_index.x);
+						int y_min = min(index.y, editor->shift_index.y);
+						int x_max = max(index.x, editor->shift_index.x) + 1;
+						int y_max = max(index.y, editor->shift_index.y) + 1;
+						for(int y = y_min; y < y_max; y++) {
+							for(int x = x_min; x < x_max; x++) {
+								s_v2i temp_index = v2i(x, y);
+								draw_tile(
+									g_r, tile_index_to_pos(temp_index), e_layer_tile_ghost, v2(c_tile_size - 1), editor->curr_tile, {},
+									{.mix_weight = 0.5f, .origin_offset = c_origin_topleft, .mix_color = make_color(1)}
+								);
 							}
 						}
 					}
@@ -493,7 +548,6 @@ m_update_game(update_game)
 					if(is_key_down(g_input, c_right_mouse)) {
 						if(is_valid_index(index, c_max_tiles, c_max_tiles)) {
 							editor->map.tiles_active[index.y][index.x] = false;
-							editor->map.tiles[index.y][index.x] = editor->curr_tile;
 						}
 					}
 
@@ -739,15 +793,7 @@ func void draw_map(s_map* map)
 	for(int y = 0; y < c_max_tiles; y++) {
 		for(int x = 0; x < c_max_tiles; x++) {
 			if(!map->tiles_active[y][x]) { continue; }
-			if(map->tiles[y][x] == 0) {
-				draw_rect(g_r, v2(x * c_tile_size, y * c_tile_size), e_layer_tile, v2(c_tile_size - grid), rgb(0xC9522E), {}, {.origin_offset = c_origin_topleft});
-			}
-			else if(map->tiles[y][x] == 1) {
-				draw_rect(g_r, v2(x * c_tile_size, y * c_tile_size), e_layer_tile, v2(c_tile_size - grid), rgb(0xC2BD95), {}, {.origin_offset = c_origin_topleft});
-			}
-			else if(map->tiles[y][x] == 2) {
-				draw_rect(g_r, v2(x * c_tile_size, y * c_tile_size), e_layer_tile, v2(c_tile_size - grid), rgb(0xA2BDA5), {}, {.origin_offset = c_origin_topleft});
-			}
+			draw_tile(g_r, v2(x * c_tile_size, y * c_tile_size), e_layer_tile, v2(c_tile_size - grid), map->tiles[y][x], {}, {.origin_offset = c_origin_topleft});
 		}
 	}
 
@@ -760,6 +806,23 @@ func void draw_map(s_map* map)
 		s_v2 pos = tile_index_to_pos(map->spawn) + v2(c_tile_size * 0.5f);
 		draw_rect(g_r, pos, e_layer_hole, v2(c_ball_radius * 4.0f), rgb(0xD6DFAC), {.blend_mode = e_blend_mode_additive}, {.flags = e_render_flag_circle});
 	}
+}
+
+func void draw_tile(s_game_renderer* renderer, s_v2 pos, e_layer layer, s_v2 size, int type, s_render_data render_data, s_transform t) {
+	s_v4 color = zero;
+	switch(type) {
+		case 0:	{
+			color = rgb(0xC9522E);
+		} break;
+		case 1:	{
+			color = rgb(0xC2BD95);
+		} break;
+		case 2:	{
+			color = rgb(0xA2BDA5);
+		} break;
+		invalid_default_case;
+	}
+	draw_rect(renderer, pos, layer, size, color, render_data, t);
 }
 
 func void load_map(char* file_path, s_platform_data* platform_data, s_map* out_map)
@@ -806,4 +869,14 @@ func void move_ball_to_spawn(s_ball* ball, s_map* map)
 func b8 are_we_on_last_map()
 {
 	return game->curr_map >= e_map_count - 1;
+}
+
+func b8 are_we_placing(s_map_editor* editor)
+{
+	return editor->curr_tile >= 0;
+}
+
+func b8 is_something_selected(s_map_editor* editor)
+{
+	return editor->selected.count > 0;
 }

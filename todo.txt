@@ -46,11 +46,13 @@ SDL_AUDIO_ALLOW_FREQUENCY_CHANGE breaks sounds in the web build!
 we could actually get it down to 1 file with a bunch of #ifdefs. but we still need 2 compilation units for hot reloading to work
 
 
-way of specifying window size
 
 Aruseus: have you tried SDL_GL_GetProcAddress?
 	maybe we can ditch glew with this? fuck glew baseg
 
+
+saving and loading game states
+way of specifying window size
 
 golf:
 	mode (or map?) where each time someone gets in the whole, the hole teleports
@@ -71,3 +73,12 @@ golf:
 	particles
 
 	realSuperku: mr tkat streamer what if you keep track of a moving average of player finish positions (normalized by player count). the better the position, the fancier the golfball looks, or like shit if you are not doing well. could be :) :( smileys also, with a golden smiley being the best. duckYep
+
+	we need to make normal walls not as bouncy
+	sand (slow) tile
+	bouncy wall
+	converyor belt type tile
+	portals
+	pits and shit so we can fall out of the map
+
+	placing hole and spawn should be different than placing tiles

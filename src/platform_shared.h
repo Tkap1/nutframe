@@ -1569,6 +1569,11 @@ struct s_platform_data
 	b8 any_key_pressed;
 	b8 is_window_active;
 	b8 window_resized;
+
+	#ifdef m_debug
+	b8 loaded_a_state;
+	#endif // m_debug
+
 	int window_width;
 	int window_height;
 	s_input* input;
@@ -2179,6 +2184,22 @@ static void do_game_layer(
 {
 	#ifdef m_debug
 
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		save states start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	{
+		char* path = "save_state";
+		if(is_key_pressed(g_platform_data.input, c_key_f3)) {
+			write_file(path, game_memory, c_game_memory);
+		}
+		if(is_key_pressed(g_platform_data.input, c_key_f4)) {
+			u8* data = (u8*)read_file(path, g_platform_data.frame_arena, NULL);
+			if(data) {
+				memcpy(game_memory, data, c_game_memory);
+				g_platform_data.loaded_a_state = true;
+			}
+		}
+	}
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		save states end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 	if(is_key_pressed(g_platform_data.input, c_key_f1)) {
 		g_platform_data.show_live_vars = !g_platform_data.show_live_vars;
 	}
@@ -2259,6 +2280,10 @@ static void do_game_layer(
 
 	update_game(&g_platform_data, game_memory, game_renderer);
 	g_platform_data.recompiled = false;
+
+	#ifdef m_debug
+	g_platform_data.loaded_a_state = false;
+	#endif // m_debug
 
 	if(g_do_embed) {
 		write_embed_file();
