@@ -80,5 +80,10 @@ golf:
 	converyor belt type tile
 	portals
 	pits and shit so we can fall out of the map
+	one way only tiles!!
 
 	placing hole and spawn should be different than placing tiles
+
+
+
+reset velocity on reset level
