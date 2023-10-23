@@ -65,12 +65,25 @@ global constexpr float c_rotation_to_rad[4] = {
 	0, tau * 0.25f, tau * 0.5f, tau * 0.75f
 };
 
+enum e_tile
+{
+	e_tile_wall,
+	e_tile_default,
+	e_tile_acceleration,
+	e_tile_directional,
+	e_tile_sand,
+	e_tile_water,
+	e_tile_count,
+};
+
 enum e_map
 {
 	e_map_001,
 	e_map_002,
 	e_map_003,
 	e_map_004,
+	e_map_005,
+	e_map_006,
 	e_map_count,
 };
 
@@ -79,6 +92,7 @@ struct s_ball
 	char name[64];
 	c2Circle c;
 	s_v2 vel;
+	s_v2 pos_before_last_push;
 	s_v4 color;
 	int push_count;
 };
@@ -150,8 +164,11 @@ struct s_game
 	s_sound* push_sounds[3];
 	s_sound* collide_sound;
 	s_sound* win_sound;
+	s_sound* water_sound;
 	s_game_transient transient;
 	s_texture directional_tile_texture;
+	s_texture sand;
+	s_texture water;
 };
 
 global s_input* g_input;
@@ -185,6 +202,7 @@ func void editor_on_left_mouse_up(s_map_editor* editor);
 func void editor_on_left_mouse_pressed(s_map_editor* editor);
 func b8 is_tile_active(s_map* map, int x, int y);
 func b8 is_tile_active(s_map* map, s_v2i index);
+func c2v make_c2v(s_v2 v);
 
 #ifdef m_build_dll
 extern "C" {
@@ -207,15 +225,18 @@ m_update_game(update_game)
 		platform_data->variables_path = "examples/golf/variables.h";
 		game->angle_indicator = g_r->load_texture(g_r, "examples/golf/angle_indicator.png");
 		game->directional_tile_texture = g_r->load_texture(g_r, "examples/golf/directional_tile.png");
+		game->sand = g_r->load_texture(g_r, "examples/golf/sand.png");
+		game->water = g_r->load_texture(g_r, "examples/golf/water.png");
 		game->push_sounds[0] = platform_data->load_sound(platform_data, "examples/golf/push1.wav", platform_data->frame_arena);
 		game->push_sounds[1] = platform_data->load_sound(platform_data, "examples/golf/push2.wav", platform_data->frame_arena);
 		game->push_sounds[2] = platform_data->load_sound(platform_data, "examples/golf/push3.wav", platform_data->frame_arena);
 		game->collide_sound = platform_data->load_sound(platform_data, "examples/golf/collide.wav", platform_data->frame_arena);
+		game->water_sound = platform_data->load_sound(platform_data, "examples/golf/water.wav", platform_data->frame_arena);
 		game->win_sound = platform_data->load_sound(platform_data, "examples/golf/win.wav", platform_data->frame_arena);
 
 		game->editor.curr_tile = -1;
 
-		game->curr_map = 0;
+		game->curr_map = 5;
 		for(int map_i = 0; map_i < e_map_count; map_i++) {
 			char* file_path = format_text("map%i", map_i);
 			load_map(file_path, platform_data, &game->maps[map_i]);
@@ -304,6 +325,7 @@ m_update_game(update_game)
 				s_ball* ball = &game->balls[ball_index];
 				platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
 				ball->vel += v2_from_angle(deg_to_rad((float)angle)) * range_lerp((float)strength, 1, 100, 25, 2000);
+				ball->pos_before_last_push = v2(ball->c.p);
 
 				if(!game->transient.has_beat_level[ball_index]) {
 					game->transient.push_count[ball_index] += 1;
@@ -364,11 +386,24 @@ m_update_game(update_game)
 					float mul = 1.0f;
 					foreach_val(tile_i, tile, collisions) {
 						u8 tile_type = map->tiles[tile.y][tile.x];
-						if(tile_type == 2) {
+						if(tile_type == e_tile_acceleration) {
 							mul += 0.03f;
 						}
-						else if(tile_type == 3) {
+						else if(tile_type == e_tile_directional) {
 							ball->vel += v2_from_angle(c_rotation_to_rad[map->rotation[tile.y][tile.x]]) * 6;
+						}
+						else if(tile_type == e_tile_sand) {
+							mul *= 0.97f;
+						}
+						else if(tile_type == e_tile_water) {
+							float d = v2_distance(v2(ball->c.p), tile_index_to_tile_center(tile));
+							if(d <= c_tile_size * 0.5f) {
+								ball->c.p = make_c2v(ball->pos_before_last_push);
+								ball->vel = zero;
+								mul = 0;
+								platform_data->play_sound(game->water_sound);
+								break;
+							}
 						}
 					}
 					ball->vel *= mul;
@@ -482,7 +517,6 @@ m_update_game(update_game)
 			switch(editor->state) {
 
 				case e_map_editor_state_default: {
-					s_v2 pos = c_base_res * v2(0.7f, 0.1f);
 					b8 click_handled = false;
 
 					s_v2i index = v2i(floorfi(g_mouse.x / c_tile_size), floorfi(g_mouse.y / c_tile_size));
@@ -497,31 +531,45 @@ m_update_game(update_game)
 					}
 
 					if(!is_something_selected(editor) && !are_we_placing_tile(editor) && !are_we_placing_spawn_or_hole(editor)) {
-						for(int i = 0; i < 4; i++) {
-							s_ui_interaction interaction = platform_data->ui_button(g_r, format_text("%i", i), pos, v2(64), game->font, 32.0f, g_input, g_mouse);
+						s_v2 pos = c_base_res * v2(0.7f, 0.1f);
+						int pos_x = 0;
+						int pos_y = 0;
+						for(int i = 0; i < e_tile_count; i++) {
+							s_v2 temp = pos;
+							temp.x += pos_x % 3 * 68.0f;
+							temp.y += pos_y / 3 * 68.0f;
+							s_ui_interaction interaction = platform_data->ui_button(g_r, format_text("%i", i), temp, v2(64), game->font, 32.0f, g_input, g_mouse);
 							if(interaction.state == e_ui_pressed) { click_handled = true; }
 							else if(interaction.state == e_ui_active) {
 								editor->curr_tile = (u8)i;
 							}
-							pos.x += 68.0f;
+							pos_x += 1;
+							pos_y += 1;
 						}
 
 						{
-							pos = c_base_res * v2(0.7f, 0.1f);
-							pos.y += 68.0f;
-							s_ui_interaction interaction = platform_data->ui_button(g_r, "Hole", pos, v2(64), game->font, 32.0f, g_input, g_mouse);
+							s_v2 temp = pos;
+							temp.x += pos_x % 3 * 68.0f;
+							temp.y += pos_y / 3 * 68.0f;
+							s_ui_interaction interaction = platform_data->ui_button(g_r, "Hole", temp, v2(64), game->font, 32.0f, g_input, g_mouse);
 							if(interaction.state == e_ui_pressed) { click_handled = true; }
 							else if(interaction.state == e_ui_active) {
 								editor->curr_tile = 69;
 							}
-							pos.x += 68.0f;
+							pos_x += 1;
+							pos_y += 1;
 						}
 						{
-							s_ui_interaction interaction = platform_data->ui_button(g_r, "Spawn", pos, v2(64), game->font, 32.0f, g_input, g_mouse);
+							s_v2 temp = pos;
+							temp.x += pos_x % 3 * 68.0f;
+							temp.y += pos_y / 3 * 68.0f;
+							s_ui_interaction interaction = platform_data->ui_button(g_r, "Spawn", temp, v2(64), game->font, 32.0f, g_input, g_mouse);
 							if(interaction.state == e_ui_pressed) { click_handled = true; }
 							else if(interaction.state == e_ui_active) {
 								editor->curr_tile = 70;
 							}
+							pos_x += 1;
+							pos_y += 1;
 						}
 					}
 
@@ -707,7 +755,10 @@ func s_sarray<s_v2i, 16> get_interactive_tile_collisions(c2Circle circle, s_map*
 			if(!map->tiles_active[new_index.y][new_index.x]) { continue; }
 
 			u8 tile_type = map->tiles[new_index.y][new_index.x];
-			if(tile_type != 2 && tile_type != 3) { continue; }
+			if(
+				tile_type != e_tile_acceleration && tile_type != e_tile_directional && tile_type != e_tile_sand &&
+				tile_type != e_tile_water
+			) { continue; }
 
 			s_v2 tile_pos = v2(new_index.x * c_tile_size, new_index.y * c_tile_size);
 			c2AABB aabb = zero;
@@ -729,6 +780,11 @@ func s_sarray<s_v2i, 16> get_interactive_tile_collisions(c2Circle circle, s_map*
 func s_v2 v2(c2v v)
 {
 	return v2(v.x, v.y);
+}
+
+func c2v make_c2v(s_v2 v)
+{
+	return {.x = v.x, .y = v.y};
 }
 
 func void make_process_close_when_app_closes(HANDLE process)
@@ -856,19 +912,27 @@ func void draw_tile(s_game_renderer* renderer, s_v2 pos, e_layer layer, s_v2 siz
 	t.rotation += c_rotation_to_rad[rotation];
 
 	// @Hack(tkap, 23/10/2023):
-	if(type == 3) {
+	if(type == e_tile_directional) {
 		draw_texture(renderer, pos, layer, size, make_color(1), game->directional_tile_texture, render_data, t);
+		return;
+	}
+	if(type == e_tile_sand) {
+		draw_texture(renderer, pos, layer, size, make_color(1), game->sand, render_data, t);
+		return;
+	}
+	if(type == e_tile_water) {
+		draw_texture(renderer, pos, layer, size, make_color(1), game->water, render_data, t);
 		return;
 	}
 
 	switch(type) {
-		case 0:	{
+		case e_tile_wall:	{
 			color = rgb(0xC9522E);
 		} break;
-		case 1:	{
+		case e_tile_default:	{
 			color = rgb(0xC2BD95);
 		} break;
-		case 2:	{
+		case e_tile_acceleration:	{
 			color = rgb(0xA2BDA5);
 		} break;
 		invalid_default_case;
@@ -918,6 +982,7 @@ func void move_ball_to_spawn(s_ball* ball, s_map* map)
 {
 	ball->c.p.x = tile_index_to_tile_center(map->spawn).x + game->transient.spawn_offset.x;
 	ball->c.p.y = tile_index_to_tile_center(map->spawn).y + game->transient.spawn_offset.y;
+	ball->pos_before_last_push = v2(ball->c.p);
 }
 
 func b8 are_we_on_last_map()
