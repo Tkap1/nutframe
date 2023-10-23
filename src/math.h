@@ -1,14 +1,5 @@
 
 
-func s_v3 v3(float x, float y, float z)
-{
-	s_v3 result;
-	result.x = x;
-	result.y = y;
-	result.z = z;
-	return result;
-}
-
 func s_v4 v4(float x, float y, float z, float w)
 {
 	s_v4 result;
@@ -97,71 +88,6 @@ func b8 circle_collides_circle(s_v2 center1, float radius1, s_v2 center2, float 
 
 	if(distance <= combined_radius) { return true; }
 	return false;
-}
-
-func s_v3 hsv_to_rgb(s_v3 colour)
-{
-	s_v3 rgb;
-
-	if(colour.y <= 0.0f)
-	{
-		rgb.x = colour.z;
-		rgb.y = colour.z;
-		rgb.z = colour.z;
-		return rgb;
-	}
-
-	colour.x *= 360.0f;
-	if(colour.x < 0.0f || colour.x >= 360.0f)
-		colour.x = 0.0f;
-	colour.x /= 60.0f;
-
-	u32 i = (u32)colour.x;
-	float ff = colour.x - i;
-	float p = colour.z * (1.0f - colour.y );
-	float q = colour.z * (1.0f - (colour.y * ff));
-	float t = colour.z * (1.0f - (colour.y * (1.0f - ff)));
-
-	switch(i)
-	{
-	case 0:
-		rgb.x = colour.z;
-		rgb.y = t;
-		rgb.z = p;
-		break;
-
-	case 1:
-		rgb.x = q;
-		rgb.y = colour.z;
-		rgb.z = p;
-		break;
-
-	case 2:
-		rgb.x = p;
-		rgb.y = colour.z;
-		rgb.z = t;
-		break;
-
-	case 3:
-		rgb.x = p;
-		rgb.y = q;
-		rgb.z = colour.z;
-		break;
-
-	case 4:
-		rgb.x = t;
-		rgb.y = p;
-		rgb.z = colour.z;
-		break;
-
-	default:
-		rgb.x = colour.z;
-		rgb.y = p;
-		rgb.z = q;
-		break;
-	}
-
-	return rgb;
 }
 
 func b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)

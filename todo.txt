@@ -57,8 +57,11 @@ golf:
 	rcrnstn: A other target that sometimes jumps around that, if you land on it, makes everyone else do a random push
 	better graphics 4head
 	angle indicator thing
-	why does pushx push you?? parsing bug?? investigate
 
 	better map editor (Selecting tiles and rotating them so we can conveyor belt type tiles)
-	proper join state
 	beating levels and advancing
+
+	fixed time step for consistent physics
+
+	WinterCoding: I wonder if you could make some bot whisper you, then use the whisper window as a control for the ball so chat don't get spammed? Don't know though.
+	akthemadman: would be cool if shots would be fired all at once. i.e. turn based

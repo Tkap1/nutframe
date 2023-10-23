@@ -421,6 +421,85 @@ static constexpr s_v2 v2(T v)
 	return result;
 }
 
+static s_v4 v4(s_v3 v3, float a)
+{
+	return {v3.x, v3.y, v3.z, a};
+}
+
+static constexpr s_v3 v3(float x, float y, float z)
+{
+	s_v3 result;
+	result.x = x;
+	result.y = y;
+	result.z = z;
+	return result;
+}
+
+static s_v4 hsv_to_rgb(s_v3 color)
+{
+	s_v4 rgba;
+	rgba.w = 1;
+
+	if(color.y <= 0.0f)
+	{
+		rgba.x = color.z;
+		rgba.y = color.z;
+		rgba.z = color.z;
+		return rgba;
+	}
+
+	color.x *= 360.0f;
+	if(color.x < 0.0f || color.x >= 360.0f)
+		color.x = 0.0f;
+	color.x /= 60.0f;
+
+	u32 i = (u32)color.x;
+	float ff = color.x - i;
+	float p = color.z * (1.0f - color.y );
+	float q = color.z * (1.0f - (color.y * ff));
+	float t = color.z * (1.0f - (color.y * (1.0f - ff)));
+
+	switch(i)
+	{
+	case 0:
+		rgba.x = color.z;
+		rgba.y = t;
+		rgba.z = p;
+		break;
+
+	case 1:
+		rgba.x = q;
+		rgba.y = color.z;
+		rgba.z = p;
+		break;
+
+	case 2:
+		rgba.x = p;
+		rgba.y = color.z;
+		rgba.z = t;
+		break;
+
+	case 3:
+		rgba.x = p;
+		rgba.y = q;
+		rgba.z = color.z;
+		break;
+
+	case 4:
+		rgba.x = t;
+		rgba.y = p;
+		rgba.z = color.z;
+		break;
+
+	default:
+		rgba.x = color.z;
+		rgba.y = p;
+		rgba.z = q;
+		break;
+	}
+	return rgba;
+}
+
 static char* format_text(const char* text, ...)
 {
 	static constexpr int max_format_text_buffers = 16;

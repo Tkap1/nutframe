@@ -26,7 +26,6 @@ global constexpr int c_max_balls = 128;
 
 enum e_state
 {
-	e_state_join,
 	e_state_play,
 	e_state_map_editor,
 };
@@ -197,7 +196,7 @@ m_update_game(update_game)
 		content.data = msg.data + index + 1;
 		content.len = msg.len - index - 1;
 
-		if(game->state == e_state_join) {
+		if(game->state == e_state_play) {
 			if(content.len >= 4 && strncmp(content.data, "join", 4) == 0) {
 				s_ball* already_present = get_ball_by_name(user);
 				if(!already_present) {
@@ -216,7 +215,7 @@ m_update_game(update_game)
 		if(content.len > 4 && strncmp(content.data, "push", 4) == 0) {
 			char* out;
 			char* out2;
-			int angle = parse_int(content.data + 5, &out);
+			int angle = parse_int(content.data + 4, &out);
 			if(!out) { continue; }
 			int strength = parse_int(out, &out2);
 			if(!out2) { continue; }
@@ -232,17 +231,22 @@ m_update_game(update_game)
 	}
 
 	switch(game->state) {
-		case e_state_join: {
+
+		case e_state_play: {
 			if(is_key_pressed(g_input, c_key_f2)) {
 				game->state = e_state_map_editor;
 			}
 			draw_map(&game->maps[game->curr_map]);
 			draw_texture(g_r, c_base_res * v2(c_angle_indicator_x, c_angle_indicator_y), e_layer_ui, v2(128), make_color(1), game->angle_indicator);
-		} break;
 
-		case e_state_play: {
-			draw_map(&game->maps[game->curr_map]);
-			draw_texture(g_r, c_base_res * v2(c_angle_indicator_x, c_angle_indicator_y), e_layer_ui, v2(128), make_color(1), game->angle_indicator);
+			{
+				s_v2 pos = c_base_res * v2(0.575f, 0.2f);
+				s_v4 color = hsv_to_rgb(v3(sinf2((float)renderer->total_time * 0.5f), 1.0f, 1.0f));
+				draw_text(g_r, "Type join to play", pos, e_layer_ui, 24.0f, color, false, game->font);
+				pos.y += 24.0f;
+				draw_text(g_r, "Type push angle strength", pos, e_layer_ui, 24.0f, color, false, game->font);
+			}
+
 		} break;
 
 		case e_state_map_editor: {
