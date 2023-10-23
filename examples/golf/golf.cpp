@@ -139,6 +139,7 @@ struct s_map_editor
 	s_v2i shift_index;
 	s_v2i select_start;
 	s_sarray<s_v2i, c_max_tiles * c_max_tiles> selected;
+	int rotation;
 };
 
 struct s_game_transient
@@ -605,6 +606,14 @@ m_update_game(update_game)
 						}
 					}
 
+					if(are_we_placing_tile(editor) && is_key_pressed(g_input, c_key_r)) {
+						int val = 1;
+						if(is_key_down(g_input, c_key_left_shift)) {
+							val = -1;
+						}
+						editor->rotation = circular_index(editor->rotation + val, e_rotation_count);
+					}
+
 					if(is_key_pressed(g_input, c_key_left_shift)) {
 						editor->shift_index = index;
 					}
@@ -631,7 +640,7 @@ m_update_game(update_game)
 							for(int x = x_min; x < x_max; x++) {
 								s_v2i temp_index = v2i(x, y);
 								draw_tile(
-									g_r, tile_index_to_pos(temp_index), e_layer_tile_ghost, v2(c_tile_size - 1), editor->curr_tile, e_rotation_right, {},
+									g_r, tile_index_to_pos(temp_index), e_layer_tile_ghost, v2(c_tile_size - 1), editor->curr_tile, (u8)editor->rotation, {},
 									{.mix_weight = 0.5f, .origin_offset = c_origin_topleft, .mix_color = make_color(1)}
 								);
 							}
@@ -1068,6 +1077,7 @@ func void editor_on_left_mouse_down(s_map_editor* editor)
 						if(!is_valid_index(v2i(x, y), c_max_tiles, c_max_tiles)) { continue; }
 						editor->map.tiles_active[y][x] = true;
 						editor->map.tiles[y][x] = (u8)editor->curr_tile;
+						editor->map.rotation[y][x] = (u8)editor->rotation;
 					}
 				}
 			}
