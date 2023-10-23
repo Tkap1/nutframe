@@ -58,7 +58,6 @@ golf:
 	mode (or map?) where each time someone gets in the whole, the hole teleports
 	rcrnstn: A other target that sometimes jumps around that, if you land on it, makes everyone else do a random push
 	better graphics 4head
-	angle indicator thing
 
 	better map editor (Selecting tiles and rotating them so we can conveyor belt type tiles)
 	beating levels and advancing
@@ -75,15 +74,7 @@ golf:
 	realSuperku: mr tkat streamer what if you keep track of a moving average of player finish positions (normalized by player count). the better the position, the fancier the golfball looks, or like shit if you are not doing well. could be :) :( smileys also, with a golden smiley being the best. duckYep
 
 	we need to make normal walls not as bouncy
-	sand (slow) tile
 	bouncy wall
-	converyor belt type tile
 	portals
 	pits and shit so we can fall out of the map
 	one way only tiles!!
-
-	placing hole and spawn should be different than placing tiles
-
-
-
-reset velocity on reset level

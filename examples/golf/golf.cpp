@@ -95,10 +95,12 @@ struct s_ball
 	s_v2 pos_before_last_push;
 	s_v4 color;
 	int push_count;
+	s_v2 rotation;
 };
 
 struct s_name_and_push_count
 {
+	b8 beat_level;
 	int total_count;
 	int level_count;
 	char* name;
@@ -169,6 +171,7 @@ struct s_game
 	s_texture directional_tile_texture;
 	s_texture sand;
 	s_texture water;
+	s_texture noise;
 };
 
 global s_input* g_input;
@@ -203,6 +206,7 @@ func void editor_on_left_mouse_pressed(s_map_editor* editor);
 func b8 is_tile_active(s_map* map, int x, int y);
 func b8 is_tile_active(s_map* map, s_v2i index);
 func c2v make_c2v(s_v2 v);
+func int get_worst_pushes_that_beat_level();
 
 #ifdef m_build_dll
 extern "C" {
@@ -227,6 +231,7 @@ m_update_game(update_game)
 		game->directional_tile_texture = g_r->load_texture(g_r, "examples/golf/directional_tile.png");
 		game->sand = g_r->load_texture(g_r, "examples/golf/sand.png");
 		game->water = g_r->load_texture(g_r, "examples/golf/water.png");
+		game->noise = g_r->load_texture(g_r, "examples/golf/noise.png");
 		game->push_sounds[0] = platform_data->load_sound(platform_data, "examples/golf/push1.wav", platform_data->frame_arena);
 		game->push_sounds[1] = platform_data->load_sound(platform_data, "examples/golf/push2.wav", platform_data->frame_arena);
 		game->push_sounds[2] = platform_data->load_sound(platform_data, "examples/golf/push3.wav", platform_data->frame_arena);
@@ -236,7 +241,7 @@ m_update_game(update_game)
 
 		game->editor.curr_tile = -1;
 
-		game->curr_map = 5;
+		game->curr_map = 0;
 		for(int map_i = 0; map_i < e_map_count; map_i++) {
 			char* file_path = format_text("map%i", map_i);
 			load_map(file_path, platform_data, &game->maps[map_i]);
@@ -304,6 +309,17 @@ m_update_game(update_game)
 					move_ball_to_spawn(&ball, map);
 					ball.c.r = c_ball_radius;
 					memcpy(ball.name, user.data, user.len);
+					if(game->curr_map > 0) {
+						int worst_total = 0;
+						int worst_level = 0;
+						foreach_val(worst_i, worst, game->balls) {
+							if(worst.push_count > worst_total) {
+								worst_total = worst.push_count;
+								worst_level = game->transient.push_count[worst_i];
+							}
+						}
+						ball.push_count = worst_total - worst_level;
+					}
 					game->balls.add(ball);
 				}
 			}
@@ -370,6 +386,16 @@ m_update_game(update_game)
 				if(has_anyone_beaten_level()) {
 					float time_left = c_seconds_after_first_beat - ((float)renderer->total_time - game->transient.first_beat_time);
 					if(time_left <= 0 || has_everyone_beaten_level()) {
+						// @Note(tkap, 24/10/2023): Add artificial pushes to everyone who didn't beat the level
+						foreach_ptr(ball_i, ball, game->balls) {
+							if(!game->transient.has_beat_level[ball_i]) {
+								int didnt_beat_level_pushes = game->transient.push_count[ball_i];
+								int worst_pushes_that_beat_level = get_worst_pushes_that_beat_level() + 1;
+								int diff = worst_pushes_that_beat_level - didnt_beat_level_pushes;
+								ball->push_count += diff;
+								game->transient.push_count[ball_i] = worst_pushes_that_beat_level;
+							}
+						}
 						game->state = e_state_stats;
 					}
 					draw_text(g_r, format_text("%.0f", time_left), pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
@@ -413,6 +439,7 @@ m_update_game(update_game)
 
 				for(int i = 0; i < 10; i++) {
 					s_v2 movement = ball->vel * 0.1f;
+					ball->rotation += movement;
 
 					ball->c.p.x += movement.x * delta;
 					ball->c.p.y += movement.y * delta;
@@ -437,11 +464,12 @@ m_update_game(update_game)
 				b8 in_hole = c2CircletoCircle(ball->c, {.p = {hole_pos.x, hole_pos.y}, .r = c_ball_radius * 2.0f}) != 0;
 
 				ball->vel *= 0.99f;
-				s_v4 color = rgb(0x0D232D);
+				s_v4 color = make_color(0.5f);
 				if(game->transient.has_beat_level[ball_i]) {
 					color = brighter(rgb(0xA4BB96), 1.2f);
 				}
-				draw_rect(g_r, v2(ball->c.p), e_layer_ball, v2(ball->c.r * 2.0f), color, {}, {.flags = e_render_flag_circle});
+				draw_texture(g_r, v2(ball->c.p), e_layer_ball, v2(ball->c.r * 2.0f), color, game->noise, {}, {.effect_id = 2, .texture_size = ball->rotation});
+				// draw_rect(g_r, v2(ball->c.p), e_layer_ball_shadow, v2(ball->c.r * 8.0f + 10), make_color(0.1f), {}, {.flags = e_render_flag_circle});
 				if(!in_hole) {
 					draw_text(g_r, ball->name, v2(ball->c.p), 50, 24, make_color(1), true, game->font);
 				}
@@ -466,9 +494,9 @@ m_update_game(update_game)
 			game->transient.stats_timer += delta;
 			s_sarray<s_name_and_push_count, c_max_balls> arr;
 			foreach_ptr(ball_i, ball, game->balls) {
-				if(!game->transient.has_beat_level[ball_i]) { continue; }
 				s_name_and_push_count x = zero;
 				x.name = ball->name;
+				x.beat_level = game->transient.has_beat_level[ball_i];
 				x.total_count = ball->push_count;
 				x.level_count = game->transient.push_count[ball_i];
 				arr.add(x);
@@ -477,7 +505,11 @@ m_update_game(update_game)
 
 			s_v2 pos = c_base_res * v2(0.5f, 0.1f);
 			foreach_val(x_i, x, arr) {
-				draw_text(g_r, format_text("%s %i %i", x.name, x.level_count, x.total_count), pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
+				s_v4 color = make_color(1);
+				if(!x.beat_level) {
+					color = rgb(0x932437);
+				}
+				draw_text(g_r, format_text("%s %i %i", x.name, x.level_count, x.total_count), pos, e_layer_ui, 64.0f, color, true, game->font);
 				pos.y += 64.0f;
 			}
 			if(game->transient.stats_timer >= 10 || is_key_pressed(g_input, c_key_enter)) {
@@ -1077,4 +1109,15 @@ func b8 is_tile_active(s_map* map, int x, int y)
 func b8 is_tile_active(s_map* map, s_v2i index)
 {
 	return is_tile_active(map, index.x, index.y);
+}
+
+func int get_worst_pushes_that_beat_level()
+{
+	int result = 0;
+	foreach_val(ball_i, ball, game->balls) {
+		if(game->transient.has_beat_level[ball_i]) {
+			result = max(result, game->transient.push_count[ball_i]);
+		}
+	}
+	return result;
 }

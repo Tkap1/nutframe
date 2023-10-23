@@ -24,6 +24,7 @@ uniform float time;
 uniform vec2 player_pos;
 uniform vec2 mouse;
 uniform vec2 snake_pos;
+uniform vec2 ball_rot;
 uniform float snake_apple_time;
 
 uniform sampler2D in_texture;
@@ -128,6 +129,21 @@ void main()
 		color.r *= light * 1.0;
 		color.g *= (light + snake_apple_time * 2.0) * 1.0;
 		color.b *= light * 1.0;
+	}
+
+	else if(v_effect_id == 2) {
+		float r = time;
+		float d1 = distance(v_local_uv, vec2(0.5));
+		color.rgb = v_color.rgb;
+		color.a = smoothstep(0.49, 0.45, d1);
+
+		float d2 = distance(v_local_uv, vec2(0.7, 0.35));
+		float s = smoothstep(0.4, 0.2, d2);
+		color.rgb += vec3(s) * 0.3;
+		float n = texture(in_texture, (v_uv + v_texture_size * -1.0 * 0.0002) * 0.2).r;
+		n = clamp(n + 0.5, 0.0, 1.0);
+		color.rgb *= n;
+		// color.rgb *= n;
 	}
 
 	color = pma(color);
