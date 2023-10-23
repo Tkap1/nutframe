@@ -58,3 +58,7 @@ golf:
 	better graphics 4head
 	angle indicator thing
 	why does pushx push you?? parsing bug?? investigate
+
+	better map editor (Selecting tiles and rotating them so we can conveyor belt type tiles)
+	proper join state
+	beating levels and advancing

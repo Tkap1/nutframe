@@ -101,6 +101,9 @@ struct s_game
 	s_map maps[e_map_count];
 	b8 has_beat_level[c_max_balls];
 	s_texture angle_indicator;
+	s_sound* push_sounds[3];
+	s_sound* collide_sound;
+	s_sound* win_sound;
 };
 
 global s_input* g_input;
@@ -139,8 +142,13 @@ m_update_game(update_game)
 		g_r->set_vsync(true);
 		platform_data->variables_path = "examples/golf/variables.h";
 		game->angle_indicator = g_r->load_texture(g_r, "examples/golf/angle_indicator.png");
+		game->push_sounds[0] = platform_data->load_sound(platform_data, "examples/golf/push1.wav", platform_data->frame_arena);
+		game->push_sounds[1] = platform_data->load_sound(platform_data, "examples/golf/push2.wav", platform_data->frame_arena);
+		game->push_sounds[2] = platform_data->load_sound(platform_data, "examples/golf/push3.wav", platform_data->frame_arena);
+		game->collide_sound = platform_data->load_sound(platform_data, "examples/golf/collide.wav", platform_data->frame_arena);
+		game->win_sound = platform_data->load_sound(platform_data, "examples/golf/win.wav", platform_data->frame_arena);
 
-		game->curr_map = 2;
+		game->curr_map = 1;
 		for(int map_i = 0; map_i < e_map_count; map_i++) {
 			char* file_path = format_text("map%i", map_i);
 			load_map(file_path, platform_data, &game->maps[map_i]);
@@ -217,6 +225,7 @@ m_update_game(update_game)
 
 			s_ball* ball = get_ball_by_name(user);
 			if(ball) {
+				platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
 				ball->vel += v2_from_angle(deg_to_rad((float)angle)) * range_lerp((float)strength, 1, 100, 25, 2000);
 			}
 		}
@@ -408,6 +417,7 @@ m_update_game(update_game)
 				ball->c.p.x -= (c.depths[0]) * c.n.x;
 				ball->c.p.y -= (c.depths[0]) * c.n.y;
 				ball->vel = v2_reflect(ball->vel, v2(c.n));
+				platform_data->play_sound(game->collide_sound);
 				break;
 			}
 		}
@@ -434,6 +444,7 @@ m_update_game(update_game)
 		float length = v2_length(ball->vel);
 		if(in_hole && length < 0.3f && !game->has_beat_level[ball_i]) {
 			game->has_beat_level[ball_i] = true;
+			platform_data->play_sound(game->win_sound);
 			printf("%s has beaten the level!\n", ball->name);
 		}
 	}

@@ -698,7 +698,9 @@ static b8 init_audio()
 
 static b8 play_sound(s_sound* sound)
 {
-	if(!g_platform_data.is_window_active) { return false; }
+	// @Fixme(tkap, 23/10/2023): This is currently not set
+	// if(!g_platform_data.is_window_active) { return false; }
+
 	assert(sound->sample_count > 0);
 	assert(sound->samples);
 
