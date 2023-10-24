@@ -28,7 +28,10 @@ global constexpr int c_max_tiles = 128;
 global constexpr int c_max_balls = 128;
 global constexpr float c_seconds_after_first_beat = 120.0f;
 global constexpr s_v2 c_base_res = {1920, 1080};
-// global constexpr s_v2 c_base_res = {64*12, 64*12};
+global constexpr int c_updates_per_second = 240;
+global constexpr f64 c_update_delay = 1.0 / (f64)c_updates_per_second;
+global constexpr float c_delta = (float)c_update_delay;
+global constexpr int c_starting_map = 0;
 // global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
 
 enum e_state
@@ -177,6 +180,8 @@ struct s_game
 	s_texture sand;
 	s_texture water;
 	s_texture noise;
+	float total_time;
+	f64 update_timer;
 };
 
 global s_input* g_input;
@@ -212,6 +217,8 @@ func b8 is_tile_active(s_map* map, int x, int y);
 func b8 is_tile_active(s_map* map, s_v2i index);
 func c2v make_c2v(s_v2 v);
 func int get_worst_pushes_that_beat_level();
+func void update(s_platform_data* platform_data);
+func void render(s_platform_data* platform_data, s_game_renderer* renderer);
 
 #ifdef m_build_dll
 extern "C" {
@@ -250,7 +257,7 @@ m_dll_export m_update_game(update_game)
 
 		game->editor.curr_tile = -1;
 
-		game->curr_map = 6;
+		game->curr_map = c_starting_map;
 		for(int map_i = 0; map_i < e_map_count; map_i++) {
 			char* file_path = format_text("map%i", map_i);
 			load_map(file_path, platform_data, &game->maps[map_i]);
@@ -297,8 +304,30 @@ m_dll_export m_update_game(update_game)
 	live_variable(&platform_data->vars, c_angle_indicator_x, 0.0f, 1.0f, true);
 	live_variable(&platform_data->vars, c_angle_indicator_y, 0.0f, 1.0f, true);
 
-	float delta = (float)platform_data->frame_time;
+	game->update_timer += platform_data->frame_time;
+	while(game->update_timer >= c_update_delay) {
+		game->update_timer -= c_update_delay;
+		update(platform_data);
+	}
+	render(platform_data, renderer);
 
+	for(int i = 0; i < c_max_keys; i++) {
+		g_input->keys[i].count = 0;
+	}
+
+	platform_data->reset_ui();
+
+}
+
+#ifdef m_build_dll
+}
+#endif // m_build_dll
+
+func void update(s_platform_data* platform_data)
+{
+	game->total_time += c_delta;
+
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		handle twitch messages start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	s_sarray<s_str, 128> msgs = get_chat_messages(platform_data);
 	foreach_val(msg_i, msg, msgs) {
 		s_str user = zero;
@@ -360,9 +389,9 @@ m_dll_export m_update_game(update_game)
 			}
 		}
 	}
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		handle twitch messages end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	switch(game->state) {
-
 		case e_state_play: {
 			if(game->reset_level) {
 				memset(&game->transient, 0, sizeof(game->transient));
@@ -379,21 +408,11 @@ m_dll_export m_update_game(update_game)
 			if(is_key_pressed(g_input, c_key_f2)) {
 				game->state = e_state_map_editor;
 			}
-			draw_map(&game->maps[game->curr_map]);
-			draw_texture(g_r, c_base_res * v2(c_angle_indicator_x, c_angle_indicator_y), e_layer_ui, v2(128), make_color(1), game->angle_indicator);
-
-			{
-				s_v2 pos = c_base_res * v2(0.575f, 0.2f);
-				s_v4 color = hsv_to_rgb(v3(sinf2((float)renderer->total_time * 0.5f), 1.0f, 1.0f));
-				draw_text(g_r, "Type join to play", pos, e_layer_ui, 24.0f, color, false, game->font);
-				pos.y += 24.0f;
-				draw_text(g_r, "Type push angle strength", pos, e_layer_ui, 24.0f, color, false, game->font);
-			}
 
 			{
 				s_v2 pos = c_base_res * v2(0.5f, 0.5f);
 				if(has_anyone_beaten_level()) {
-					float time_left = c_seconds_after_first_beat - ((float)renderer->total_time - game->transient.first_beat_time);
+					float time_left = c_seconds_after_first_beat - (game->total_time - game->transient.first_beat_time);
 					if(time_left <= 0 || has_everyone_beaten_level()) {
 						// @Note(tkap, 24/10/2023): Add artificial pushes to everyone who didn't beat the level
 						foreach_ptr(ball_i, ball, game->balls) {
@@ -407,7 +426,6 @@ m_dll_export m_update_game(update_game)
 						}
 						game->state = e_state_stats;
 					}
-					draw_text(g_r, format_text("%.0f", time_left), pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
 				}
 			}
 
@@ -415,6 +433,7 @@ m_dll_export m_update_game(update_game)
 			foreach_ptr(ball_i, ball, game->balls) {
 				s_map* map = &game->maps[game->curr_map];
 				ball->c.r = c_ball_radius;
+				b8 in_sand = false;
 
 				{
 					auto collisions = get_interactive_tile_collisions(ball->c, map);
@@ -425,10 +444,11 @@ m_dll_export m_update_game(update_game)
 							mul += 0.03f;
 						}
 						else if(tile_type == e_tile_directional) {
-							ball->vel += v2_from_angle(c_rotation_to_rad[map->rotation[tile.y][tile.x]]) * 6;
+							ball->vel += v2_from_angle(c_rotation_to_rad[map->rotation[tile.y][tile.x]]) * 4;
 						}
 						else if(tile_type == e_tile_sand) {
-							mul *= 0.97f;
+							in_sand = true;
+							// mul *= 0.9875f;
 						}
 						else if(tile_type == e_tile_water) {
 							float d = v2_distance(v2(ball->c.p), tile_index_to_tile_center(tile));
@@ -450,15 +470,15 @@ m_dll_export m_update_game(update_game)
 					s_v2 movement = ball->vel * 0.1f;
 					ball->rotation += movement;
 
-					ball->c.p.x += movement.x * delta;
-					ball->c.p.y += movement.y * delta;
+					ball->c.p.x += movement.x * c_delta;
+					ball->c.p.y += movement.y * c_delta;
 					auto collisions = get_collisions(ball->c, map);
 					if(collisions.count > 0) {
 						c2Manifold c = collisions[0];
 
 						ball->c.p.x -= (c.depths[0]) * c.n.x;
 						ball->c.p.y -= (c.depths[0]) * c.n.y;
-						ball->vel = v2_reflect(ball->vel, v2(c.n));
+						ball->vel = v2_reflect(ball->vel, v2(c.n)) * 0.9f;
 						platform_data->play_sound(game->collide_sound);
 						break;
 					}
@@ -472,15 +492,15 @@ m_dll_export m_update_game(update_game)
 				s_v2 hole_pos = tile_index_to_pos(map->hole) + v2(c_tile_size * 0.5f);
 				b8 in_hole = c2CircletoCircle(ball->c, {.p = {hole_pos.x, hole_pos.y}, .r = c_ball_radius * 2.0f}) != 0;
 
-				ball->vel *= 0.99f;
+				if(in_sand) {
+					ball->vel *= 0.96f;
+				}
+				else {
+					ball->vel *= 0.995f;
+				}
 				s_v4 color = make_color(0.5f);
 				if(game->transient.has_beat_level[ball_i]) {
 					color = brighter(rgb(0xA4BB96), 1.2f);
-				}
-				draw_texture(g_r, v2(ball->c.p), e_layer_ball, v2(ball->c.r * 2.0f), color, game->noise, {}, {.effect_id = 2, .texture_size = ball->rotation});
-				// draw_rect(g_r, v2(ball->c.p), e_layer_ball_shadow, v2(ball->c.r * 8.0f + 10), make_color(0.1f), {}, {.flags = e_render_flag_circle});
-				if(!in_hole) {
-					draw_text(g_r, ball->name, v2(ball->c.p), 50, 24, make_color(1), true, game->font);
 				}
 
 				// @Note(tkap, 22/10/2023): Check for win
@@ -490,7 +510,7 @@ m_dll_export m_update_game(update_game)
 					printf("%s has beaten the level!\n", ball->name);
 
 					if(!has_anyone_beaten_level()) {
-						game->transient.first_beat_time = (float)renderer->total_time;
+						game->transient.first_beat_time = game->total_time;
 					}
 					game->transient.has_beat_level[ball_i] = true;
 				}
@@ -500,7 +520,64 @@ m_dll_export m_update_game(update_game)
 		} break;
 
 		case e_state_stats: {
-			game->transient.stats_timer += delta;
+			game->transient.stats_timer += c_delta;
+			if(game->transient.stats_timer >= 10 || is_key_pressed(g_input, c_key_enter)) {
+				game->reset_level = true;
+				if(are_we_on_last_map()) {
+					game->state = e_state_victory;
+				}
+				else {
+					game->state = e_state_play;
+					game->curr_map += 1;
+				}
+			}
+
+		} break;
+	}
+}
+
+func void render(s_platform_data* platform_data, s_game_renderer* renderer)
+{
+	switch(game->state) {
+
+		case e_state_play: {
+
+			s_map* map = &game->maps[game->curr_map];
+			draw_map(map);
+			draw_texture(g_r, c_base_res * v2(c_angle_indicator_x, c_angle_indicator_y), e_layer_ui, v2(128), make_color(1), game->angle_indicator);
+
+			{
+				s_v2 pos = c_base_res * v2(0.575f, 0.2f);
+				s_v4 color = hsv_to_rgb(v3(sinf2((float)renderer->total_time * 0.5f), 1.0f, 1.0f));
+				draw_text(g_r, "Type join to play", pos, e_layer_ui, 24.0f, color, false, game->font);
+				pos.y += 24.0f;
+				draw_text(g_r, "Type push angle strength", pos, e_layer_ui, 24.0f, color, false, game->font);
+			}
+
+			s_v2 pos = c_base_res * v2(0.5f, 0.5f);
+			if(has_anyone_beaten_level()) {
+				float time_left = c_seconds_after_first_beat - (game->total_time - game->transient.first_beat_time);
+				draw_text(g_r, format_text("%.0f", time_left), pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
+			}
+
+			foreach_val(ball_i, ball, game->balls) {
+				s_v2 hole_pos = tile_index_to_pos(map->hole) + v2(c_tile_size * 0.5f);
+				b8 in_hole = c2CircletoCircle(ball.c, {.p = {hole_pos.x, hole_pos.y}, .r = c_ball_radius * 2.0f}) != 0;
+
+				s_v4 color = make_color(0.5f);
+				if(game->transient.has_beat_level[ball_i]) {
+					color = brighter(rgb(0xA4BB96), 1.2f);
+				}
+				draw_texture(g_r, v2(ball.c.p), e_layer_ball, v2(ball.c.r * 2.0f), color, game->noise, {}, {.effect_id = 2, .texture_size = ball.rotation});
+				if(!in_hole) {
+					draw_text(g_r, ball.name, v2(ball.c.p), 50, 24, make_color(1), true, game->font);
+				}
+
+			}
+
+		} break;
+
+		case e_state_stats: {
 			s_sarray<s_name_and_push_count, c_max_balls> arr;
 			foreach_ptr(ball_i, ball, game->balls) {
 				s_name_and_push_count x = zero;
@@ -521,17 +598,6 @@ m_dll_export m_update_game(update_game)
 				draw_text(g_r, format_text("%s %i %i", x.name, x.level_count, x.total_count), pos, e_layer_ui, 64.0f, color, true, game->font);
 				pos.y += 64.0f;
 			}
-			if(game->transient.stats_timer >= 10 || is_key_pressed(g_input, c_key_enter)) {
-				game->reset_level = true;
-				if(are_we_on_last_map()) {
-					game->state = e_state_victory;
-				}
-				else {
-					game->state = e_state_play;
-					game->curr_map += 1;
-				}
-			}
-
 		} break;
 
 		case e_state_victory: {
@@ -539,6 +605,7 @@ m_dll_export m_update_game(update_game)
 			draw_text(g_r, "That's it lol", pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
 		} break;
 
+		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		map editor start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		case e_state_map_editor: {
 			s_map_editor* editor = &game->editor;
 
@@ -738,20 +805,9 @@ m_dll_export m_update_game(update_game)
 
 			draw_map(&editor->map);
 		} break;
+		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		map editor end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 	}
-
-
-	for(int i = 0; i < c_max_keys; i++) {
-		g_input->keys[i].count = 0;
-	}
-
-	platform_data->reset_ui();
-
 }
-
-#ifdef m_build_dll
-}
-#endif // m_build_dll
 
 func b8 is_valid_index(int x, int y, int width, int height)
 {
