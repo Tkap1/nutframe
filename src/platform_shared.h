@@ -7,12 +7,20 @@
 #include <math.h>
 
 #ifdef _WIN32
+#ifdef m_build_dll
 #define m_dll_export __declspec(dllexport)
+#else // m_build_dll
+#define m_dll_export
+#endif // m_build_dll
 #endif // _WIN32
 
 #ifdef __GNUC__
 // @TODO(tkap, 13/10/2023): stackoverflow copy paste
+#ifdef m_build_dll
 #define m_dll_export __attribute__((visibility("default")))
+#else // m_build_dll
+#define m_dll_export
+#endif // m_build_dll
 #endif // __linux__
 
 #ifdef __linux__
@@ -50,6 +58,7 @@ typedef double f64;
 #define array_count(arr) (sizeof((arr)) / sizeof((arr)[0]))
 #define log(...) printf(__VA_ARGS__); printf("\n")
 #define log_info(...) printf(__VA_ARGS__); printf("\n")
+#define log_error(...) printf(__VA_ARGS__); printf("\n")
 
 #define breakable_block__(a, b) for(int a##b = 1; a##b--;)
 #define breakable_block_(a) breakable_block__(tkinternal_condblock, a)
@@ -289,6 +298,32 @@ struct s_sarray
 	}
 };
 
+template <typename t, int n>
+struct s_carray
+{
+	t elements[n];
+
+	t& operator[](int index)
+	{
+		assert(index >= 0);
+		assert(index < n);
+		return elements[index];
+	}
+};
+
+template <typename t, int n1, int n2>
+struct s_carray2
+{
+	s_carray<t, n2> elements[n1];
+
+	s_carray<t, n2>& operator[](int index)
+	{
+		assert(index >= 0);
+		assert(index < n1);
+		return elements[index];
+	}
+};
+
 struct s_texture
 {
 	b8 comes_from_framebuffer;
@@ -320,7 +355,7 @@ struct s_font
 	int descent;
 	int line_gap;
 	s_texture texture;
-	s_glyph glyph_arr[1024];
+	s_carray<s_glyph, 1024> glyph_arr;
 };
 
 [[nodiscard]]
@@ -530,8 +565,7 @@ static char* format_text(const char* text, ...)
 static constexpr int c_max_arena_push = 16;
 struct s_lin_arena
 {
-	int push_count;
-	u64 push[c_max_arena_push];
+	s_sarray<u64, c_max_arena_push> push;
 	u64 used;
 	u64 capacity;
 	void* memory;
@@ -557,14 +591,14 @@ static void* la_get_zero(s_lin_arena* arena, u64 in_requested)
 
 static void la_push(s_lin_arena* arena)
 {
-	assert(arena->push_count < c_max_arena_push);
-	arena->push[arena->push_count++] = arena->used;
+	assert(arena->push.count < c_max_arena_push);
+	arena->push.add(arena->used);
 }
 
 static void la_pop(s_lin_arena* arena)
 {
-	assert(arena->push_count > 0);
-	arena->used = arena->push[--arena->push_count];
+	assert(arena->push.count > 0);
+	arena->used = arena->push.pop();
 }
 
 
@@ -682,6 +716,8 @@ void s_str_builder<max_chars>::pop_tab()
 
 #ifndef m_game
 
+static s_v2 g_base_res = {};
+
 #ifdef m_debug
 #define gl(...) __VA_ARGS__; {int error = glGetError(); if(error != 0) { on_gl_error(#__VA_ARGS__, error); }}
 #else // m_debug
@@ -717,7 +753,7 @@ struct s_platform_renderer
 	int max_elements;
 	u32 default_vao;
 	u32 default_vbo;
-	u32 programs[e_shader_count];
+	s_carray<u32, e_shader_count> programs;
 };
 static s_platform_renderer g_platform_renderer = {};
 
@@ -1390,9 +1426,6 @@ static constexpr s_v2 c_origin_topleft = {1.0f, -1.0f};
 static constexpr s_v2 c_origin_bottomleft = {1.0f, 1.0f};
 static constexpr s_v2 c_origin_center = {0, 0};
 
-static constexpr s_v2 c_base_res = {64*12, 64*12};
-static constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
-
 static constexpr int c_base_resolution_index = 5;
 static constexpr s_v2i c_resolutions[] = {
 	v2i(640, 360),
@@ -1448,9 +1481,9 @@ template <typename t>
 struct s_bucket_array
 {
 	int bucket_count;
-	int capacity[16];
-	int element_count[16];
-	t* elements[16];
+	s_carray<int, 16> capacity;
+	s_carray<int, 16> element_count;
+	s_carray<t*, 16> elements;
 };
 
 #pragma pack(push, 1)
@@ -1509,7 +1542,7 @@ struct s_key
 
 struct s_input
 {
-	s_key keys[c_max_keys];
+	s_carray<s_key, c_max_keys> keys;
 };
 
 enum e_blend_mode
@@ -1591,6 +1624,7 @@ struct s_platform_data
 	t_write_file write_file;
 	void (*reset_ui)();
 	s_ui_interaction (*ui_button)(s_game_renderer*, const char*, s_v2, s_v2, s_font*, float, s_input*, s_v2);
+	void (*set_window_size)(int, int);
 	char* variables_path;
 
 	#ifdef m_debug
@@ -1621,19 +1655,22 @@ struct s_game_renderer
 	s_texture checkmark_texture;
 
 	int transform_arena_index;
-	s_lin_arena transform_arenas[2];
+	s_carray<s_lin_arena, 2> transform_arenas;
 	int arena_index;
-	s_lin_arena arenas[2];
+	s_carray<s_lin_arena, 2> arenas;
 	s_sarray<s_texture, 16> textures;
 	s_sarray<s_framebuffer, 4> framebuffers;
 	s_sarray<s_font, 4> fonts;
 };
 
+#define m_init_game(name) void name(s_platform_data* platform_data)
 #define m_update_game(name) void name(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
 #ifdef m_build_dll
+typedef m_init_game(t_init_game);
 typedef m_update_game(t_update_game);
 #else // m_build_dll
 m_update_game(update_game);
+m_init_game(init_game);
 #endif
 
 
@@ -1840,9 +1877,11 @@ static s_lin_arena make_lin_arena_from_memory(u64 capacity, void* memory)
 template <typename t>
 static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc)
 {
+	// printf("bucket_add at %p, bucket_count = %i\n", arr, arr->bucket_count);
 	for(int i = 0; i < arr->bucket_count; i++)
 	{
 		int* count = &arr->element_count[i];
+		// printf("count = %i\n", *count);
 		if(*count < arr->capacity[i])
 		{
 			arr->elements[i][*count] = new_element;
@@ -1926,6 +1965,12 @@ static u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin
 static b8 check_for_shader_errors(u32 id, char* out_error);
 static s_texture load_texture_from_file(const char* path, u32 filtering);
 static void after_loading_texture(s_game_renderer* game_renderer);
+
+static void set_window_size(int width, int height)
+{
+	g_base_res.x = (float)width;
+	g_base_res.y = (float)height;
+}
 
 // @TODO(tkap, 17/10/2023): This has to go away in favor of a dynamic system when we add support for custom shaders
 static constexpr s_shader_paths c_shader_paths[e_shader_count] = {
@@ -2055,7 +2100,7 @@ static t ui_slider(
 		}
 		float percent;
 		if(is_key_down(input, c_key_left_ctrl)) {
-			percent = ilerp(handle_size.x * 0.5f, c_base_res.x - handle_size.x * 0.5f, mouse.x);
+			percent = ilerp(handle_size.x * 0.5f, g_base_res.x - handle_size.x * 0.5f, mouse.x);
 		}
 		else {
 			percent = ilerp(pos.x + handle_size.x * 0.5f, pos.x + size.x - handle_size.x * 0.5f, mouse.x);
@@ -2213,8 +2258,8 @@ static void do_game_layer(
 			}
 			s_v2 m = g_platform_data.mouse;
 			m -= g_platform_data.vars_pos_offset;
-			m.x = clamp(m.x, 0.0f, c_base_res.x - 32);
-			m.y = clamp(m.y, 0.0f, c_base_res.y - 32);
+			m.x = clamp(m.x, 0.0f, g_base_res.x - 32);
+			m.y = clamp(m.y, 0.0f, g_base_res.y - 32);
 			g_platform_data.vars_pos = m;
 			pos = m;
 		}
@@ -2421,7 +2466,7 @@ static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* g
 	}
 	{
 		int location = gl(glGetUniformLocation(platform_renderer->programs[e_shader_default], "base_res"));
-		gl(glUniform2fv(location, 1, &c_base_res.x));
+		gl(glUniform2fv(location, 1, &g_base_res.x));
 	}
 	{
 		int location = gl(glGetUniformLocation(platform_renderer->programs[e_shader_default], "time"));

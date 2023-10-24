@@ -27,6 +27,9 @@ global constexpr char* c_python_path = "C:/Users/34687/AppData/Local/Programs/Py
 global constexpr int c_max_tiles = 128;
 global constexpr int c_max_balls = 128;
 global constexpr float c_seconds_after_first_beat = 120.0f;
+global constexpr s_v2 c_base_res = {1920, 1080};
+// global constexpr s_v2 c_base_res = {64*12, 64*12};
+// global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
 
 enum e_state
 {
@@ -84,6 +87,7 @@ enum e_map
 	e_map_004,
 	e_map_005,
 	e_map_006,
+	e_map_007,
 	e_map_count,
 };
 
@@ -116,11 +120,14 @@ global constexpr int c_map_version = 3;
 struct s_map
 {
 	float zoom;
-	b8 tiles_active[c_max_tiles][c_max_tiles];
-	u8 tiles[c_max_tiles][c_max_tiles];
+	// b8 tiles_active[c_max_tiles][c_max_tiles];
+	// u8 tiles[c_max_tiles][c_max_tiles];
+	s_carray2<b8, c_max_tiles, c_max_tiles> tiles_active;
+	s_carray2<u8, c_max_tiles, c_max_tiles> tiles;
 	s_v2i hole;
 	s_v2i spawn;
-	u8 rotation[c_max_tiles][c_max_tiles];
+	// u8 rotation[c_max_tiles][c_max_tiles];
+	s_carray2<u8, c_max_tiles, c_max_tiles> rotation;
 };
 #pragma pack(pop)
 
@@ -144,8 +151,8 @@ struct s_map_editor
 
 struct s_game_transient
 {
-	int push_count[c_max_balls];
-	b8 has_beat_level[c_max_balls];
+	s_carray<int, c_max_balls> push_count;
+	s_carray<b8, c_max_balls> has_beat_level;
 	s_v2 spawn_offset;
 	float first_beat_time;
 	float stats_timer;
@@ -162,9 +169,9 @@ struct s_game
 	s_font* font;
 	int curr_map;
 	s_map_editor editor;
-	s_map maps[e_map_count];
+	s_carray<s_map, e_map_count> maps;
 	s_texture angle_indicator;
-	s_sound* push_sounds[3];
+	s_carray<s_sound*, 3> push_sounds;
 	s_sound* collide_sound;
 	s_sound* win_sound;
 	s_sound* water_sound;
@@ -211,9 +218,13 @@ func int get_worst_pushes_that_beat_level();
 
 #ifdef m_build_dll
 extern "C" {
-m_dll_export
 #endif // m_build_dll
-m_update_game(update_game)
+m_dll_export m_init_game(init_game)
+{
+	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
+}
+
+m_dll_export m_update_game(update_game)
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
 
@@ -242,7 +253,7 @@ m_update_game(update_game)
 
 		game->editor.curr_tile = -1;
 
-		game->curr_map = 0;
+		game->curr_map = 6;
 		for(int map_i = 0; map_i < e_map_count; map_i++) {
 			char* file_path = format_text("map%i", map_i);
 			load_map(file_path, platform_data, &game->maps[map_i]);
@@ -327,7 +338,7 @@ m_update_game(update_game)
 		}
 
 		// printf("%.*s: %.*s\n", user.len, user.data, content.len, content.data);
-		if(content.len > 4 && strncmp(content.data, "push", 4) == 0) {
+		if(game->state == e_state_play && content.len > 4 && strncmp(content.data, "push", 4) == 0) {
 			char* out = null;
 			char* out2 = null;
 			int angle = parse_int(content.data + 4, &out);
@@ -936,7 +947,6 @@ func void draw_map(s_map* map)
 			);
 		}
 	}
-
 	{
 		s_v2 pos = tile_index_to_pos(map->hole) + v2(c_tile_size * 0.5f);
 		draw_rect(g_r, pos, e_layer_hole, v2(c_ball_radius * 4.0f), rgb(0xA98841), {.blend_mode = e_blend_mode_additive}, {.flags = e_render_flag_circle});

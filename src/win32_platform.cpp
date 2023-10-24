@@ -122,6 +122,9 @@ static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_l
 static s_sound load_sound_from_file(const char* path, s_lin_arena* arena);
 static s_sound load_sound_from_data(u8* data);
 static b8 thread_safe_set_bool_to_true(volatile int* var);
+static b8 should_go_borderless(int width, int height);
+static void set_borderless(HWND handle);
+static void set_non_borderless(HWND handle);
 
 #ifdef m_debug
 static DWORD WINAPI watch_dir(void* arg);
@@ -148,6 +151,7 @@ static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 #ifdef m_debug
 // @TODO(tkap, 18/10/2023): We probably don't want this now that we have the file watcher thing going
 static FILETIME last_dll_write_time;
+static void maybe_reload_dll(char* path, HMODULE* out_dll, t_init_game** out_init_game, t_update_game** out_update_game);
 static b8 need_to_reload_dll(const char* path);
 static HMODULE load_dll(const char* path);
 static void unload_dll(HMODULE dll);
@@ -170,12 +174,34 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	}
 	#endif // m_debug
 
+
+	#ifdef m_debug
+	t_init_game* init_game = NULL;
+	t_update_game* update_game = NULL;
+	HMODULE dll = NULL;
+	maybe_reload_dll("build/DigHard.dll", &dll, &init_game, &update_game);
+	#endif // m_debug
+
+	g_platform_data.get_random_seed = get_random_seed;
+	g_platform_data.load_sound = load_sound;
+	g_platform_data.play_sound = play_sound;
+	g_platform_data.read_file = read_file;
+	g_platform_data.write_file = write_file;
+	g_platform_data.reset_ui = reset_ui;
+	g_platform_data.ui_button = ui_button;
+
+	// @TODO(tkap, 24/10/2023): Probably need a distinction between window size an internal resolution
+	g_platform_data.set_window_size = set_window_size;
+	// g_platform_data.show_cursor = ShowCursor;
+	g_platform_data.cycle_between_available_resolutions = cycle_between_available_resolutions;
+
+	create_window(256, 256);
+
+	init_game(&g_platform_data);
+
 	s_game_renderer* game_renderer = NULL;
 	s_lin_arena platform_frame_arena = {};
 	s_lin_arena game_frame_arena = {};
-
-	g_window.width = (int)c_base_res.x;
-	g_window.height = (int)c_base_res.y;
 
 	#ifdef m_debug
 	unreferenced(argc);
@@ -187,7 +213,22 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	unreferenced(cmdshow);
 	#endif
 
-	create_window(64*12, 64*12);
+	if(g_base_res.x <= 0 && g_base_res.y <= 0) {
+		log_error("Invalid window size");
+		exit(1);
+	}
+	g_window.width = (int)g_base_res.x;
+	g_window.height = (int)g_base_res.y;
+
+	if(should_go_borderless((int)g_base_res.x, (int)g_base_res.y)) {
+		set_borderless(g_window.handle);
+	}
+	else {
+		set_non_borderless(g_window.handle);
+	}
+	set_actual_window_size((int)g_base_res.x, (int)g_base_res.y);
+	center_window();
+
 	if(!init_audio())
 	{
 		printf("failed to init audio\n");
@@ -203,10 +244,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		m_gl_funcs
 	#undef X
 
-	#ifdef m_debug
-	t_update_game* update_game = NULL;
-	HMODULE dll = NULL;
-	#endif // m_debug
 	void* game_memory = NULL;
 
 	{
@@ -279,32 +316,9 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.quit_after_this_frame = !running;
 		g_platform_data.window_width = g_window.width;
 		g_platform_data.window_height = g_window.height;
-		g_platform_data.get_random_seed = get_random_seed;
-		g_platform_data.load_sound = load_sound;
-		g_platform_data.play_sound = play_sound;
-		g_platform_data.read_file = read_file;
-		g_platform_data.write_file = write_file;
-		g_platform_data.reset_ui = reset_ui;
-		g_platform_data.ui_button = ui_button;
-		// g_platform_data.show_cursor = ShowCursor;
-		g_platform_data.cycle_between_available_resolutions = cycle_between_available_resolutions;
 
 		#ifdef m_debug
-		if(need_to_reload_dll("build/DigHard.dll"))
-		{
-			if(dll) { unload_dll(dll); }
-
-			for(int i = 0; i < 100; i++)
-			{
-				if(CopyFile("build/DigHard.dll", "DigHard.dll", false)) { break; }
-				Sleep(10);
-			}
-			dll = load_dll("DigHard.dll");
-			update_game = (t_update_game*)GetProcAddress(dll, "update_game");
-			assert(update_game);
-			log_info("Reloaded DLL!\n");
-			g_platform_data.recompiled = true;
-		}
+		maybe_reload_dll("build/DigHard.dll", &dll, &init_game, &update_game);
 		#endif // m_debug
 
 		POINT p;
@@ -560,7 +574,8 @@ static void create_window(int width, int height)
 		window_class.hIcon = LoadIcon(instance, MAKEINTRESOURCE(MY_ICON));
 		check(RegisterClassEx(&window_class));
 
-		DWORD style = (WS_OVERLAPPEDWINDOW | WS_VISIBLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX;
+		// DWORD style = (WS_OVERLAPPEDWINDOW | WS_VISIBLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX;
+		DWORD style = (WS_OVERLAPPEDWINDOW) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX;
 		// DWORD style = WS_POPUP | WS_VISIBLE;
 		RECT rect = {};
 		rect.right = width;
@@ -760,6 +775,33 @@ static void set_vsync(b8 val)
 	}
 }
 
+static b8 should_go_borderless(int width, int height)
+{
+	HMONITOR monitor = MonitorFromWindow(g_window.handle, MONITOR_DEFAULTTOPRIMARY);
+	MONITORINFO info = {};
+	info.cbSize = sizeof(info);
+	BOOL result = GetMonitorInfoA(monitor, &info);
+	if(!result) { return false; }
+
+	int monitor_width = info.rcMonitor.right - info.rcMonitor.left;
+	int monitor_height = info.rcMonitor.bottom - info.rcMonitor.top;
+	if(monitor_width <= 0 || monitor_height <= 0) { return false; }
+	if(abs(width - monitor_width) < 50 || abs(height - monitor_height) < 50) {
+		return true;
+	}
+	return false;
+}
+
+static void set_borderless(HWND handle)
+{
+	SetWindowLongA(handle, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+}
+
+static void set_non_borderless(HWND handle)
+{
+	SetWindowLongA(handle, GWL_STYLE, (WS_OVERLAPPEDWINDOW | WS_VISIBLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
+}
+
 static int cycle_between_available_resolutions(int current)
 {
 	HMONITOR monitor = MonitorFromWindow(g_window.handle, MONITOR_DEFAULTTOPRIMARY);
@@ -778,13 +820,11 @@ static int cycle_between_available_resolutions(int current)
 		s_v2i res = c_resolutions[new_index];
 		if(res.x > monitor_width || res.y > monitor_height) { continue; }
 
-		if(abs(res.x - monitor_width) < 50 || abs(res.y - monitor_height) < 50)
-		{
-			SetWindowLongA(g_window.handle, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+		if(abs(res.x - monitor_width) < 50 || abs(res.y - monitor_height) < 50) {
+			set_borderless(g_window.handle);
 		}
-		else
-		{
-			SetWindowLongA(g_window.handle, GWL_STYLE, (WS_OVERLAPPEDWINDOW | WS_VISIBLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
+		else {
+			set_non_borderless(g_window.handle);
 		}
 
 		set_actual_window_size(res.x, res.y);
@@ -931,6 +971,29 @@ static s_sound load_sound_from_data(u8* data)
 }
 
 #ifdef m_debug
+
+static void maybe_reload_dll(char* path, HMODULE* out_dll, t_init_game** out_init_game, t_update_game** out_update_game)
+{
+	if(need_to_reload_dll(path))
+	{
+		if(*out_dll) { unload_dll(*out_dll); }
+
+		for(int i = 0; i < 100; i++)
+		{
+			// @Fixme(tkap, 24/10/2023): proper path
+			if(CopyFile(path, "DigHard.dll", false)) { break; }
+			Sleep(10);
+		}
+		*out_dll = load_dll("DigHard.dll");
+		*out_init_game = (t_init_game*)GetProcAddress(*out_dll, "init_game");
+		assert(out_init_game);
+		*out_update_game = (t_update_game*)GetProcAddress(*out_dll, "update_game");
+		assert(out_update_game);
+		log_info("Reloaded DLL!\n");
+		g_platform_data.recompiled = true;
+	}
+}
+
 static b8 need_to_reload_dll(const char* path)
 {
 	WIN32_FIND_DATAA find_data = {};

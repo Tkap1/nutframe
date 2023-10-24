@@ -78,3 +78,6 @@ golf:
 	portals
 	pits and shit so we can fall out of the map
 	one way only tiles!!
+
+	should allow upper case push and uppercase join
+	sdl is now broken with new resolution stuff
