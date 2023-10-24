@@ -74,7 +74,6 @@ golf:
 	pits and shit so we can fall out of the map
 	one way only tiles!!
 
-	should allow upper case push and uppercase join
 	sdl is now broken with new resolution stuff
 
 	maybe we shouldnt do just pushes +1 to people who didnt beat it, but instead max(pushes + 1, thatplayerpushcount)

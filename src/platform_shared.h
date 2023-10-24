@@ -1323,6 +1323,38 @@ static int str_find_from_left(const char* haystack, int haystack_len, const char
 	return -1;
 }
 
+static char lower(char c)
+{
+	if(c >= 'A' && c <= 'Z') { return c + ('a' - 'A'); }
+	return c;
+}
+
+static b8 strncmp_ignore_case(const char* haystack, const char* needle, int count)
+{
+	int haystack_len = (int)strlen(haystack);
+	int needle_len = (int)strlen(needle);
+	assert(count <= haystack_len);
+	assert(count <= needle_len);
+	if(needle_len > haystack_len) { return false; }
+
+	for(int haystack_i = 0; haystack_i < count; haystack_i++) {
+		b8 found = true;
+		for(int needle_i = 0; needle_i < count; needle_i++) {
+			char haystack_c = lower(haystack[haystack_i + needle_i]);
+			char needle_c = lower(needle[needle_i]);
+			if(haystack_c != needle_c) {
+				found = false;
+				break;
+			}
+		}
+		if(found) {
+			return true;
+		}
+	}
+	return false;
+}
+
+
 static b8 str_replace(char* str, const char* needle, const char* replacement)
 {
 	int str_len = (int)strlen(str);

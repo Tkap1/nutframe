@@ -343,7 +343,7 @@ func void update(s_platform_data* platform_data)
 		content.len = msg.len - index - 1;
 
 		if(game->state == e_state_play) {
-			if(content.len >= 4 && strncmp(content.data, "join", 4) == 0) {
+			if(content.len >= 4 && strncmp_ignore_case(content.data, "join", 4)) {
 				int already_present_index = get_ball_by_name(user);
 				if(already_present_index < 0) {
 					s_ball ball = zero;
@@ -368,7 +368,7 @@ func void update(s_platform_data* platform_data)
 		}
 
 		// printf("%.*s: %.*s\n", user.len, user.data, content.len, content.data);
-		if(game->state == e_state_play && content.len > 4 && strncmp(content.data, "push", 4) == 0) {
+		if(game->state == e_state_play && content.len > 4 && strncmp_ignore_case(content.data, "push", 4)) {
 			char* out = null;
 			char* out2 = null;
 			int angle = parse_int(content.data + 4, &out);
@@ -445,7 +445,7 @@ func void update(s_platform_data* platform_data)
 					foreach_val(tile_i, tile, collisions) {
 						u8 tile_type = map->tiles[tile.y][tile.x];
 						if(tile_type == e_tile_acceleration) {
-							mul += 0.03f;
+							mul += 0.02f;
 						}
 						else if(tile_type == e_tile_directional) {
 							ball->vel += v2_from_angle(c_rotation_to_rad[map->rotation[tile.y][tile.x]]) * 4;
