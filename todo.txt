@@ -78,3 +78,5 @@ golf:
 	sdl is now broken with new resolution stuff
 
 	maybe we shouldnt do just pushes +1 to people who didnt beat it, but instead max(pushes + 1, thatplayerpushcount)
+
+	we should have a way to start playing the current map in the editor!!
