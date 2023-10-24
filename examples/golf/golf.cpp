@@ -120,13 +120,10 @@ global constexpr int c_map_version = 3;
 struct s_map
 {
 	float zoom;
-	// b8 tiles_active[c_max_tiles][c_max_tiles];
-	// u8 tiles[c_max_tiles][c_max_tiles];
 	s_carray2<b8, c_max_tiles, c_max_tiles> tiles_active;
 	s_carray2<u8, c_max_tiles, c_max_tiles> tiles;
 	s_v2i hole;
 	s_v2i spawn;
-	// u8 rotation[c_max_tiles][c_max_tiles];
 	s_carray2<u8, c_max_tiles, c_max_tiles> rotation;
 };
 #pragma pack(pop)
