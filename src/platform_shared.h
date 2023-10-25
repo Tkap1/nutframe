@@ -275,7 +275,7 @@ struct s_sarray
 		return count <= 0;
 	}
 
-	void small_sort()
+	void small_sort(bool (*compare_func)(T, T) = NULL)
 	{
 		// @Note(tkap, 25/06/2023): Let's not get crazy with insertion sort, bro
 		assert(count < 256);
@@ -287,8 +287,13 @@ struct s_sarray
 				T* a = &elements[j];
 				T* b = &elements[j - 1];
 
-				if(*a > *b) {
-					break;
+				if(compare_func) {
+					if(compare_func(*a, *b)) { break; }
+				}
+				else {
+					if(*a > *b) {
+						break;
+					}
 				}
 				T temp = *a;
 				*a = *b;

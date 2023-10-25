@@ -43,6 +43,12 @@ enum e_state
 	e_state_map_editor,
 };
 
+enum e_game_mode
+{
+	e_state_default,
+	e_state_first_to_hole,
+};
+
 enum e_layer
 {
 	e_layer_background,
@@ -109,6 +115,7 @@ struct s_ball
 	s_v4 color;
 	int push_count;
 	s_v2 rotation;
+	int maps_beaten;
 };
 
 struct s_name_and_push_count
@@ -116,6 +123,7 @@ struct s_name_and_push_count
 	b8 beat_level;
 	int total_count;
 	int level_count;
+	int maps_beaten;
 	char* name;
 };
 
@@ -199,6 +207,7 @@ struct s_game
 {
 	b8 initialized;
 	b8 reset_level;
+	e_game_mode mode;
 	int last_chat_file_offset;
 	e_state state;
 	s_rng rng;
@@ -263,6 +272,7 @@ func void do_particles(int count, s_v2 pos, s_particle_data data);
 func void beat_level_particles(s_v2 pos);
 func void do_collision_particles(s_v2 pos, float mag, s_v4 color);
 func void maybe_add_new_ball(s_str user);
+func bool compare_maps_beaten(s_name_and_push_count a, s_name_and_push_count b);
 
 #ifdef m_build_dll
 extern "C" {
@@ -566,6 +576,7 @@ func void update(s_platform_data* platform_data)
 					platform_data->play_sound(game->win_sound);
 					printf("%s has beaten the level!\n", ball->name);
 					beat_level_particles(v2(ball->c.p));
+					ball->maps_beaten += 1;
 
 					if(!has_anyone_beaten_level()) {
 						game->transient.first_beat_time = game->total_time;
@@ -643,19 +654,22 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 				x.beat_level = game->transient.has_beat_level[ball_i];
 				x.total_count = ball->push_count;
 				x.level_count = game->transient.push_count[ball_i];
+				x.maps_beaten = ball->maps_beaten;
 				arr.add(x);
 			}
 			arr.small_sort();
 
 			float name_x = c_base_res.x * 0.15f;
-			float level_x = c_base_res.x * 0.5f;
-			float total_x = c_base_res.x * 0.75f;
+			float level_x = c_base_res.x * 0.4f;
+			float total_x = c_base_res.x * 0.6f;
+			float beaten_x = c_base_res.x * 0.8f;
 			float y = c_base_res.y * 0.05f;
 			s_v2 pos = c_base_res * v2(0.5f, 0.1f);
 			constexpr float font_size = 64.0f;
 			draw_text(g_r, "Name", v2(name_x, y), e_layer_ui, font_size, make_color(1), false, game->font);
 			draw_text(g_r, "Level", v2(level_x, y), e_layer_ui, font_size, make_color(1), false, game->font);
 			draw_text(g_r, "Total", v2(total_x, y), e_layer_ui, font_size, make_color(1), false, game->font);
+			draw_text(g_r, "Beaten", v2(beaten_x, y), e_layer_ui, font_size, make_color(1), false, game->font);
 			y += font_size * 2;
 			foreach_val(x_i, x, arr) {
 				s_v4 color = make_color(1);
@@ -665,6 +679,7 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 				draw_text(g_r, x.name, v2(name_x, y), e_layer_ui, font_size, color, false, game->font);
 				draw_text(g_r, format_text("%i", x.level_count), v2(level_x, y), e_layer_ui, font_size, color, false, game->font);
 				draw_text(g_r, format_text("%i", x.total_count), v2(total_x, y), e_layer_ui, font_size, color, false, game->font);
+				draw_text(g_r, format_text("%i", x.maps_beaten), v2(beaten_x, y), e_layer_ui, font_size, color, false, game->font);
 				y += font_size;
 			}
 
@@ -1412,4 +1427,9 @@ func void maybe_add_new_ball(s_str user)
 		ball.color = make_color(game->rng.randf32(), game->rng.randf32(), game->rng.randf32());
 		game->balls.add(ball);
 	}
+}
+
+func bool compare_maps_beaten(s_name_and_push_count a, s_name_and_push_count b)
+{
+	return a.maps_beaten < b.maps_beaten;
 }

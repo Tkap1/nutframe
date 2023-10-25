@@ -83,5 +83,7 @@ golf:
 
 	platform fframe arena not being reset?
 
+	exodus_uk: you have to collect a pickup to get through the gate
+
 	we got some crazy render bug.
 		pretty sure something related to the buckets is wrong
