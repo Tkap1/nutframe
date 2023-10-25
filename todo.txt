@@ -82,3 +82,6 @@ golf:
 	maybe chip along with push, for "jump" shots
 
 	platform fframe arena not being reset?
+
+	we got some crazy render bug.
+		pretty sure something related to the buckets is wrong

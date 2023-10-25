@@ -33,6 +33,7 @@ global constexpr int c_updates_per_second = 240;
 global constexpr f64 c_update_delay = 1.0 / (f64)c_updates_per_second;
 global constexpr float c_delta = (float)c_update_delay;
 global constexpr int c_starting_map = 0;
+global constexpr float c_max_inactivity_time = 120.0f;
 
 enum e_state
 {
@@ -48,6 +49,7 @@ enum e_layer
 	e_layer_tile,
 	e_layer_hole,
 	e_layer_ball,
+	e_layer_particle,
 	e_layer_tile_ghost,
 	e_layer_ui,
 };
@@ -100,6 +102,7 @@ enum e_map
 struct s_ball
 {
 	char name[64];
+	float inactivity_time;
 	c2Circle c;
 	s_v2 vel;
 	s_v2 pos_before_last_push;
@@ -161,6 +164,37 @@ struct s_game_transient
 	float stats_timer;
 };
 
+struct s_particle
+{
+	float fade;
+	float shrink;
+	float slowdown;
+	s_v2 pos;
+	s_v2 dir;
+	float radius;
+	float speed;
+	float timer;
+	float duration;
+	s_v3 color;
+};
+
+struct s_particle_data
+{
+	float shrink = 1;
+	float fade = 1;
+	float slowdown;
+	float duration;
+	float duration_rand;
+	float speed;
+	float speed_rand;
+	float angle;
+	float angle_rand;
+	float radius;
+	float radius_rand;
+	s_v3 color = {0.1f, 0.1f, 0.1f};
+	s_v3 color_rand;
+};
+
 struct s_game
 {
 	b8 initialized;
@@ -186,6 +220,8 @@ struct s_game
 	s_texture one_way;
 	float total_time;
 	f64 update_timer;
+	s_framebuffer* particle_framebuffer;
+	s_sarray<s_particle, 16384> particles;
 };
 
 global s_input* g_input;
@@ -223,6 +259,10 @@ func c2v make_c2v(s_v2 v);
 func int get_worst_pushes_that_beat_level();
 func void update(s_platform_data* platform_data);
 func void render(s_platform_data* platform_data, s_game_renderer* renderer);
+func void do_particles(int count, s_v2 pos, s_particle_data data);
+func void beat_level_particles(s_v2 pos);
+func void do_collision_particles(s_v2 pos, float mag, s_v4 color);
+func void maybe_add_new_ball(s_str user);
 
 #ifdef m_build_dll
 extern "C" {
@@ -259,6 +299,7 @@ m_dll_export m_update_game(update_game)
 		game->collide_sound = platform_data->load_sound(platform_data, "examples/golf/collide.wav", platform_data->frame_arena);
 		game->water_sound = platform_data->load_sound(platform_data, "examples/golf/water.wav", platform_data->frame_arena);
 		game->win_sound = platform_data->load_sound(platform_data, "examples/golf/win.wav", platform_data->frame_arena);
+		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 
 		game->editor.curr_tile = -1;
 
@@ -345,27 +386,7 @@ func void update(s_platform_data* platform_data)
 
 		if(game->state == e_state_play) {
 			if(content.len >= 4 && strncmp_ignore_case(content.data, "join", 4)) {
-				int already_present_index = get_ball_by_name(user);
-				if(already_present_index < 0) {
-					s_ball ball = zero;
-					s_map* map = &game->maps[game->curr_map];
-					move_ball_to_spawn(&ball, map);
-					ball.c.r = c_ball_radius;
-					memcpy(ball.name, user.data, user.len);
-					if(game->curr_map > 0) {
-						int worst_total = 0;
-						int worst_level = 0;
-						foreach_val(worst_i, worst, game->balls) {
-							if(worst.push_count > worst_total) {
-								worst_total = worst.push_count;
-								worst_level = game->transient.push_count[worst_i];
-							}
-						}
-						ball.push_count = worst_total - worst_level;
-					}
-					ball.color = make_color(game->rng.randf32(), game->rng.randf32(), game->rng.randf32());
-					game->balls.add(ball);
-				}
+				maybe_add_new_ball(user);
 			}
 		}
 
@@ -383,6 +404,7 @@ func void update(s_platform_data* platform_data)
 			int ball_index = get_ball_by_name(user);
 			if(ball_index >= 0) {
 				s_ball* ball = &game->balls[ball_index];
+				ball->inactivity_time = 0;
 				platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
 				ball->vel += v2_from_angle(deg_to_rad((float)angle)) * range_lerp((float)strength, 1, 100, 25, 2000);
 				ball->pos_before_last_push = v2(ball->c.p);
@@ -408,12 +430,26 @@ func void update(s_platform_data* platform_data)
 				s_map* map = &game->maps[game->curr_map];
 				foreach_ptr(ball_i, ball, game->balls) {
 					move_ball_to_spawn(ball, map);
+					ball->inactivity_time = 0;
 					ball->vel = zero;
 				}
+			}
+
+			#ifdef m_debug
+			if(is_key_pressed(g_input, c_key_f5)) {
+				s_str name = zero;
+				char buffer[1024] = zero;
+				for(int i = 0; i < 6; i++) {
+					buffer[i] = game->rng.randu() % ('z' - 'a') + 'a';
+				}
+				name.data = buffer;
+				name.len = 6;
+				maybe_add_new_ball(name);
 			}
 			if(is_key_pressed(g_input, c_key_f2)) {
 				game->state = e_state_map_editor;
 			}
+			#endif // m_debug
 
 			{
 				s_v2 pos = c_base_res * v2(0.5f, 0.5f);
@@ -440,6 +476,16 @@ func void update(s_platform_data* platform_data)
 				s_map* map = &game->maps[game->curr_map];
 				ball->c.r = c_ball_radius;
 				b8 in_sand = false;
+				if(game->balls.count > 0) {
+					ball->inactivity_time += c_delta;
+					if(ball->inactivity_time >= c_max_inactivity_time) {
+						game->transient.push_count.swap(ball_i, game->balls.count - 1);
+						game->transient.has_beat_level.swap(ball_i, game->balls.count - 1);
+						game->balls.remove_and_swap(ball_i);
+						ball_i -= 1;
+						continue;
+					}
+				}
 
 				{
 					auto collisions = get_interactive_tile_collisions(ball->c, map);
@@ -484,8 +530,13 @@ func void update(s_platform_data* platform_data)
 
 						ball->c.p.x -= (c.depths[0]) * c.n.x;
 						ball->c.p.y -= (c.depths[0]) * c.n.y;
-						ball->vel = v2_reflect(ball->vel, v2(c.n)) * 0.9f;
 						platform_data->play_sound(game->collide_sound);
+
+						float mag = v2_length(ball->vel);
+						do_collision_particles(v2(c.contact_points[0]), mag, ball->color);
+						ball->vel = v2_reflect(ball->vel, v2(c.n)) * 0.9f;
+						#undef mod
+
 						break;
 					}
 				}
@@ -514,6 +565,7 @@ func void update(s_platform_data* platform_data)
 				if(in_hole && length < 0.3f && !game->transient.has_beat_level[ball_i]) {
 					platform_data->play_sound(game->win_sound);
 					printf("%s has beaten the level!\n", ball->name);
+					beat_level_particles(v2(ball->c.p));
 
 					if(!has_anyone_beaten_level()) {
 						game->transient.first_beat_time = game->total_time;
@@ -595,7 +647,7 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 			}
 			arr.small_sort();
 
-			float name_x = c_base_res.x * 0.25f;
+			float name_x = c_base_res.x * 0.15f;
 			float level_x = c_base_res.x * 0.5f;
 			float total_x = c_base_res.x * 0.75f;
 			float y = c_base_res.y * 0.05f;
@@ -827,6 +879,48 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 		} break;
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		map editor end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 	}
+
+	// if(is_key_down(g_input, c_left_mouse)) {
+	// if(is_key_pressed(g_input, c_right_mouse)) {
+	// 	do_particles(100, g_mouse, {
+	// 		.shrink = 0.5f,
+	// 		.slowdown = 1.0f,
+	// 		.duration = 2.5f,
+	// 		.duration_rand = 1,
+	// 		.speed = 200 * (i+1) * 3.0f,
+	// 		.speed_rand = 1,
+	// 		.angle_rand = 1,
+	// 		.radius = 8 * (i+1) * 2.0f,
+	// 		.radius_rand = 1,
+	// 		.color = v3(0.25f),
+	// 		.color_rand = v3(1, 1, 0),
+	// 	});
+	// }
+
+	foreach_ptr(particle_i, p, game->particles) {
+		s_v4 color;
+		color.x = p->color.x;
+		color.y = p->color.y;
+		color.z = p->color.z;
+		color.w = 1.0f;
+		float percent_done = at_most(1.0f, p->timer / p->duration);
+		float speed = p->speed * (1.0f - percent_done * p->slowdown);
+		speed = at_least(0.0f, speed);
+		p->pos += p->dir * speed * (float)platform_data->frame_time;
+		color.w *= 1.0f - (percent_done * p->fade);
+		color.w = at_least(0.0f, color.w);
+		float radius = p->radius * (1.0f - percent_done * p->shrink);
+		radius = at_least(0.0f, radius);
+		draw_rect(
+			g_r, p->pos, e_layer_particle, v2(radius * 2.0f), color,
+			{.blend_mode = e_blend_mode_additive, .framebuffer = game->particle_framebuffer}, {.flags = e_render_flag_circle}
+		);
+		p->timer += (float)platform_data->frame_time;
+		if(percent_done >= 1) {
+			game->particles.remove_and_swap(particle_i--);
+		}
+	}
+	draw_texture(g_r, c_half_res, e_layer_particle, c_base_res, make_color(1), game->particle_framebuffer->texture, {.blend_mode = e_blend_mode_additive});
 }
 
 func b8 is_valid_index(int x, int y, int width, int height)
@@ -1230,4 +1324,92 @@ func int get_worst_pushes_that_beat_level()
 		}
 	}
 	return result;
+}
+
+func void do_particles(int count, s_v2 pos, s_particle_data data)
+{
+	s_rng* rng = &game->rng;
+	for(int particle_i = 0; particle_i < count; particle_i++) {
+		s_particle p = zero;
+		p.pos = pos;
+		p.fade = data.fade;
+		p.shrink = data.shrink;
+		p.duration = data.duration * (1.0f - rng->randf32() * data.duration_rand);
+		p.dir = v2_from_angle(data.angle + tau * rng->randf32() * data.angle_rand);
+		p.speed = data.speed * (1.0f - rng->randf32() * data.speed_rand);
+		p.radius = data.radius * (1.0f - rng->randf32() * data.radius_rand);
+		p.slowdown = data.slowdown;
+		p.color = data.color;
+		p.color.x *= (1.0f - rng->randf32() * data.color_rand.x);
+		p.color.y *= (1.0f - rng->randf32() * data.color_rand.y);
+		p.color.z *= (1.0f - rng->randf32() * data.color_rand.z);
+		game->particles.add_checked(p);
+	}
+}
+
+func void beat_level_particles(s_v2 pos)
+{
+	for(int i = 0; i < 3; i++) {
+		do_particles(100, pos, {
+			.shrink = 0.5f,
+			.slowdown = 1.0f,
+			.duration = 2.5f,
+			.duration_rand = 1,
+			.speed = 200 * (i+1) * 3.0f,
+			.speed_rand = 1,
+			.angle_rand = 1,
+			.radius = 8 * (i+1) * 2.0f,
+			.radius_rand = 1,
+			.color = v3(0.25f),
+			.color_rand = v3(1, 1, 0),
+		});
+	}
+}
+
+func void do_collision_particles(s_v2 pos, float mag, s_v4 color)
+{
+	#define mod(a, b) range_lerp(mag, 0.0f, 1000.0f, a, b)
+	do_particles((int)mod(10, 100), pos, {
+		.slowdown = 2.0f,
+		.duration = 0.25f,
+		.duration_rand = 0.8f,
+		.speed = mod(100, 400),
+		.speed_rand = 0.8f,
+		.angle_rand = 1,
+		.radius = mod(4, 10),
+		.radius_rand = 1,
+		.color = v3(color) * mod(0.1f, 0.2f),
+		.color_rand = v3(0.25f),
+	});
+	#undef mod
+}
+
+func void maybe_add_new_ball(s_str user)
+{
+	int already_present_index = get_ball_by_name(user);
+	if(already_present_index < 0) {
+
+		int new_ball_index = game->balls.count;
+		game->transient.has_beat_level[new_ball_index] = false;
+		game->transient.push_count[new_ball_index] = 0;
+
+		s_ball ball = zero;
+		s_map* map = &game->maps[game->curr_map];
+		move_ball_to_spawn(&ball, map);
+		ball.c.r = c_ball_radius;
+		memcpy(ball.name, user.data, user.len);
+		if(game->curr_map > 0) {
+			int worst_total = 0;
+			int worst_level = 0;
+			foreach_val(worst_i, worst, game->balls) {
+				if(worst.push_count > worst_total) {
+					worst_total = worst.push_count;
+					worst_level = game->transient.push_count[worst_i];
+				}
+			}
+			ball.push_count = worst_total - worst_level;
+		}
+		ball.color = make_color(game->rng.randf32(), game->rng.randf32(), game->rng.randf32());
+		game->balls.add(ball);
+	}
 }

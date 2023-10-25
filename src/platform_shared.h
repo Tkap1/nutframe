@@ -309,6 +309,15 @@ struct s_carray
 		assert(index < n);
 		return elements[index];
 	}
+
+	void swap(int a, int b)
+	{
+		assert(a >= 0 && a < n);
+		assert(b >= 0 && b < n);
+		t temp = elements[a];
+		elements[a] = elements[b];
+		elements[b] = temp;
+	}
 };
 
 template <typename t, int n1, int n2>
@@ -467,6 +476,24 @@ static constexpr s_v3 v3(float x, float y, float z)
 	result.x = x;
 	result.y = y;
 	result.z = z;
+	return result;
+}
+
+static constexpr s_v3 v3(float x)
+{
+	s_v3 result;
+	result.x = x;
+	result.y = x;
+	result.z = x;
+	return result;
+}
+
+static constexpr s_v3 v3(s_v4 v)
+{
+	s_v3 result;
+	result.x = v.x;
+	result.y = v.y;
+	result.z = v.z;
 	return result;
 }
 
@@ -986,6 +1013,15 @@ static s_v2 operator*(s_v2 a, float b)
 	return result;
 }
 
+static s_v3 operator*(s_v3 a, float b)
+{
+	s_v3 result;
+	result.x = a.x * b;
+	result.y = a.y * b;
+	result.z = a.z * b;
+	return result;
+}
+
 static s_v2i operator*(s_v2i a, int b)
 {
 	s_v2i result;
@@ -1452,7 +1488,7 @@ static constexpr int c_left_mouse = 1020;
 static constexpr int c_right_mouse = 1021;
 static constexpr int c_max_keys = 1024;
 
-static constexpr int c_game_memory = 1 * c_mb;
+static constexpr int c_game_memory = 2 * c_mb;
 
 static constexpr s_v2 c_origin_topleft = {1.0f, -1.0f};
 static constexpr s_v2 c_origin_bottomleft = {1.0f, 1.0f};
