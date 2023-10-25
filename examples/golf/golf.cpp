@@ -363,6 +363,7 @@ func void update(s_platform_data* platform_data)
 						}
 						ball.push_count = worst_total - worst_level;
 					}
+					ball.color = make_color(game->rng.randf32(), game->rng.randf32(), game->rng.randf32());
 					game->balls.add(ball);
 				}
 			}
@@ -569,7 +570,7 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 				s_v2 hole_pos = tile_index_to_pos(map->hole) + v2(c_tile_size * 0.5f);
 				b8 in_hole = c2CircletoCircle(ball.c, {.p = {hole_pos.x, hole_pos.y}, .r = c_ball_radius * 2.0f}) != 0;
 
-				s_v4 color = make_color(0.5f);
+				s_v4 color = ball.color;
 				if(game->transient.has_beat_level[ball_i]) {
 					color = brighter(rgb(0xA4BB96), 1.2f);
 				}
