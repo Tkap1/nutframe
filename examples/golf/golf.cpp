@@ -37,6 +37,7 @@ global constexpr float c_max_inactivity_time = 120.0f;
 
 enum e_state
 {
+	e_state_mode_select,
 	e_state_play,
 	e_state_stats,
 	e_state_victory,
@@ -45,8 +46,9 @@ enum e_state
 
 enum e_game_mode
 {
-	e_state_default,
-	e_state_first_to_hole,
+	e_game_mode_default,
+	e_game_mode_first_to_hole,
+	e_game_mode_count,
 };
 
 enum e_layer
@@ -464,8 +466,17 @@ func void update(s_platform_data* platform_data)
 			{
 				s_v2 pos = c_base_res * v2(0.5f, 0.5f);
 				if(has_anyone_beaten_level()) {
-					float time_left = c_seconds_after_first_beat - (game->total_time - game->transient.first_beat_time);
-					if(time_left <= 0 || has_everyone_beaten_level()) {
+					b8 advance_state = false;
+					if(game->mode == e_game_mode_first_to_hole) {
+						advance_state = true;
+					}
+					else {
+						float time_left = c_seconds_after_first_beat - (game->total_time - game->transient.first_beat_time);
+						if(time_left <= 0 || has_everyone_beaten_level()) {
+							advance_state = true;
+						}
+					}
+					if(advance_state) {
 						// @Note(tkap, 24/10/2023): Add artificial pushes to everyone who didn't beat the level
 						foreach_ptr(ball_i, ball, game->balls) {
 							if(!game->transient.has_beat_level[ball_i]) {
@@ -486,7 +497,7 @@ func void update(s_platform_data* platform_data)
 				s_map* map = &game->maps[game->curr_map];
 				ball->c.r = c_ball_radius;
 				b8 in_sand = false;
-				if(game->balls.count > 0) {
+				if(game->balls.count > 0 && !game->transient.has_beat_level[ball_i]) {
 					ball->inactivity_time += c_delta;
 					if(ball->inactivity_time >= c_max_inactivity_time) {
 						game->transient.push_count.swap(ball_i, game->balls.count - 1);
@@ -609,6 +620,39 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 {
 	switch(game->state) {
 
+		case e_state_mode_select: {
+			constexpr char* c_mode_names[] = {
+				"Normal", "First to Hole",
+			};
+			static_assert(e_game_mode_count == array_count(c_mode_names));
+
+			if(is_key_pressed(g_input, c_key_up)) {
+				game->mode = (e_game_mode)circular_index(game->mode - 1, e_game_mode_count);
+			}
+			if(is_key_pressed(g_input, c_key_down)) {
+				game->mode = (e_game_mode)circular_index(game->mode + 1, e_game_mode_count);
+			}
+
+			constexpr float font_size = 64;
+			draw_text(g_r, "Select mode", c_base_res * v2(0.5f, 0.2f), e_layer_ui, font_size, make_color(1), true, game->font);
+			s_v2 pos = c_base_res * v2(0.5f, 0.35f);
+			for(int mode_i = 0; mode_i < e_game_mode_count; mode_i++) {
+				s_v4 color = make_color(0.5f);
+				if(game->mode == mode_i) {
+					color = make_color(1);
+				}
+				draw_text(g_r, c_mode_names[mode_i], pos, e_layer_ui, font_size, color, true, game->font);
+				pos.y += font_size;
+			}
+
+			if(is_key_pressed(g_input, c_key_enter)) {
+				game->state = e_state_play;
+				game->reset_level = true;
+			}
+
+
+		} break;
+
 		case e_state_play: {
 
 			s_map* map = &game->maps[game->curr_map];
@@ -624,7 +668,7 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 			}
 
 			s_v2 pos = c_base_res * v2(0.5f, 0.5f);
-			if(has_anyone_beaten_level()) {
+			if(game->mode != e_game_mode_first_to_hole && has_anyone_beaten_level()) {
 				float time_left = c_seconds_after_first_beat - (game->total_time - game->transient.first_beat_time);
 				draw_text(g_r, format_text("%.0f", time_left), pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
 			}
@@ -657,7 +701,12 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 				x.maps_beaten = ball->maps_beaten;
 				arr.add(x);
 			}
-			arr.small_sort();
+			if(game->mode == e_game_mode_first_to_hole) {
+				arr.small_sort(compare_maps_beaten);
+			}
+			else {
+				arr.small_sort();
+			}
 
 			float name_x = c_base_res.x * 0.15f;
 			float level_x = c_base_res.x * 0.4f;
