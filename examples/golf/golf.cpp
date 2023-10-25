@@ -28,11 +28,11 @@ global constexpr int c_max_tiles = 128;
 global constexpr int c_max_balls = 128;
 global constexpr float c_seconds_after_first_beat = 120.0f;
 global constexpr s_v2 c_base_res = {1920, 1080};
+global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
 global constexpr int c_updates_per_second = 240;
 global constexpr f64 c_update_delay = 1.0 / (f64)c_updates_per_second;
 global constexpr float c_delta = (float)c_update_delay;
 global constexpr int c_starting_map = 0;
-// global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
 
 enum e_state
 {
@@ -44,6 +44,7 @@ enum e_state
 
 enum e_layer
 {
+	e_layer_background,
 	e_layer_tile,
 	e_layer_hole,
 	e_layer_ball,
@@ -593,20 +594,34 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 			}
 			arr.small_sort();
 
+			float name_x = c_base_res.x * 0.25f;
+			float level_x = c_base_res.x * 0.5f;
+			float total_x = c_base_res.x * 0.75f;
+			float y = c_base_res.y * 0.05f;
 			s_v2 pos = c_base_res * v2(0.5f, 0.1f);
+			constexpr float font_size = 64.0f;
+			draw_text(g_r, "Name", v2(name_x, y), e_layer_ui, font_size, make_color(1), false, game->font);
+			draw_text(g_r, "Level", v2(level_x, y), e_layer_ui, font_size, make_color(1), false, game->font);
+			draw_text(g_r, "Total", v2(total_x, y), e_layer_ui, font_size, make_color(1), false, game->font);
+			y += font_size * 2;
 			foreach_val(x_i, x, arr) {
 				s_v4 color = make_color(1);
 				if(!x.beat_level) {
 					color = rgb(0x932437);
 				}
-				draw_text(g_r, format_text("%s %i %i", x.name, x.level_count, x.total_count), pos, e_layer_ui, 64.0f, color, true, game->font);
-				pos.y += 64.0f;
+				draw_text(g_r, x.name, v2(name_x, y), e_layer_ui, font_size, color, false, game->font);
+				draw_text(g_r, format_text("%i", x.level_count), v2(level_x, y), e_layer_ui, font_size, color, false, game->font);
+				draw_text(g_r, format_text("%i", x.total_count), v2(total_x, y), e_layer_ui, font_size, color, false, game->font);
+				y += font_size;
 			}
+
+			draw_rect(g_r, c_half_res, e_layer_background, c_base_res, make_color(1), zero, {.effect_id = 3});
 		} break;
 
 		case e_state_victory: {
 			s_v2 pos = c_base_res * v2(0.5f, 0.5f);
 			draw_text(g_r, "That's it lol", pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
+			draw_rect(g_r, c_half_res, e_layer_background, c_base_res, make_color(1), zero, {.effect_id = 3});
 		} break;
 
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		map editor start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
