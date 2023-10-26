@@ -1950,14 +1950,16 @@ static s_lin_arena make_lin_arena_from_memory(u64 capacity, void* memory)
 template <typename t>
 static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc)
 {
-	// printf("bucket_add at %p, bucket_count = %i\n", arr, arr->bucket_count);
-	for(int i = 0; i < arr->bucket_count; i++)
-	{
-		int* count = &arr->element_count[i];
-		// printf("count = %i\n", *count);
-		if(*count < arr->capacity[i])
-		{
-			arr->elements[i][*count] = new_element;
+	assert(arr);
+	assert(arena);
+	assert(did_we_alloc);
+
+	for(int bucket_i = 0; bucket_i < arr->bucket_count; bucket_i++) {
+		int* count = &arr->element_count[bucket_i];
+		assert(*count <= arr->capacity[bucket_i]);
+
+		if(*count < arr->capacity[bucket_i]) {
+			arr->elements[bucket_i][*count] = new_element;
 			*count += 1;
 			return;
 		}
@@ -1970,8 +1972,7 @@ static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena
 	arr->element_count[arr->bucket_count] = 1;
 	arr->bucket_count += 1;
 
-	if(arr->bucket_count > 1)
-	{
+	if(arr->bucket_count > 1) {
 		*did_we_alloc = true;
 	}
 }
@@ -1984,18 +1985,19 @@ static void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena)
 	constexpr int element_size = sizeof(t);
 	t* elements;
 
+	assert(arr->bucket_count <= 16);
+
 	if(arr->element_count[0] <= 0) { return; }
 
-	for(int i = 0; i < arr->bucket_count; i++)
-	{
+	for(int i = 0; i < arr->bucket_count; i++) {
 		capacity += arr->capacity[i];
 	}
 
 	elements = (t*)la_get(arena, element_size * capacity);
 
-	for(int i = 0; i < arr->bucket_count; i++)
-	{
+	for(int i = 0; i < arr->bucket_count; i++) {
 		assert(arr->element_count[i] > 0);
+		assert((count + arr->element_count[i]) * element_size <= element_size * capacity);
 		memcpy(&elements[count], arr->elements[i], element_size * arr->element_count[i]);
 		count += arr->element_count[i];
 	}
