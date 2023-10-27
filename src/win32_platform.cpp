@@ -189,6 +189,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_platform_data.write_file = write_file;
 	g_platform_data.reset_ui = reset_ui;
 	g_platform_data.ui_button = ui_button;
+	g_platform_data.ui_checkbox = ui_checkbox;
 
 	// @TODO(tkap, 24/10/2023): Probably need a distinction between window size an internal resolution
 	g_platform_data.set_window_size = set_window_size;

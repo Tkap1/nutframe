@@ -32,7 +32,7 @@ global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
 global constexpr int c_updates_per_second = 240;
 global constexpr f64 c_update_delay = 1.0 / (f64)c_updates_per_second;
 global constexpr float c_delta = (float)c_update_delay;
-global constexpr int c_starting_map = 8;
+global constexpr int c_starting_map = 0;
 global constexpr float c_max_inactivity_time = 120.0f;
 
 enum e_state
@@ -49,6 +49,13 @@ enum e_game_mode
 	e_game_mode_default,
 	e_game_mode_first_to_hole,
 	e_game_mode_count,
+};
+
+enum e_game_modifier
+{
+	e_game_modifier_all_shoot_at_once,
+	e_game_modifier_random_map_order,
+	e_game_modifier_count,
 };
 
 enum e_layer
@@ -120,6 +127,8 @@ struct s_ball
 	int push_count;
 	s_v2 rotation;
 	int maps_beaten;
+	b8 has_push_queued;
+	s_v2 queued_push; // @Note(tkap, 27/10/2023): For all shoot at once mode
 };
 
 struct s_name_and_push_count
@@ -212,6 +221,7 @@ struct s_game
 	b8 initialized;
 	b8 reset_level;
 	e_game_mode mode;
+	s_carray<b8, e_game_modifier_count> modifiers;
 	int last_chat_file_offset;
 	e_state state;
 	s_rng rng;
@@ -236,6 +246,7 @@ struct s_game
 	f64 update_timer;
 	s_framebuffer* particle_framebuffer;
 	s_sarray<s_particle, 16384> particles;
+	s_sarray<int, e_map_count> random_maps;
 };
 
 global s_input* g_input;
@@ -421,13 +432,19 @@ func void update(s_platform_data* platform_data)
 			if(ball_index >= 0) {
 				s_ball* ball = &game->balls[ball_index];
 				ball->inactivity_time = 0;
-				platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
-				ball->vel += v2_from_angle(deg_to_rad((float)angle)) * range_lerp((float)strength, 1, 100, 25, 2000);
-				ball->pos_before_last_push = v2(ball->c.p);
+				s_v2 push_vector = v2_from_angle(deg_to_rad((float)angle)) * range_lerp((float)strength, 1, 100, 25, 2000);
+				ball->has_push_queued = true;
+				ball->queued_push = push_vector;
 
-				if(!game->transient.has_beat_level[ball_index]) {
-					game->transient.push_count[ball_index] += 1;
-					ball->push_count += 1;
+				if(!game->modifiers[e_game_modifier_all_shoot_at_once]) {
+					ball->vel += push_vector;
+					ball->pos_before_last_push = v2(ball->c.p);
+					platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
+
+					if(!game->transient.has_beat_level[ball_index]) {
+						game->transient.push_count[ball_index] += 1;
+						ball->push_count += 1;
+					}
 				}
 
 			}
@@ -453,6 +470,9 @@ func void update(s_platform_data* platform_data)
 
 			#ifdef m_debug
 			if(is_key_pressed(g_input, c_key_f5)) {
+				// @Hack(tkap, 27/10/2023):
+				g_input->keys[c_key_f5].count = 0;
+
 				s_str name = zero;
 				char buffer[1024] = zero;
 				for(int i = 0; i < 6; i++) {
@@ -466,6 +486,29 @@ func void update(s_platform_data* platform_data)
 				game->state = e_state_map_editor;
 			}
 			#endif // m_debug
+
+			b8 all_ready = true;
+			if(game->modifiers[e_game_modifier_all_shoot_at_once]) {
+				foreach_ptr(ball_i, ball, game->balls) {
+					if(game->transient.has_beat_level[ball_i]) { continue; }
+					if(!ball->has_push_queued) {
+						all_ready = false;
+					}
+					else {
+						ball->inactivity_time = 0;
+					}
+				}
+			}
+			if(all_ready) {
+				platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
+				foreach_ptr(ball_i, ball, game->balls) {
+					ball->pos_before_last_push = v2(ball->c.p);
+					ball->vel += ball->queued_push;
+					ball->has_push_queued = false;
+					game->transient.push_count[ball_i] += 1;
+					ball->push_count += 1;
+				}
+			}
 
 			{
 				s_v2 pos = c_base_res * v2(0.5f, 0.5f);
@@ -618,7 +661,12 @@ func void update(s_platform_data* platform_data)
 				}
 				else {
 					game->state = e_state_play;
-					game->curr_map += 1;
+					if(game->modifiers[e_game_modifier_random_map_order]) {
+						game->curr_map = game->random_maps.pop();
+					}
+					else {
+						game->curr_map += 1;
+					}
 				}
 			}
 
@@ -631,33 +679,56 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 	switch(game->state) {
 
 		case e_state_mode_select: {
-			constexpr char* c_mode_names[] = {
-				"Normal", "First to Hole",
-			};
-			static_assert(e_game_mode_count == array_count(c_mode_names));
+			{
+				constexpr char* c_mode_names[] = {
+					"Normal", "First to Hole",
+				};
+				static_assert(e_game_mode_count == array_count(c_mode_names));
 
-			if(is_key_pressed(g_input, c_key_up)) {
-				game->mode = (e_game_mode)circular_index(game->mode - 1, e_game_mode_count);
-			}
-			if(is_key_pressed(g_input, c_key_down)) {
-				game->mode = (e_game_mode)circular_index(game->mode + 1, e_game_mode_count);
-			}
-
-			constexpr float font_size = 64;
-			draw_text(g_r, "Select mode", c_base_res * v2(0.5f, 0.2f), e_layer_ui, font_size, make_color(1), true, game->font);
-			s_v2 pos = c_base_res * v2(0.5f, 0.35f);
-			for(int mode_i = 0; mode_i < e_game_mode_count; mode_i++) {
-				s_v4 color = make_color(0.5f);
-				if(game->mode == mode_i) {
-					color = make_color(1);
+				if(is_key_pressed(g_input, c_key_up)) {
+					game->mode = (e_game_mode)circular_index(game->mode - 1, e_game_mode_count);
 				}
-				draw_text(g_r, c_mode_names[mode_i], pos, e_layer_ui, font_size, color, true, game->font);
-				pos.y += font_size;
+				if(is_key_pressed(g_input, c_key_down)) {
+					game->mode = (e_game_mode)circular_index(game->mode + 1, e_game_mode_count);
+				}
+
+				constexpr float font_size = 64;
+				draw_text(g_r, "Select mode", c_base_res * v2(0.5f, 0.2f), e_layer_ui, font_size, make_color(1), true, game->font);
+				s_v2 pos = c_base_res * v2(0.5f, 0.35f);
+				for(int mode_i = 0; mode_i < e_game_mode_count; mode_i++) {
+					s_v4 color = make_color(0.5f);
+					if(game->mode == mode_i) {
+						color = make_color(1);
+					}
+					draw_text(g_r, c_mode_names[mode_i], pos, e_layer_ui, font_size, color, true, game->font);
+					pos.y += font_size;
+				}
+
+				if(is_key_pressed(g_input, c_key_enter)) {
+					game->state = e_state_play;
+					game->reset_level = true;
+					for(int i = 0; i < e_map_count; i++) {
+						game->random_maps.add(i);
+					}
+					game->random_maps.shuffle(&game->rng);
+					if(game->modifiers[e_game_modifier_random_map_order]) {
+						game->curr_map = game->random_maps.pop();
+					}
+				}
 			}
 
-			if(is_key_pressed(g_input, c_key_enter)) {
-				game->state = e_state_play;
-				game->reset_level = true;
+			{
+				s_v2 pos = c_base_res * v2(0.01f, 0.6f);
+				constexpr char* c_names[] = {
+					"All shoot at once", "Random map order",
+				};
+				static_assert(array_count(c_names) == e_game_modifier_count);
+				for(int modifier_i = 0; modifier_i < e_game_modifier_count; modifier_i++) {
+					char* text = c_names[modifier_i];
+					draw_text(g_r, text, pos, e_layer_ui, 48.0f, make_color(1), false, game->font);
+					platform_data->ui_checkbox(g_r, text, pos + v2(500.0f, -12.0f), v2(64), &game->modifiers[modifier_i], g_input, g_mouse);
+					pos.y += 68.0f;
+				}
 			}
 
 
@@ -1296,10 +1367,14 @@ func void move_ball_to_spawn(s_ball* ball, s_map* map)
 	ball->c.p.x = tile_index_to_tile_center(map->spawn).x + game->transient.spawn_offset.x;
 	ball->c.p.y = tile_index_to_tile_center(map->spawn).y + game->transient.spawn_offset.y;
 	ball->pos_before_last_push = v2(ball->c.p);
+	ball->has_push_queued = false;
 }
 
 func b8 are_we_on_last_map()
 {
+	if(game->modifiers[e_game_modifier_random_map_order]) {
+		return game->random_maps.count == 0;
+	}
 	return game->curr_map >= e_map_count - 1;
 }
 

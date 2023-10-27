@@ -129,6 +129,87 @@ struct s_v4
 #endif // m_debug
 #endif // m_game
 
+struct s_rng
+{
+	u32 seed;
+
+	u32 randu()
+	{
+		seed = seed * 2147001325 + 715136305;
+		return 0x31415926 ^ ((seed >> 16) + (seed << 16));
+	}
+
+	b8 rand_bool()
+	{
+		return randu() & 1;
+	}
+
+	f64 randf()
+	{
+		return (f64)randu() / (f64)4294967295;
+	}
+
+	float randf32()
+	{
+		return (float)randu() / (float)4294967295;
+	}
+
+	f64 randf2()
+	{
+		return randf() * 2 - 1;
+	}
+
+	u64 randu64()
+	{
+		return (u64)(randf() * (f64)c_max_u64);
+	}
+
+
+	// min inclusive, max inclusive
+	int rand_range_ii(int min, int max)
+	{
+		if(min > max)
+		{
+			int temp = min;
+			min = max;
+			max = temp;
+		}
+
+		return min + ((int)(randu() % (max - min + 1)));
+	}
+
+	// min inclusive, max exclusive
+	int rand_range_ie(int min, int max)
+	{
+		if(min > max)
+		{
+			int temp = min;
+			min = max;
+			max = temp;
+		}
+
+		return min + ((int)(randu() % (max - min)));
+	}
+
+	float randf_range(float min_val, float max_val)
+	{
+		if(min_val > max_val)
+		{
+			float temp = min_val;
+			min_val = max_val;
+			max_val = temp;
+		}
+
+		float r = (float)randf();
+		return min_val + (max_val - min_val) * r;
+	}
+
+	b8 chance100(int chance)
+	{
+		return rand_range_ii(1, 100) <= chance;
+	}
+
+};
 
 template <typename T, int N>
 struct s_sarray
@@ -136,6 +217,14 @@ struct s_sarray
 	static_assert(N > 0);
 	int count = 0;
 	T elements[N];
+
+	constexpr void shuffle(s_rng* rng)
+	{
+		assert(count > 0);
+		for(int i = 0; i < count; i++) {
+			swap(i, rng->rand_range_ie(i, count));
+		}
+	}
 
 	constexpr T& operator[](int index)
 	{
@@ -190,7 +279,6 @@ struct s_sarray
 		assert(index1 >= 0);
 		assert(index0 < count);
 		assert(index1 < count);
-		assert(index0 != index1);
 		T temp = elements[index0];
 		elements[index0] = elements[index1];
 		elements[index1] = temp;
@@ -860,88 +948,6 @@ static b8 write_file(const char* path, void* data, u64 size)
 
 
 #endif // m_game
-
-struct s_rng
-{
-	u32 seed;
-
-	u32 randu()
-	{
-		seed = seed * 2147001325 + 715136305;
-		return 0x31415926 ^ ((seed >> 16) + (seed << 16));
-	}
-
-	b8 rand_bool()
-	{
-		return randu() & 1;
-	}
-
-	f64 randf()
-	{
-		return (f64)randu() / (f64)4294967295;
-	}
-
-	float randf32()
-	{
-		return (float)randu() / (float)4294967295;
-	}
-
-	f64 randf2()
-	{
-		return randf() * 2 - 1;
-	}
-
-	u64 randu64()
-	{
-		return (u64)(randf() * (f64)c_max_u64);
-	}
-
-
-	// min inclusive, max inclusive
-	int rand_range_ii(int min, int max)
-	{
-		if(min > max)
-		{
-			int temp = min;
-			min = max;
-			max = temp;
-		}
-
-		return min + ((int)(randu() % (max - min + 1)));
-	}
-
-	// min inclusive, max exclusive
-	int rand_range_ie(int min, int max)
-	{
-		if(min > max)
-		{
-			int temp = min;
-			min = max;
-			max = temp;
-		}
-
-		return min + ((int)(randu() % (max - min)));
-	}
-
-	float randf_range(float min_val, float max_val)
-	{
-		if(min_val > max_val)
-		{
-			float temp = min_val;
-			min_val = max_val;
-			max_val = temp;
-		}
-
-		float r = (float)randf();
-		return min_val + (max_val - min_val) * r;
-	}
-
-	b8 chance100(int chance)
-	{
-		return rand_range_ii(1, 100) <= chance;
-	}
-
-};
 
 static constexpr s_v2i v2i(int x, int y)
 {
@@ -1697,6 +1703,7 @@ struct s_platform_data
 	t_write_file write_file;
 	void (*reset_ui)();
 	s_ui_interaction (*ui_button)(s_game_renderer*, const char*, s_v2, s_v2, s_font*, float, s_input*, s_v2);
+	void (*ui_checkbox)(s_game_renderer*, const char*, s_v2, s_v2, b8*, s_input*, s_v2);
 	void (*set_window_size)(int, int);
 	char* variables_path;
 

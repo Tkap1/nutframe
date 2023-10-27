@@ -85,5 +85,6 @@ golf:
 
 	exodus_uk: you have to collect a pickup to get through the gate
 
-	we got some crazy render bug.
-		pretty sure something related to the buckets is wrong
+	line angle display on ball or something
+
+	do timer for all at once mode
