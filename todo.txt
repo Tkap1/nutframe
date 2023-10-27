@@ -47,12 +47,6 @@ we could actually get it down to 1 file with a bunch of #ifdefs. but we still ne
 
 
 
-Aruseus: have you tried SDL_GL_GetProcAddress?
-	maybe we can ditch glew with this? fuck glew baseg
-
-
-saving and loading game states
-way of specifying window size
 
 golf:
 	mode (or map?) where each time someone gets in the whole, the hole teleports
@@ -64,27 +58,19 @@ golf:
 
 	add an argument to join that is the texture/shader index
 
-	particles
-
 	realSuperku: mr tkat streamer what if you keep track of a moving average of player finish positions (normalized by player count). the better the position, the fancier the golfball looks, or like shit if you are not doing well. could be :) :( smileys also, with a golden smiley being the best. duckYep
 
-	we need to make normal walls not as bouncy
 	bouncy wall
 	portals
 	pits and shit so we can fall out of the map
 
-	sdl is now broken with new resolution stuff
 	maybe we shouldnt do just pushes +1 to people who didnt beat it, but instead max(pushes + 1, thatplayerpushcount)
 	we should have a way to start playing the current map in the editor!!
-
-	better stats screen
 
 	maybe chip along with push, for "jump" shots
 
 	platform fframe arena not being reset?
 
 	exodus_uk: you have to collect a pickup to get through the gate
-
-	line angle display on ball or something
 
 	do timer for all at once mode

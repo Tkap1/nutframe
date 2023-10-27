@@ -1,17 +1,16 @@
 
 #pragma comment(lib, "opengl32.lib")
 
-#if !defined(m_debug) && defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#endif
+// #if !defined(m_debug) && defined(_WIN32)
+// #define WIN32_LEAN_AND_MEAN
+// #define NOMINMAX
+// #include <windows.h>
+// #endif
 
 #pragma warning(push, 0)
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "SDL_mixer.h"
-#include "GL\glew.h"
 
 #ifdef __EMSCRIPTEN__
 #include "emscripten.h"
@@ -95,8 +94,23 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	}
 	#endif
 
-	g_window.width = (int)c_base_res.x;
-	g_window.height = (int)c_base_res.y;
+	g_platform_data.get_random_seed = get_random_seed;
+	g_platform_data.load_sound = load_sound;
+	g_platform_data.play_sound = play_sound;
+	g_platform_data.read_file = read_file;
+	g_platform_data.write_file = write_file;
+	g_platform_data.reset_ui = reset_ui;
+	g_platform_data.ui_button = ui_button;
+	g_platform_data.ui_checkbox = ui_checkbox;
+	g_platform_data.set_window_size = set_window_size;
+
+	init_game(&g_platform_data);
+	if(g_base_res.x <= 0 && g_base_res.y <= 0) {
+		log_error("Invalid window size");
+		exit(1);
+	}
+	g_window.width = (int)g_base_res.x;
+	g_window.height = (int)g_base_res.y;
 
 	#ifdef __EMSCRIPTEN__
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -113,7 +127,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	gWindow = SDL_CreateWindow(
 		"SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		64*12, 64*12, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
+		g_window.width, g_window.height, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL
 	);
 	if(gWindow == NULL)
 	{
@@ -128,12 +142,9 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		return 1;
 	}
 
-	GLenum glewError = glewInit();
-	if(glewError != GLEW_OK)
-	{
-		printf("Error initializing GLEW! %s\n", glewGetErrorString(glewError));
-		return 1;
-	}
+	#define X(type, name) name = (type)SDL_GL_GetProcAddress(#name);
+		m_gl_funcs
+	#undef X
 
 	s_lin_arena platform_frame_arena = {};
 
@@ -148,7 +159,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	{
 		s_lin_arena all = {};
-		all.capacity = 20 * c_mb;
+		all.capacity = 30 * c_mb;
 
 		// @Note(tkap, 26/06/2023): We expect this memory to be zero'd
 		all.memory = malloc(all.capacity);
@@ -157,7 +168,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_game_renderer = (s_game_renderer*)la_get(&all, sizeof(s_game_renderer));
 
 		g_game_memory = la_get(&all, c_game_memory);
-		platform_frame_arena = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		platform_frame_arena = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
 		g_game_frame_arena = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
 		g_platform_data.frame_arena = &g_game_frame_arena;
 
@@ -179,14 +190,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	b8 running = true;
 	g_platform_data.recompiled = true;
-	g_platform_data.get_random_seed = get_random_seed;
-	g_platform_data.load_sound = load_sound;
-	g_platform_data.play_sound = play_sound;
-	g_platform_data.read_file = read_file;
-	g_platform_data.write_file = write_file;
-	g_platform_data.reset_ui = reset_ui;
-	g_platform_data.ui_button = ui_button;
-	g_platform_data.ui_checkbox = ui_checkbox;
 
 	#ifdef __EMSCRIPTEN__
 	// emscripten_request_animation_frame_loop(do_one_frame, &foo);

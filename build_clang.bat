@@ -30,14 +30,11 @@ if !platform!==1 (
 	set platform_file=..\src\sdl_platform.cpp
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl"
 	set comp=!comp! -Dm_sdl
-	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\glew\include"
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl"
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl\SDL2"
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
-	set comp=!comp! -L"C:\Users\34687\Desktop\Dev\C\glew\lib\Release\x64"
 	set comp=!comp! -l..\SDL2
 	set comp=!comp! -l..\SDL2_mixer
-	set comp=!comp! -lglew32
 	set comp=!comp! -lWinmm -lUser32 -lGdi32 -lShell32 -lSetupapi -lVersion -lOle32 -lImm32 -lAdvapi32 -lOleAut32
 	set build_dll=0
 )

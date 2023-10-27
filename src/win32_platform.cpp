@@ -5,12 +5,10 @@
 #pragma comment(lib, "Ole32.lib")
 
 #pragma warning(push, 0)
+
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
-#include <gl/GL.h>
-#include "external/glcorearb.h"
-#include "external/wglext.h"
 #include <xaudio2.h>
 
 #pragma clang diagnostic push
@@ -27,50 +25,6 @@
 #pragma warning(pop)
 
 #include "resource.h"
-
-
-#define m_gl_funcs \
-X(PFNGLBUFFERDATAPROC, glBufferData) \
-X(PFNGLBUFFERSUBDATAPROC, glBufferSubData) \
-X(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays) \
-X(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray) \
-X(PFNGLGENBUFFERSPROC, glGenBuffers) \
-X(PFNGLBINDBUFFERPROC, glBindBuffer) \
-X(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer) \
-X(PFNGLVERTEXATTRIBIPOINTERPROC, glVertexAttribIPointer) \
-X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray) \
-X(PFNGLCREATESHADERPROC, glCreateShader) \
-X(PFNGLSHADERSOURCEPROC, glShaderSource) \
-X(PFNGLCREATEPROGRAMPROC, glCreateProgram) \
-X(PFNGLATTACHSHADERPROC, glAttachShader) \
-X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
-X(PFNGLCOMPILESHADERPROC, glCompileShader) \
-X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
-X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
-X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
-X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
-X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
-X(PFNGLUSEPROGRAMPROC, glUseProgram) \
-X(PFNGLGETSHADERIVPROC, glGetShaderiv) \
-X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog) \
-X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers) \
-X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer) \
-X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D) \
-X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus) \
-X(PFNGLACTIVETEXTUREPROC, glActiveTexture) \
-X(PFNGLBLENDEQUATIONPROC, glBlendEquation) \
-X(PFNGLDELETEPROGRAMPROC, glDeleteProgram) \
-X(PFNGLDELETESHADERPROC, glDeleteShader) \
-X(PFNGLUNIFORM1IPROC, glUniform1i) \
-X(PFNGLUNIFORM1FPROC, glUniform1f) \
-X(PFNGLDETACHSHADERPROC, glDetachShader) \
-X(PFNGLGETPROGRAMIVPROC, glGetProgramiv) \
-X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
-X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
-
-#define X(type, name) static type name = NULL;
-m_gl_funcs
-#undef X
 
 struct s_window
 {
@@ -229,6 +183,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	}
 	set_actual_window_size((int)g_base_res.x, (int)g_base_res.y);
 	center_window();
+	ShowWindow(g_window.handle, true);
 
 	if(!init_audio())
 	{
@@ -795,12 +750,12 @@ static b8 should_go_borderless(int width, int height)
 
 static void set_borderless(HWND handle)
 {
-	SetWindowLongA(handle, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+	SetWindowLongA(handle, GWL_STYLE, WS_POPUP);
 }
 
 static void set_non_borderless(HWND handle)
 {
-	SetWindowLongA(handle, GWL_STYLE, (WS_OVERLAPPEDWINDOW | WS_VISIBLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
+	SetWindowLongA(handle, GWL_STYLE, (WS_OVERLAPPEDWINDOW) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
 }
 
 static int cycle_between_available_resolutions(int current)

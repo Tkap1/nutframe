@@ -49,6 +49,114 @@ typedef double f64;
 #define m_gl_single_channel GL_RED
 #endif // __EMSCRIPTEN__
 
+#ifndef m_game
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif // _WIN32
+
+#if defined(__EMSCRIPTEN__)
+#include <gl/GL.h>
+#include "external/glcorearb.h"
+#elif defined(m_sdl)
+#include <gl/GL.h>
+#include "external/glcorearb.h"
+#else
+#include <gl/GL.h>
+#include "external/glcorearb.h"
+#include "external/wglext.h"
+#endif
+
+#ifdef __EMSCRIPTEN__
+#define m_gl_funcs \
+X(PFNGLBUFFERDATAPROC, glBufferData) \
+X(PFNGLBUFFERSUBDATAPROC, glBufferSubData) \
+X(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays) \
+X(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray) \
+X(PFNGLGENBUFFERSPROC, glGenBuffers) \
+X(PFNGLBINDBUFFERPROC, glBindBuffer) \
+X(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer) \
+X(PFNGLVERTEXATTRIBIPOINTERPROC, glVertexAttribIPointer) \
+X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray) \
+X(PFNGLCREATESHADERPROC, glCreateShader) \
+X(PFNGLSHADERSOURCEPROC, glShaderSource) \
+X(PFNGLCREATEPROGRAMPROC, glCreateProgram) \
+X(PFNGLATTACHSHADERPROC, glAttachShader) \
+X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
+X(PFNGLCOMPILESHADERPROC, glCompileShader) \
+X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
+X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
+X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
+X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
+X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
+X(PFNGLUSEPROGRAMPROC, glUseProgram) \
+X(PFNGLGETSHADERIVPROC, glGetShaderiv) \
+X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog) \
+X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers) \
+X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer) \
+X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D) \
+X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus) \
+X(PFNGLDELETEPROGRAMPROC, glDeleteProgram) \
+X(PFNGLDELETESHADERPROC, glDeleteShader) \
+X(PFNGLUNIFORM1IPROC, glUniform1i) \
+X(PFNGLUNIFORM1FPROC, glUniform1f) \
+X(PFNGLDETACHSHADERPROC, glDetachShader) \
+X(PFNGLGETPROGRAMIVPROC, glGetProgramiv) \
+X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
+X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
+
+#else // __EMSCRIPTEN__
+
+#define m_gl_funcs \
+X(PFNGLBUFFERDATAPROC, glBufferData) \
+X(PFNGLBUFFERSUBDATAPROC, glBufferSubData) \
+X(PFNGLGENVERTEXARRAYSPROC, glGenVertexArrays) \
+X(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray) \
+X(PFNGLGENBUFFERSPROC, glGenBuffers) \
+X(PFNGLBINDBUFFERPROC, glBindBuffer) \
+X(PFNGLVERTEXATTRIBPOINTERPROC, glVertexAttribPointer) \
+X(PFNGLVERTEXATTRIBIPOINTERPROC, glVertexAttribIPointer) \
+X(PFNGLENABLEVERTEXATTRIBARRAYPROC, glEnableVertexAttribArray) \
+X(PFNGLCREATESHADERPROC, glCreateShader) \
+X(PFNGLSHADERSOURCEPROC, glShaderSource) \
+X(PFNGLCREATEPROGRAMPROC, glCreateProgram) \
+X(PFNGLATTACHSHADERPROC, glAttachShader) \
+X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
+X(PFNGLCOMPILESHADERPROC, glCompileShader) \
+X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
+X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
+X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
+X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
+X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
+X(PFNGLUSEPROGRAMPROC, glUseProgram) \
+X(PFNGLGETSHADERIVPROC, glGetShaderiv) \
+X(PFNGLGETSHADERINFOLOGPROC, glGetShaderInfoLog) \
+X(PFNGLGENFRAMEBUFFERSPROC, glGenFramebuffers) \
+X(PFNGLBINDFRAMEBUFFERPROC, glBindFramebuffer) \
+X(PFNGLFRAMEBUFFERTEXTURE2DPROC, glFramebufferTexture2D) \
+X(PFNGLCHECKFRAMEBUFFERSTATUSPROC, glCheckFramebufferStatus) \
+X(PFNGLACTIVETEXTUREPROC, glActiveTexture) \
+X(PFNGLDELETEPROGRAMPROC, glDeleteProgram) \
+X(PFNGLDELETESHADERPROC, glDeleteShader) \
+X(PFNGLUNIFORM1IPROC, glUniform1i) \
+X(PFNGLUNIFORM1FPROC, glUniform1f) \
+X(PFNGLDETACHSHADERPROC, glDetachShader) \
+X(PFNGLGETPROGRAMIVPROC, glGetProgramiv) \
+X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
+X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
+
+#endif // __EMSCRIPTEN__
+
+#define X(type, name) static type name = NULL;
+m_gl_funcs
+#undef X
+
+
+
+#endif // m_game
+
 #define assert(cond) do { if(!(cond)) { on_failed_assert(#cond, __FILE__, __LINE__); } } while(0)
 #define unreferenced(thing) (void)thing;
 #define check(cond) do { if(!(cond)) { error(false); }} while(0)
@@ -2828,7 +2936,7 @@ static s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 
 	int width, height, num_channels;
 	void* data = stbi_load_from_memory(embed_data[g_asset_index], embed_sizes[g_asset_index], &width, &height, &num_channels, 4);
-	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR);
+	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR, GL_RGBA);
 	g_asset_index += 1;
 
 	#else

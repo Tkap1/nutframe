@@ -7,6 +7,8 @@ static constexpr int c_tile_count = 12;
 static constexpr int c_max_snake_len = c_tile_count * c_tile_count / 2;
 static constexpr int c_score_to_win = 20;
 static constexpr int c_tile_size = 64;
+static constexpr s_v2 c_base_res = {c_tile_size * c_tile_count, c_tile_size * c_tile_count};
+static constexpr s_v2 c_half_res = {c_base_res.x * 0.5f, c_base_res.y * 0.5f};
 
 enum e_state
 {
@@ -54,9 +56,14 @@ static s_v2i spawn_apple();
 
 #ifdef m_build_dll
 extern "C" {
-m_dll_export
 #endif // m_build_dll
-m_update_game(update_game)
+
+m_dll_export m_init_game(init_game)
+{
+	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
+}
+
+m_dll_export m_update_game(update_game)
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
 

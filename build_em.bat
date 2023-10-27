@@ -19,15 +19,15 @@ if !debug!==0 (
 	set comp=!comp! -sASSERTIONS=1
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
 	set comp=!comp! --preload-file ../shaders/fragment.fragment@shaders/fragment.fragment
-	set comp=!comp! --preload-file ../assets/noise.png@assets/noise.png
+	set comp=!comp! --preload-file ../examples/snake/noise.png@examples/snake/noise.png
 	set comp=!comp! --preload-file ../examples/snake/snake_head.png@examples/snake/snake_head.png
 	set comp=!comp! --preload-file ../examples/snake/snake_body.png@examples/snake/snake_body.png
 	set comp=!comp! --preload-file ../examples/snake/snake_tail.png@examples/snake/snake_tail.png
 	set comp=!comp! --preload-file ../examples/snake/apple.png@examples/snake/apple.png
 	set comp=!comp! --preload-file ../examples/snake/noise.png@examples/snake/noise.png
 	set comp=!comp! --preload-file ../examples/snake/eat_apple.wav@examples/snake/eat_apple.wav
-	set comp=!comp! --preload-file ../examples/snake/consola.ttf@examples/snake/consola.ttf
-	set comp=!comp! --preload-file ../examples/snake/checkmark.png@examples/snake/checkmark.png
+	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
+	set comp=!comp! --preload-file ../assets/checkmark.png@assets/checkmark.png
 	@REM set comp=!comp! -fsanitize=address
 )
 

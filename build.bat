@@ -20,7 +20,7 @@ set exe_name=DigHard
 set build_dll=1
 set comp=-nologo -std:c++20 -Zc:strictStrings- -W4 -Wall -FC -Gm- -GR- -EHa- -wd 4324 -wd 4127 -wd 4505 -D_CRT_SECURE_NO_WARNINGS
 set linker=-INCREMENTAL:NO
-set comp=!comp! -wd4201 -wd4100 -wd4464 -wd4820 -wd5219 -wd4365 -wd4514 -wd5045 -wd5220 -wd5204 -wd4191 -wd4577 -wd4062 -wd4686
+set comp=!comp! -wd4201 -wd4100 -wd4464 -wd4820 -wd5219 -wd4365 -wd4514 -wd5045 -wd5220 -wd5204 -wd4191 -wd4577 -wd4062 -wd4686 -wd4711 -wd4710
 @REM set comp=!comp! -fsanitize=address
 
 if !platform!==0 (
@@ -33,11 +33,9 @@ if !platform!==1 (
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl\SDL2"
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
 	set comp=!comp! -Dm_sdl
-	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\glew\include"
 	set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\engine_thing\src\external"
 	set linker=!linker! ..\SDL2.lib
 	set linker=!linker! ..\SDL2_mixer.lib
-	set linker=!linker! "C:\Users\34687\Desktop\Dev\C\glew\lib\Release\x64\glew32.lib"
 	set linker=!linker! Winmm.lib User32.lib Gdi32.lib Shell32.lib Setupapi.lib Version.lib Ole32.lib Imm32.lib Advapi32.lib OleAut32.lib
 	set linker=!linker! -IGNORE:4099
 	set build_dll=0
