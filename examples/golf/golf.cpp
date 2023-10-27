@@ -100,6 +100,7 @@ enum e_tile
 	e_tile_water,
 	e_tile_one_way,
 	e_tile_ice,
+	e_tile_bouncy_wall,
 	e_tile_count,
 };
 
@@ -114,7 +115,15 @@ enum e_map
 	e_map_007,
 	e_map_008,
 	e_map_009,
+	e_map_010,
+	e_map_011,
 	e_map_count,
+};
+
+struct s_collision_data
+{
+	u8 tile_type;
+	c2Manifold manifold;
 };
 
 struct s_ball
@@ -245,6 +254,7 @@ struct s_game
 	s_texture noise;
 	s_texture one_way;
 	s_texture ice;
+	s_texture bouncy_wall;
 	float total_time;
 	f64 update_timer;
 	s_framebuffer* particle_framebuffer;
@@ -258,7 +268,7 @@ global s_game_renderer* g_r;
 global s_v2 g_mouse;
 
 
-func s_sarray<c2Manifold, 16> get_collisions(c2Circle circle, s_v2 vel, s_map* map);
+func s_sarray<s_collision_data, 16> get_collisions(c2Circle circle, s_v2 vel, s_map* map);
 func s_sarray<s_v2i, 16> get_interactive_tile_collisions(c2Circle circle, s_map* map);
 func s_v2 v2(c2v v);
 func void make_process_close_when_app_closes(HANDLE process);
@@ -323,6 +333,7 @@ m_dll_export m_update_game(update_game)
 		game->noise = g_r->load_texture(g_r, "examples/golf/noise.png");
 		game->one_way = g_r->load_texture(g_r, "examples/golf/one_way.png");
 		game->ice = g_r->load_texture(g_r, "examples/golf/ice.png");
+		game->bouncy_wall = g_r->load_texture(g_r, "examples/golf/bouncy_wall.png");
 		game->push_sounds[0] = platform_data->load_sound(platform_data, "examples/golf/push1.wav", platform_data->frame_arena);
 		game->push_sounds[1] = platform_data->load_sound(platform_data, "examples/golf/push2.wav", platform_data->frame_arena);
 		game->push_sounds[2] = platform_data->load_sound(platform_data, "examples/golf/push3.wav", platform_data->frame_arena);
@@ -600,7 +611,7 @@ func void update(s_platform_data* platform_data)
 					ball->c.p.y += movement.y * c_delta;
 					auto collisions = get_collisions(ball->c, ball->vel, map);
 					if(collisions.count > 0) {
-						c2Manifold c = collisions[0];
+						c2Manifold c = collisions[0].manifold;
 
 						ball->c.p.x -= (c.depths[0]) * c.n.x;
 						ball->c.p.y -= (c.depths[0]) * c.n.y;
@@ -611,7 +622,15 @@ func void update(s_platform_data* platform_data)
 
 						float mag = v2_length(ball->vel);
 						do_collision_particles(v2(c.contact_points[0]), mag, ball->color);
-						ball->vel = v2_reflect(ball->vel, v2(c.n)) * 0.9f;
+
+						float speed_mul = 0.9f;
+						s_v2 speed_add = zero;
+						if(collisions[0].tile_type == e_tile_bouncy_wall) {
+							speed_mul = 1.0f;
+							speed_add = v2(400);
+						}
+						s_v2 reflect = v2_reflect(ball->vel, v2(c.n));
+						ball->vel = reflect * speed_mul + (speed_add * v2_normalized(reflect));
 
 						break;
 					}
@@ -1094,9 +1113,9 @@ func b8 is_valid_index(s_v2i index, int width, int height)
 	return is_valid_index(index.x, index.y, width, height);
 }
 
-func s_sarray<c2Manifold, 16> get_collisions(c2Circle circle, s_v2 vel, s_map* map)
+func s_sarray<s_collision_data, 16> get_collisions(c2Circle circle, s_v2 vel, s_map* map)
 {
-	s_sarray<c2Manifold, 16> result;
+	s_sarray<s_collision_data, 16> result;
 	s_v2i index = v2i(floorfi(circle.p.x / c_tile_size), floorfi(circle.p.y / c_tile_size));
 
 	for(int y = -1; y <= 1; y++) {
@@ -1105,7 +1124,9 @@ func s_sarray<c2Manifold, 16> get_collisions(c2Circle circle, s_v2 vel, s_map* m
 			if(!is_valid_index(new_index, c_max_tiles, c_max_tiles)) { continue; }
 			if(!map->tiles_active[new_index.y][new_index.x]) { continue; }
 			u8 tile_type = map->tiles[new_index.y][new_index.x];
-			if(tile_type != e_tile_wall && tile_type != e_tile_one_way) { continue; }
+			if(
+				tile_type != e_tile_wall && tile_type != e_tile_one_way && tile_type != e_tile_bouncy_wall
+			) { continue; }
 
 			if(tile_type == e_tile_one_way) {
 				if(floats_equal(vel.x, 0.0f) && floats_equal(vel.y, 0.0f)) { continue; }
@@ -1128,7 +1149,10 @@ func s_sarray<c2Manifold, 16> get_collisions(c2Circle circle, s_v2 vel, s_map* m
 			c2Manifold m = zero;
 			c2CircletoAABBManifold(circle, aabb, &m);
 			if(m.count > 0) {
-				result.add(m);
+				s_collision_data col = zero;
+				col.manifold = m;
+				col.tile_type = tile_type;
+				result.add(col);
 			}
 		}
 	}
@@ -1322,6 +1346,10 @@ func void draw_tile(s_game_renderer* renderer, s_v2 pos, e_layer layer, s_v2 siz
 	}
 	if(type == e_tile_ice) {
 		draw_texture(renderer, pos, layer, size, make_color(1), game->ice, render_data, t);
+		return;
+	}
+	if(type == e_tile_bouncy_wall) {
+		draw_texture(renderer, pos, layer, size, make_color(1), game->bouncy_wall, render_data, t);
 		return;
 	}
 

@@ -1300,6 +1300,14 @@ static float sign(float x)
 	return x >= 0 ? 1.0f : -1.0f;
 }
 
+static s_v2 sign(s_v2 v)
+{
+	s_v2 result;
+	result.x = v.x >= 0 ? 1.0f : -1.0f;
+	result.y = v.y >= 0 ? 1.0f : -1.0f;
+	return result;
+}
+
 static float deg_to_rad(float d)
 {
 	return d * (pi / 180.f);
