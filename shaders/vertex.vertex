@@ -47,14 +47,36 @@ mat2 rot(float angle)
 void main()
 {
 
-	float v_size = 1.0;
 	vec2 vertices[6];
-	vertices[0] = vec2(-v_size, v_size);
-	vertices[1] = vec2(v_size, v_size);
-	vertices[2] = vec2(v_size, -v_size);
-	vertices[3] = vec2(-v_size, v_size);
-	vertices[4] = vec2(v_size, -v_size);
-	vertices[5] = vec2(-v_size, -v_size);
+
+	if((in_flags & 16) != 0) {
+		vec2 from = in_pos * (2.0 / base_res) - 1.0;
+		vec2 to = in_draw_size * (2.0 / base_res) - 1.0;
+		float thickness = in_texture_size.x / base_res.x * 0.5;
+		vec2 perp = normalize(to - from);
+		float ar = base_res.x / base_res.y;
+		perp = vec2(-perp.y, -perp.x * ar);
+
+		vec2 v0 = vec2(from.x + perp.x * thickness, -from.y + perp.y * thickness);
+		vec2 v1 = vec2(to.x + perp.x * thickness, -to.y + perp.y * thickness);
+		vec2 v2 = vec2(to.x - perp.x * thickness, -to.y - perp.y * thickness);
+		vec2 v3 = vec2(from.x - perp.x * thickness, -from.y - perp.y * thickness);
+		vertices[0] = v0;
+		vertices[1] = v1;
+		vertices[2] = v2;
+		vertices[3] = v0;
+		vertices[4] = v2;
+		vertices[5] = v3;
+	}
+	else {
+		float v_size = 1.0;
+		vertices[0] = vec2(-v_size, v_size);
+		vertices[1] = vec2(v_size, v_size);
+		vertices[2] = vec2(v_size, -v_size);
+		vertices[3] = vec2(-v_size, v_size);
+		vertices[4] = vec2(v_size, -v_size);
+		vertices[5] = vec2(-v_size, -v_size);
+	}
 
 	vec2 local_uv[6];
 	local_uv[0] = vec2(0, 0);
@@ -106,16 +128,22 @@ void main()
 	v_color = in_color;
 	v_mix_color = in_mix_color;
 
-	vec2 pos = in_pos * (2.0 / base_res) - 1.0;
-	pos.y *= -1.0;
-	vec2 size = in_draw_size / base_res;
-
 	float z = float(in_layer) / 100.0;
 	z += float(in_sublayer) / 4.0 / 100.0;
-
 	v_uv = uvs[gl_VertexID];
 	v_local_uv = local_uv[gl_VertexID];
 
-	mat2 rotation = rot(in_rotation);
-	gl_Position = vec4((vertices[gl_VertexID] * rotation * size + in_origin_offset * size) + pos, z, 1.0);
+	if((in_flags & 16) != 0) {
+		gl_Position = vec4(vertices[gl_VertexID], z, 1.0);
+	}
+	else {
+		vec2 pos = in_pos * (2.0 / base_res) - 1.0;
+		pos.y *= -1.0;
+		vec2 size = in_draw_size / base_res;
+		mat2 rotation = rot(in_rotation);
+		gl_Position = vec4((vertices[gl_VertexID] * rotation * size + in_origin_offset * size) + pos, z, 1.0);
+	}
+
+
+
 }

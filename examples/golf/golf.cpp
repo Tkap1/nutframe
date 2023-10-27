@@ -63,6 +63,7 @@ enum e_layer
 	e_layer_background,
 	e_layer_tile,
 	e_layer_hole,
+	e_layer_ball_angle_indicator,
 	e_layer_ball,
 	e_layer_particle,
 	e_layer_tile_ghost,
@@ -129,6 +130,8 @@ struct s_ball
 	int maps_beaten;
 	b8 has_push_queued;
 	s_v2 queued_push; // @Note(tkap, 27/10/2023): For all shoot at once mode
+	float last_collision_time; // @Note(tkap, 27/10/2023): This is to prevent the crazy sound when someone gets stuck between a directional booster
+	// and a wall
 };
 
 struct s_name_and_push_count
@@ -487,8 +490,8 @@ func void update(s_platform_data* platform_data)
 			}
 			#endif // m_debug
 
-			b8 all_ready = true;
 			if(game->modifiers[e_game_modifier_all_shoot_at_once]) {
+				b8 all_ready = true;
 				foreach_ptr(ball_i, ball, game->balls) {
 					if(game->transient.has_beat_level[ball_i]) { continue; }
 					if(!ball->has_push_queued) {
@@ -498,15 +501,15 @@ func void update(s_platform_data* platform_data)
 						ball->inactivity_time = 0;
 					}
 				}
-			}
-			if(all_ready) {
-				platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
-				foreach_ptr(ball_i, ball, game->balls) {
-					ball->pos_before_last_push = v2(ball->c.p);
-					ball->vel += ball->queued_push;
-					ball->has_push_queued = false;
-					game->transient.push_count[ball_i] += 1;
-					ball->push_count += 1;
+				if(all_ready) {
+					platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
+					foreach_ptr(ball_i, ball, game->balls) {
+						ball->pos_before_last_push = v2(ball->c.p);
+						ball->vel += ball->queued_push;
+						ball->has_push_queued = false;
+						game->transient.push_count[ball_i] += 1;
+						ball->push_count += 1;
+					}
 				}
 			}
 
@@ -601,12 +604,14 @@ func void update(s_platform_data* platform_data)
 
 						ball->c.p.x -= (c.depths[0]) * c.n.x;
 						ball->c.p.y -= (c.depths[0]) * c.n.y;
-						platform_data->play_sound(game->collide_sound);
+						if(game->total_time - ball->last_collision_time > 0.1f) {
+							platform_data->play_sound(game->collide_sound);
+						}
+						ball->last_collision_time = game->total_time;
 
 						float mag = v2_length(ball->vel);
 						do_collision_particles(v2(c.contact_points[0]), mag, ball->color);
 						ball->vel = v2_reflect(ball->vel, v2(c.n)) * 0.9f;
-						#undef mod
 
 						break;
 					}
@@ -765,6 +770,17 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 				draw_texture(g_r, v2(ball.c.p), e_layer_ball, v2(ball.c.r * 2.0f), color, game->noise, {}, {.effect_id = 2, .texture_size = ball.rotation});
 				if(!in_hole) {
 					draw_text(g_r, ball.name, v2(ball.c.p), 50, 24, make_color(1), true, game->font);
+
+					// @Note(tkap, 27/10/2023): Angle indicator from ball
+					for(int j = 0; j < 2; j++) {
+						float a = j * 0.125f;
+						for(int i = 0; i < 2; i++)
+						{
+							float angle = (i / 4.0f + a) * tau;
+							s_v2 d = v2_from_angle(angle) * 64.0f;
+							draw_line(g_r, v2(ball.c.p) - d, v2(ball.c.p) + d, e_layer_ball_angle_indicator, 8.0f, make_color(0.1f), {.blend_mode = e_blend_mode_additive, .framebuffer = game->particle_framebuffer});
+						}
+					}
 				}
 
 			}

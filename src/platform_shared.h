@@ -1528,6 +1528,7 @@ enum e_render_flags
 	e_render_flag_flip_x = 1 << 1,
 	e_render_flag_circle = 1 << 2,
 	e_render_flag_text = 1 << 3,
+	e_render_flag_line = 1 << 4,
 };
 
 struct s_sound
@@ -1840,6 +1841,24 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 	t.pos = pos;
 	t.layer = layer;
 	t.draw_size = size;
+	t.color = color;
+	t.uv_min = v2(0, 0);
+	t.uv_max = v2(1, 1);
+	t.mix_color = v41f(1);
+	bucket_add(&render_data.framebuffer->transforms[get_render_offset(0, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+}
+
+static void draw_line(s_game_renderer* game_renderer, s_v2 from, s_v2 to, int layer, float thickness, s_v4 color, s_render_data render_data = {}, s_transform t = {})
+{
+	if(!render_data.framebuffer) {
+		render_data.framebuffer = &game_renderer->framebuffers[0];
+	}
+
+	t.flags |= e_render_flag_line;
+	t.pos = from;
+	t.layer = layer;
+	t.draw_size = to;
+	t.texture_size.x = thickness;
 	t.color = color;
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
