@@ -321,10 +321,17 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 							char* vertex_src = read_file(paths.vertex_path, &platform_frame_arena);
 							char* fragment_src = read_file(paths.fragment_path, &platform_frame_arena);
 							if(!vertex_src || !vertex_src[0] || !fragment_src || !fragment_src[0]) { advance_file = false; }
-							u32 program =  load_shader_from_str(vertex_src, fragment_src);
+							u32 program =  load_shader_from_str(vertex_src, fragment_src, g_platform_data.program_error);
 
 							// @Note(tkap, 11/10/2023): We successfully loaded the shader files, but they don't compile/link, so we want to advance file
-							if(!program) { break; }
+							if(!program) {
+								g_platform_data.program_that_failed = g_platform_renderer.programs[shader_i];
+								break;
+							}
+
+							if(g_platform_data.program_that_failed == g_platform_renderer.programs[shader_i]) {
+								g_platform_data.program_that_failed = 0;
+							}
 
 							gl(glUseProgram(0));
 							gl(glDeleteProgram(g_platform_renderer.programs[shader_i]));

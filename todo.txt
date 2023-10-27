@@ -12,9 +12,6 @@ we can leak shaders if they compile but dont link
 
 we want shader errors in game. we need text rendering for this!!
 
-need a good way to set window size
-
-
 make a default framebuffer thingie
 we need to give new framebuffers a transforms pointer?
 handle do depth and do additive
@@ -25,10 +22,6 @@ why hot code reloading broken??
 	is it because load_texture allocates? but it also frees in the same call, i dont think this is it
 
 hot reloading shoudl break when we allocate something in the game layer and then reload
-
-embed assets in exe
-	we have to do shaders and fonts
-
 
 This doesnt seem necessary
 	blowfishfugu: some docs: "To use SDL2 audio, include it as #include <SDL2/SDL_mixer.h> and use -sUSE_SDL_MIXER=2. Format support is currently limited to OGG, WAV, MID, and MOD."
@@ -45,32 +38,33 @@ SDL_AUDIO_ALLOW_FREQUENCY_CHANGE breaks sounds in the web build!
 
 we could actually get it down to 1 file with a bunch of #ifdefs. but we still need 2 compilation units for hot reloading to work
 
+platform fframe arena not being reset?
 
+when we have multiple shaders, check that the in game error still works
 
 
 golf:
-	mode (or map?) where each time someone gets in the whole, the hole teleports
-	rcrnstn: A other target that sometimes jumps around that, if you land on it, makes everyone else do a random push
 	better graphics 4head
 
 	WinterCoding: I wonder if you could make some bot whisper you, then use the whisper window as a control for the ball so chat don't get spammed? Don't know though.
-	akthemadman: would be cool if shots would be fired all at once. i.e. turn based
 
 	add an argument to join that is the texture/shader index
 
 	realSuperku: mr tkat streamer what if you keep track of a moving average of player finish positions (normalized by player count). the better the position, the fancier the golfball looks, or like shit if you are not doing well. could be :) :( smileys also, with a golden smiley being the best. duckYep
 
-	bouncy wall
 	portals
 	pits and shit so we can fall out of the map
 
 	maybe we shouldnt do just pushes +1 to people who didnt beat it, but instead max(pushes + 1, thatplayerpushcount)
 	we should have a way to start playing the current map in the editor!!
 
-	maybe chip along with push, for "jump" shots
 
-	platform fframe arena not being reset?
 
 	exodus_uk: you have to collect a pickup to get through the gate
 
 	do timer for all at once mode
+
+	crazytown:
+		maybe chip along with push, for "jump" shots
+		rcrnstn: A other target that sometimes jumps around that, if you land on it, makes everyone else do a random push
+		mode (or map?) where each time someone gets in the whole, the hole teleports

@@ -1015,7 +1015,7 @@ struct s_data_chunk
 static void add_int_attrib(s_attrib_handler* handler, int count);
 static void add_float_attrib(s_attrib_handler* handler, int count);
 static void finish_attribs(s_attrib_handler* handler);
-static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src);
+static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src, char* out_buffer = NULL);
 static u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
 static void after_making_framebuffer(int index, s_game_renderer* game_renderer);
 static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
@@ -1801,6 +1801,8 @@ struct s_platform_data
 
 	#ifdef m_debug
 	b8 loaded_a_state;
+	u32 program_that_failed;
+	char program_error[1024];
 	#endif // m_debug
 
 	int window_width;
@@ -2017,16 +2019,22 @@ static void draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 
 	int len = (int)strlen(text);
 	assert(len > 0);
-	s_v2 pos = in_pos;
 	s_v2 text_size = get_text_size(text, font, font_size);
 	if(centered) {
-		pos.x -= text_size.x / 2;
-		pos.y -= text_size.y / 2;
+		in_pos.x -= text_size.x / 2;
+		in_pos.y -= text_size.y / 2;
 	}
+	s_v2 pos = in_pos;
 	// pos.y += font->ascent * scale;
 	for(int char_i = 0; char_i < len; char_i++) {
 		int c = text[char_i];
 		if(c <= 0 || c >= 128) { continue; }
+
+		if(c == '\n' || c == '\r') {
+			pos.x = in_pos.x;
+			pos.y += font_size;
+			continue;
+		}
 
 		s_glyph glyph = font->glyph_arr[c];
 		t.draw_size = v2((glyph.x1 - glyph.x0) * scale, (glyph.y1 - glyph.y0) * scale);
@@ -2711,6 +2719,13 @@ static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* g
 	gl(glClearDepth(0.0f));
 	gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
+	#ifdef m_debug
+	if(g_platform_data.program_that_failed) {
+		draw_rect(game_renderer, g_base_res * 0.5f, 90, g_base_res, make_color(0.5f, 0.1f, 0.1f));
+		draw_text(game_renderer, g_platform_data.program_error, v2(4), 95, 32.0f, make_color(1), false, &game_renderer->fonts[0]);
+	}
+	#endif // m_debug
+
 	if(game_renderer->did_we_alloc) {
 		int new_index = (game_renderer->arena_index + 1) % 2;
 		assert(game_renderer->arenas[new_index].used == 0);
@@ -2872,7 +2887,7 @@ static u32 load_shader_from_file(const char* vertex_path, const char* fragment_p
 	return load_shader_from_str(vertex_src, fragment_src);
 }
 
-static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src)
+static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src, char* out_error)
 {
 	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
 	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -2889,9 +2904,22 @@ static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src
 	gl(glShaderSource(fragment, array_count(fragment_src_arr), (const GLchar * const *)fragment_src_arr, NULL));
 	gl(glCompileShader(vertex));
 	char buffer[1024] = {};
-	check_for_shader_errors(vertex, buffer);
+	b8 vertex_compiled = check_for_shader_errors(vertex, buffer);
+	if(!vertex_compiled) {
+		if(out_error) {
+			memcpy(out_error, buffer, 1024);
+		}
+		return 0;
+	}
+
 	gl(glCompileShader(fragment));
-	check_for_shader_errors(fragment, buffer);
+	b8 fragment_compiled = check_for_shader_errors(fragment, buffer);
+	if(!fragment_compiled) {
+		if(out_error) {
+			memcpy(out_error, buffer, 1024);
+		}
+		return 0;
+	}
 	u32 program = gl(glCreateProgram());
 	gl(glAttachShader(program, vertex));
 	gl(glAttachShader(program, fragment));
@@ -2904,6 +2932,13 @@ static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src
 		if(!linked) {
 			gl(glGetProgramInfoLog(program, sizeof(buffer), &length, buffer));
 			printf("FAILED TO LINK: %s\n", buffer);
+
+			if(out_error) {
+				memcpy(out_error, buffer, 1024);
+			}
+
+			// @TODO(tkap, 27/10/2023): Delete shader and vertex?
+			return 0;
 		}
 	}
 
