@@ -32,7 +32,7 @@ global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
 global constexpr int c_updates_per_second = 240;
 global constexpr f64 c_update_delay = 1.0 / (f64)c_updates_per_second;
 global constexpr float c_delta = (float)c_update_delay;
-global constexpr int c_starting_map = 0;
+global constexpr int c_starting_map = 8;
 global constexpr float c_max_inactivity_time = 120.0f;
 
 enum e_state
@@ -91,6 +91,7 @@ enum e_tile
 	e_tile_sand,
 	e_tile_water,
 	e_tile_one_way,
+	e_tile_ice,
 	e_tile_count,
 };
 
@@ -104,6 +105,7 @@ enum e_map
 	e_map_006,
 	e_map_007,
 	e_map_008,
+	e_map_009,
 	e_map_count,
 };
 
@@ -229,6 +231,7 @@ struct s_game
 	s_texture water;
 	s_texture noise;
 	s_texture one_way;
+	s_texture ice;
 	float total_time;
 	f64 update_timer;
 	s_framebuffer* particle_framebuffer;
@@ -305,6 +308,7 @@ m_dll_export m_update_game(update_game)
 		game->water = g_r->load_texture(g_r, "examples/golf/water.png");
 		game->noise = g_r->load_texture(g_r, "examples/golf/noise.png");
 		game->one_way = g_r->load_texture(g_r, "examples/golf/one_way.png");
+		game->ice = g_r->load_texture(g_r, "examples/golf/ice.png");
 		game->push_sounds[0] = platform_data->load_sound(platform_data, "examples/golf/push1.wav", platform_data->frame_arena);
 		game->push_sounds[1] = platform_data->load_sound(platform_data, "examples/golf/push2.wav", platform_data->frame_arena);
 		game->push_sounds[2] = platform_data->load_sound(platform_data, "examples/golf/push3.wav", platform_data->frame_arena);
@@ -497,6 +501,7 @@ func void update(s_platform_data* platform_data)
 				s_map* map = &game->maps[game->curr_map];
 				ball->c.r = c_ball_radius;
 				b8 in_sand = false;
+				b8 in_ice = false;
 				if(game->balls.count > 0 && !game->transient.has_beat_level[ball_i]) {
 					ball->inactivity_time += c_delta;
 					if(ball->inactivity_time >= c_max_inactivity_time) {
@@ -521,7 +526,9 @@ func void update(s_platform_data* platform_data)
 						}
 						else if(tile_type == e_tile_sand) {
 							in_sand = true;
-							// mul *= 0.9875f;
+						}
+						else if(tile_type == e_tile_ice) {
+							in_ice = true;
 						}
 						else if(tile_type == e_tile_water) {
 							float d = v2_distance(v2(ball->c.p), tile_index_to_tile_center(tile));
@@ -570,7 +577,10 @@ func void update(s_platform_data* platform_data)
 				s_v2 hole_pos = tile_index_to_pos(map->hole) + v2(c_tile_size * 0.5f);
 				b8 in_hole = c2CircletoCircle(ball->c, {.p = {hole_pos.x, hole_pos.y}, .r = c_ball_radius * 2.0f}) != 0;
 
-				if(in_sand) {
+				if(in_ice) {
+					ball->vel *= 0.999f;
+				}
+				else if(in_sand) {
 					ball->vel *= 0.96f;
 				}
 				else {
@@ -1053,7 +1063,7 @@ func s_sarray<s_v2i, 16> get_interactive_tile_collisions(c2Circle circle, s_map*
 			u8 tile_type = map->tiles[new_index.y][new_index.x];
 			if(
 				tile_type != e_tile_acceleration && tile_type != e_tile_directional && tile_type != e_tile_sand &&
-				tile_type != e_tile_water
+				tile_type != e_tile_water && tile_type != e_tile_ice
 			) { continue; }
 
 			s_v2 tile_pos = v2(new_index.x * c_tile_size, new_index.y * c_tile_size);
@@ -1221,6 +1231,10 @@ func void draw_tile(s_game_renderer* renderer, s_v2 pos, e_layer layer, s_v2 siz
 	}
 	if(type == e_tile_one_way) {
 		draw_texture(renderer, pos, layer, size, make_color(1), game->one_way, render_data, t);
+		return;
+	}
+	if(type == e_tile_ice) {
+		draw_texture(renderer, pos, layer, size, make_color(1), game->ice, render_data, t);
 		return;
 	}
 
