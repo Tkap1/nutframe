@@ -46,3 +46,4 @@ embed.h
 chat_messages.txt
 __pycache__
 secret.py
+.vs

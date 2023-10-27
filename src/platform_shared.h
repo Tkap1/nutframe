@@ -1954,9 +1954,13 @@ static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena
 	assert(arena);
 	assert(did_we_alloc);
 
+
 	for(int bucket_i = 0; bucket_i < arr->bucket_count; bucket_i++) {
 		int* count = &arr->element_count[bucket_i];
 		assert(*count <= arr->capacity[bucket_i]);
+
+		assert((u8*)&arr->elements[bucket_i][0] >= (u8*)arena->memory);
+		assert((u8*)&arr->elements[bucket_i][0] < (u8*)arena->memory + arena->used);
 
 		if(*count < arr->capacity[bucket_i]) {
 			arr->elements[bucket_i][*count] = new_element;
@@ -1964,7 +1968,12 @@ static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena
 			return;
 		}
 	}
-	assert(arr->bucket_count < 16);
+
+	// assert(arr->bucket_count < 16);
+	if(arr->bucket_count >= 16) {
+		return;
+	}
+
 	constexpr int capacity = c_bucket_capacity;
 	arr->elements[arr->bucket_count] = (t*)la_get(arena, sizeof(t) * capacity);
 	arr->capacity[arr->bucket_count] = capacity;
@@ -1987,7 +1996,7 @@ static void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena)
 
 	assert(arr->bucket_count <= 16);
 
-	if(arr->element_count[0] <= 0) { return; }
+	if(arr->capacity[0] <= 0) { return; }
 
 	for(int i = 0; i < arr->bucket_count; i++) {
 		capacity += arr->capacity[i];
@@ -1996,10 +2005,14 @@ static void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena)
 	elements = (t*)la_get(arena, element_size * capacity);
 
 	for(int i = 0; i < arr->bucket_count; i++) {
-		assert(arr->element_count[i] > 0);
 		assert((count + arr->element_count[i]) * element_size <= element_size * capacity);
 		memcpy(&elements[count], arr->elements[i], element_size * arr->element_count[i]);
 		count += arr->element_count[i];
+
+		// @Note(tkap, 27/10/2023): Unnecessary
+		arr->elements[i] = NULL;
+		arr->element_count[i] = 0;
+		arr->capacity[i] = 0;
 	}
 
 	arr->elements[0] = elements;
@@ -2557,10 +2570,11 @@ static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* g
 	gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
 	if(game_renderer->did_we_alloc) {
+		int new_index = (game_renderer->arena_index + 1) % 2;
+		assert(game_renderer->arenas[new_index].used == 0);
 		foreach_ptr(framebuffer_i, framebuffer, game_renderer->framebuffers) {
 			for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++) {
 				for(int blend_i = 0; blend_i < e_blend_mode_count; blend_i++) {
-					int new_index = (game_renderer->arena_index + 1) % 2;
 					int offset = get_render_offset(texture_i, blend_i);
 					bucket_merge(&framebuffer->transforms[offset], &game_renderer->arenas[new_index]);
 				}
@@ -2888,12 +2902,14 @@ static s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, b8 do_dep
 
 static void after_making_framebuffer(int index, s_game_renderer* game_renderer)
 {
-	int size = sizeof(*game_renderer->framebuffers[0].transforms) * game_renderer->textures.count * e_blend_mode_count;
-	s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
-		&game_renderer->transform_arenas[game_renderer->transform_arena_index], size
-	);
-	s_framebuffer* framebuffer = &game_renderer->framebuffers[index];
-	framebuffer->transforms = new_transforms;
+	// @Note TODO(tkap, 27/10/2023): Is this even needed???
+	// int size = sizeof(*game_renderer->framebuffers[0].transforms) * game_renderer->textures.count * e_blend_mode_count;
+	// s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
+		// &game_renderer->transform_arenas[game_renderer->transform_arena_index], size
+	// );
+	// @Note(tkap, 26/10/2023): Aren't we already doing this in after loading texture??
+	// s_framebuffer* framebuffer = &game_renderer->framebuffers[index];
+	// framebuffer->transforms = new_transforms;
 
 	after_loading_texture(game_renderer);
 
