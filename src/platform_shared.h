@@ -1800,6 +1800,8 @@ struct s_platform_data
 	b8 window_resized;
 
 	#ifdef m_debug
+	b8 recording_input;
+	b8 replaying_input;
 	b8 loaded_a_state;
 	u32 program_that_failed;
 	char program_error[1024];
@@ -1862,14 +1864,12 @@ struct s_game_renderer
 	s_sarray<s_font, 4> fonts;
 };
 
-#define m_init_game(name) void name(s_platform_data* platform_data)
-#define m_update_game(name) void name(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
 #ifdef m_build_dll
-typedef m_init_game(t_init_game);
-typedef m_update_game(t_update_game);
+typedef void (t_init_game)(s_platform_data*);
+typedef void (t_update_game)(s_platform_data*, void*, s_game_renderer*);
 #else // m_build_dll
-m_update_game(update_game);
-m_init_game(init_game);
+void init_game(s_platform_data* platform_data);
+void update_game(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer);
 #endif
 
 
@@ -2470,20 +2470,34 @@ static void do_game_layer(
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		save states start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
 		char* path = "save_state";
-		if(is_key_pressed(g_platform_data.input, c_key_f3)) {
-			write_file(path, game_memory, c_game_memory);
+		if(is_key_pressed(g_platform_data.input, c_key_f10)) {
+			if(g_platform_data.recording_input) {
+				g_platform_data.recording_input = false;
+			}
+			else {
+				write_file(path, game_memory, c_game_memory);
+				if(is_key_down(g_platform_data.input, c_key_left_ctrl)) {
+					g_platform_data.recording_input = true;
+				}
+			}
 		}
-		if(is_key_pressed(g_platform_data.input, c_key_f4)) {
+		if(is_key_pressed(g_platform_data.input, c_key_f11)) {
 			u8* data = (u8*)read_file(path, g_platform_data.frame_arena, NULL);
 			if(data) {
-				memcpy(game_memory, data, c_game_memory);
 				g_platform_data.loaded_a_state = true;
+				if(is_key_down(g_platform_data.input, c_key_left_ctrl)) {
+					g_platform_data.replaying_input = true;
+				}
+				else {
+					memcpy(game_memory, data, c_game_memory);
+					g_platform_data.replaying_input = false;
+				}
 			}
 		}
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		save states end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-	if(is_key_pressed(g_platform_data.input, c_key_f1)) {
+	if(is_key_pressed(g_platform_data.input, c_key_f8)) {
 		g_platform_data.show_live_vars = !g_platform_data.show_live_vars;
 	}
 

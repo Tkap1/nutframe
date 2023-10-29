@@ -58,12 +58,12 @@ static s_v2i spawn_apple();
 extern "C" {
 #endif // m_build_dll
 
-m_dll_export m_init_game(init_game)
+m_dll_export void init_game(s_platform_data* platform_data)
 {
 	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
 }
 
-m_dll_export m_update_game(update_game)
+m_dll_export void update_game(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
 

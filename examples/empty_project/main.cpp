@@ -15,9 +15,8 @@ static s_v2 g_mouse;
 
 #ifdef m_build_dll
 extern "C" {
-m_dll_export
 #endif // m_build_dll
-m_update_game(update_game)
+m_dll_export void update_game(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
 

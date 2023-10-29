@@ -43,6 +43,13 @@ platform fframe arena not being reset?
 when we have multiple shaders, check that the in game error still works
 
 
+add support for texture atlas
+
+maybe we want to move update/render split to platform, so user doesnt have to do anything.
+	if the user wants variable delta time, then he can just put the whole game inside render?
+
+set a default window resolution so we are not forced to set one up
+
 golf:
 	better graphics 4head
 
