@@ -1023,6 +1023,7 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 static s_texture load_texture(s_game_renderer* game_renderer, const char* path);
 static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering, int format);
 static s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena);
+static void reset_ui();
 
 static char* read_file(const char* path, s_lin_arena* arena, u64* out_file_size = NULL)
 {
@@ -1807,13 +1808,18 @@ struct s_platform_data
 	char program_error[1024];
 	#endif // m_debug
 
+	int update_count;
+	int render_count;
+
 	int window_width;
 	int window_height;
-	s_input* input;
-	s_input* logic_input;
+	s_input logic_input;
+	s_input render_input;
 	s_lin_arena* frame_arena;
 	s_v2 mouse;
 	f64 frame_time;
+	f64 update_time;
+	f64 update_delay;
 	t_get_random_seed get_random_seed;
 	t_load_sound load_sound;
 	t_play_sound play_sound;
@@ -1866,10 +1872,12 @@ struct s_game_renderer
 
 #ifdef m_build_dll
 typedef void (t_init_game)(s_platform_data*);
-typedef void (t_update_game)(s_platform_data*, void*, s_game_renderer*);
+typedef void (t_update)(s_platform_data*, void*, s_game_renderer*);
+typedef void (t_render)(s_platform_data*, void*, s_game_renderer*);
 #else // m_build_dll
 void init_game(s_platform_data* platform_data);
-void update_game(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer);
+void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer);
+void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer);
 #endif
 
 
@@ -2461,7 +2469,8 @@ static void write_embed_file()
 static void do_game_layer(
 	s_game_renderer* game_renderer, void* game_memory
 	#ifndef m_sdl
-	, t_update_game update_game
+	, t_update update,
+	t_render render
 	#endif
 )
 {
@@ -2470,22 +2479,22 @@ static void do_game_layer(
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		save states start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
 		char* path = "save_state";
-		if(is_key_pressed(g_platform_data.input, c_key_f10)) {
+		if(is_key_pressed(&g_platform_data.logic_input, c_key_f10)) {
 			if(g_platform_data.recording_input) {
 				g_platform_data.recording_input = false;
 			}
 			else {
 				write_file(path, game_memory, c_game_memory);
-				if(is_key_down(g_platform_data.input, c_key_left_ctrl)) {
+				if(is_key_down(&g_platform_data.logic_input, c_key_left_ctrl)) {
 					g_platform_data.recording_input = true;
 				}
 			}
 		}
-		if(is_key_pressed(g_platform_data.input, c_key_f11)) {
+		if(is_key_pressed(&g_platform_data.logic_input, c_key_f11)) {
 			u8* data = (u8*)read_file(path, g_platform_data.frame_arena, NULL);
 			if(data) {
 				g_platform_data.loaded_a_state = true;
-				if(is_key_down(g_platform_data.input, c_key_left_ctrl)) {
+				if(is_key_down(&g_platform_data.logic_input, c_key_left_ctrl)) {
 					g_platform_data.replaying_input = true;
 				}
 				else {
@@ -2497,13 +2506,13 @@ static void do_game_layer(
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		save states end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-	if(is_key_pressed(g_platform_data.input, c_key_f8)) {
+	if(is_key_pressed(&g_platform_data.logic_input, c_key_f8)) {
 		g_platform_data.show_live_vars = !g_platform_data.show_live_vars;
 	}
 
 	if(g_platform_data.show_live_vars) {
 		s_v2 pos = g_platform_data.vars_pos;
-		s_ui_interaction interaction = ui_button(game_renderer, "Move", pos, v2(32), NULL, 32, g_platform_data.input, g_platform_data.mouse);
+		s_ui_interaction interaction = ui_button(game_renderer, "Move", pos, v2(32), NULL, 32, &g_platform_data.logic_input, g_platform_data.mouse);
 		if(interaction.state == e_ui_pressed) {
 			if(interaction.pressed_this_frame) {
 				g_platform_data.vars_pos_offset = g_platform_data.mouse - pos;
@@ -2530,25 +2539,25 @@ static void do_game_layer(
 			if(var.type == e_var_type_int) {
 				*(int*)var.ptr = ui_slider(
 					game_renderer, var.name, slider_pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size,
-					var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, g_platform_data.input, g_platform_data.mouse
+					var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, &g_platform_data.logic_input, g_platform_data.mouse
 				);
 			}
 			else if(var.type == e_var_type_float) {
 				*(float*)var.ptr = ui_slider(
 					game_renderer, var.name, slider_pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size,
-					var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr, g_platform_data.input, g_platform_data.mouse
+					var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr, &g_platform_data.logic_input, g_platform_data.mouse
 				);
 			}
 			else if(var.type == e_var_type_bool) {
 				s_v2 temp = slider_pos;
 				temp.x += 100 - button_height / 2.0f;
-				ui_checkbox(game_renderer, var.name, temp, v2(button_height), (b8*)var.ptr, g_platform_data.input, g_platform_data.mouse);
+				ui_checkbox(game_renderer, var.name, temp, v2(button_height), (b8*)var.ptr, &g_platform_data.logic_input, g_platform_data.mouse);
 			}
 			pos.y += button_height + 4.0f;
 		}
 
 		if(ui_button(
-				game_renderer, "Save", pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size, g_platform_data.input, g_platform_data.mouse
+				game_renderer, "Save", pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size, &g_platform_data.logic_input, g_platform_data.mouse
 			).state == e_ui_active) {
 			s_str_builder<10 * c_kb> builder;
 			foreach_val(var_i, var, g_platform_data.vars) {
@@ -2575,12 +2584,37 @@ static void do_game_layer(
 	g_platform_data.vars.count = 0;
 	#endif // m_debug
 
-	update_game(&g_platform_data, game_memory, game_renderer);
-	g_platform_data.recompiled = false;
+	g_platform_data.update_time += g_platform_data.frame_time;
 
-	#ifdef m_debug
-	g_platform_data.loaded_a_state = false;
-	#endif // m_debug
+	if(g_platform_data.update_delay <= 0) {
+		g_platform_data.update_delay = 1.0 / 60.0;
+	}
+	f64 delay = g_platform_data.update_delay;
+	f64 time = at_most(0.2, g_platform_data.update_time);
+	while(time > delay || g_platform_data.update_count <= 0) {
+		g_platform_data.update_time -= delay;
+		time -= delay;
+
+		update(&g_platform_data, game_memory, game_renderer);
+		g_platform_data.update_count += 1;
+		g_platform_data.recompiled = false;
+
+		for(int i = 0; i < c_max_keys; i++) {
+			g_platform_data.logic_input.keys[i].count = 0;
+		}
+
+		#ifdef m_debug
+		g_platform_data.loaded_a_state = false;
+		#endif // m_debug
+	}
+	render(&g_platform_data, game_memory, game_renderer);
+	g_platform_data.render_count += 1;
+
+	reset_ui();
+	for(int i = 0; i < c_max_keys; i++) {
+		g_platform_data.render_input.keys[i].count = 0;
+	}
+
 
 	if(g_do_embed) {
 		write_embed_file();

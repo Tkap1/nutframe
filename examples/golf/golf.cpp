@@ -29,9 +29,8 @@ global constexpr int c_max_balls = 128;
 global constexpr float c_seconds_after_first_beat = 120.0f;
 global constexpr s_v2 c_base_res = {1920, 1080};
 global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
-global constexpr int c_updates_per_second = 240;
-global constexpr f64 c_update_delay = 1.0 / (f64)c_updates_per_second;
-global constexpr float c_delta = (float)c_update_delay;
+global constexpr f64 c_updates_per_second = 240.0;
+global constexpr float c_delta = (float)(1.0 / c_updates_per_second);
 global constexpr int c_starting_map = 0;
 global constexpr float c_max_inactivity_time = 120.0f;
 
@@ -256,7 +255,6 @@ struct s_game
 	s_texture ice;
 	s_texture bouncy_wall;
 	float total_time;
-	f64 update_timer;
 	s_framebuffer* particle_framebuffer;
 	s_sarray<s_particle, 16384> particles;
 	s_sarray<int, e_map_count> random_maps;
@@ -295,13 +293,12 @@ func b8 is_tile_active(s_map* map, int x, int y);
 func b8 is_tile_active(s_map* map, s_v2i index);
 func c2v make_c2v(s_v2 v);
 func int get_worst_pushes_that_beat_level();
-func void update(s_platform_data* platform_data);
-func void render(s_platform_data* platform_data, s_game_renderer* renderer);
 func void do_particles(int count, s_v2 pos, s_particle_data data);
 func void beat_level_particles(s_v2 pos);
 func void do_collision_particles(s_v2 pos, float mag, s_v4 color);
 func void maybe_add_new_ball(s_str user);
 func bool compare_maps_beaten(s_name_and_push_count a, s_name_and_push_count b);
+func void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input);
 
 #ifdef m_build_dll
 extern "C" {
@@ -309,16 +306,14 @@ extern "C" {
 m_dll_export void init_game(s_platform_data* platform_data)
 {
 	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
+	platform_data->update_delay = 1.0 / c_updates_per_second;
 }
 
-m_dll_export void update_game(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
+m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
+	set_globals(platform_data, game_memory, renderer, &platform_data->logic_input);
 
-	g_mouse = platform_data->mouse;
-	game = (s_game*)game_memory;
-	g_r = renderer;
-	g_input = platform_data->input;
 	if(!game->initialized) {
 		game->initialized = true;
 		game->rng.seed = platform_data->get_random_seed();
@@ -372,8 +367,9 @@ m_dll_export void update_game(s_platform_data* platform_data, void* game_memory,
 
 			make_process_close_when_app_closes(process_info.hProcess);
 		}
-
 	}
+
+	game->total_time += c_delta;
 
 	#ifdef m_debug
 	if(platform_data->loaded_a_state) {
@@ -384,35 +380,6 @@ m_dll_export void update_game(s_platform_data* platform_data, void* game_memory,
 		}
 	}
 	#endif // m_debug
-
-	live_variable(&platform_data->vars, c_tile_size, 4, 128, true);
-	live_variable(&platform_data->vars, c_ball_impulse, 100.0f, 2000.0f, true);
-	live_variable(&platform_data->vars, c_ball_radius, 16.0f, 128.0f, true);
-	live_variable(&platform_data->vars, c_angle_indicator_x, 0.0f, 1.0f, true);
-	live_variable(&platform_data->vars, c_angle_indicator_y, 0.0f, 1.0f, true);
-
-	game->update_timer += platform_data->frame_time;
-	while(game->update_timer >= c_update_delay) {
-		game->update_timer -= c_update_delay;
-		update(platform_data);
-	}
-	render(platform_data, renderer);
-
-	for(int i = 0; i < c_max_keys; i++) {
-		g_input->keys[i].count = 0;
-	}
-
-	platform_data->reset_ui();
-
-}
-
-#ifdef m_build_dll
-}
-#endif // m_build_dll
-
-func void update(s_platform_data* platform_data)
-{
-	game->total_time += c_delta;
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		handle twitch messages start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	s_sarray<s_str, 128> msgs = get_chat_messages(platform_data);
@@ -698,8 +665,16 @@ func void update(s_platform_data* platform_data)
 	}
 }
 
-func void render(s_platform_data* platform_data, s_game_renderer* renderer)
+m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
 {
+	set_globals(platform_data, game_memory, renderer, &platform_data->render_input);
+
+	live_variable(&platform_data->vars, c_tile_size, 4, 128, true);
+	live_variable(&platform_data->vars, c_ball_impulse, 100.0f, 2000.0f, true);
+	live_variable(&platform_data->vars, c_ball_radius, 16.0f, 128.0f, true);
+	live_variable(&platform_data->vars, c_angle_indicator_x, 0.0f, 1.0f, true);
+	live_variable(&platform_data->vars, c_angle_indicator_y, 0.0f, 1.0f, true);
+
 	switch(game->state) {
 
 		case e_state_mode_select: {
@@ -1101,6 +1076,19 @@ func void render(s_platform_data* platform_data, s_game_renderer* renderer)
 		}
 	}
 	draw_texture(g_r, c_half_res, e_layer_particle, c_base_res, make_color(1), game->particle_framebuffer->texture, {.blend_mode = e_blend_mode_additive});
+}
+
+
+#ifdef m_build_dll
+}
+#endif // m_build_dll
+
+func void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input)
+{
+	g_mouse = platform_data->mouse;
+	game = (s_game*)game_memory;
+	g_r = renderer;
+	g_input = input;
 }
 
 func b8 is_valid_index(int x, int y, int width, int height)

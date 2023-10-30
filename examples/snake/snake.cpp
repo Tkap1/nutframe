@@ -63,7 +63,11 @@ m_dll_export void init_game(s_platform_data* platform_data)
 	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
 }
 
-m_dll_export void update_game(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
+m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
+{
+}
+
+m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
 
@@ -71,7 +75,7 @@ m_dll_export void update_game(s_platform_data* platform_data, void* game_memory,
 
 	game = (s_game*)game_memory;
 	g_r = renderer;
-	g_input = platform_data->input;
+	g_input = &platform_data->render_input;
 	if(!game->initialized) {
 		game->initialized = true;
 		game->rng.seed = platform_data->get_random_seed();
@@ -215,13 +219,6 @@ m_dll_export void update_game(s_platform_data* platform_data, void* game_memory,
 			);
 		} break;
 	}
-
-	for(int i = 0; i < c_max_keys; i++) {
-		g_input->keys[i].count = 0;
-	}
-
-	platform_data->reset_ui();
-
 }
 
 #ifdef m_build_dll

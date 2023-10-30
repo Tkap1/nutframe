@@ -1,11 +1,16 @@
-we want the equivalent of
-s_transforms transforms[texture_count][blend_mode_count];
+
+
+set a default window resolution so we are not forced to set one up
+
+maybe we want a different struct for platform_data that contains stuff that the game shouldnt touch.
+	or we add an _ to them to still give the game access but making it clear that they are not supposed to change it
 
 
 why doesn't hot reloading break textures??
 	we probably don't want it to allocate tho
 
-make a config.bat
+make a config.bat?
+
 
 we can leak shaders if they compile but dont link
 	we need some flags of what to free/delete in the load shader func
@@ -44,11 +49,6 @@ when we have multiple shaders, check that the in game error still works
 
 
 add support for texture atlas
-
-maybe we want to move update/render split to platform, so user doesnt have to do anything.
-	if the user wants variable delta time, then he can just put the whole game inside render?
-
-set a default window resolution so we are not forced to set one up
 
 golf:
 	better graphics 4head

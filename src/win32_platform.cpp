@@ -88,8 +88,6 @@ static constexpr int c_num_channels = 2;
 static constexpr int c_sample_rate = 44100;
 static constexpr int c_max_concurrent_sounds = 32;
 
-static s_input g_input;
-static s_input g_logic_input;
 static s_voice voice_arr[c_max_concurrent_sounds];
 static u64 g_cycle_frequency;
 static u64 g_start_cycles;
@@ -105,7 +103,7 @@ static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 #ifdef m_debug
 // @TODO(tkap, 18/10/2023): We probably don't want this now that we have the file watcher thing going
 static FILETIME last_dll_write_time;
-static void maybe_reload_dll(char* path, HMODULE* out_dll, t_init_game** out_init_game, t_update_game** out_update_game);
+static void maybe_reload_dll(char* path, HMODULE* out_dll, t_init_game** out_init_game, t_update** out_update, t_render** out_render);
 static b8 need_to_reload_dll(const char* path);
 static HMODULE load_dll(const char* path);
 static void unload_dll(HMODULE dll);
@@ -131,9 +129,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	#ifdef m_debug
 	t_init_game* init_game = NULL;
-	t_update_game* update_game = NULL;
+	t_update* update = NULL;
+	t_render* render = NULL;
 	HMODULE dll = NULL;
-	maybe_reload_dll("build/DigHard.dll", &dll, &init_game, &update_game);
+	maybe_reload_dll("build/DigHard.dll", &dll, &init_game, &update, &render);
 	#endif // m_debug
 
 	g_platform_data.get_random_seed = get_random_seed;
@@ -267,14 +266,12 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			DispatchMessage(&msg);
 		}
 
-		g_platform_data.input = &g_input;
-		g_platform_data.logic_input = &g_logic_input;
 		g_platform_data.quit_after_this_frame = !running;
 		g_platform_data.window_width = g_window.width;
 		g_platform_data.window_height = g_window.height;
 
 		#ifdef m_debug
-		maybe_reload_dll("build/DigHard.dll", &dll, &init_game, &update_game);
+		maybe_reload_dll("build/DigHard.dll", &dll, &init_game, &update, &render);
 		#endif // m_debug
 
 		POINT p;
@@ -284,7 +281,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_platform_data.mouse.y = (float)p.y;
 		g_platform_data.is_window_active = GetActiveWindow() == g_window.handle;
 
-		do_game_layer(game_renderer, game_memory, update_game);
+		do_game_layer(game_renderer, game_memory, update, render);
 
 		gl_render(&g_platform_renderer, game_renderer);
 
@@ -426,8 +423,8 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 				s_stored_input si = {};
 				si.key = key;
 				si.is_down = is_down;
-				apply_event_to_input(&g_input, si);
-				apply_event_to_input(&g_logic_input, si);
+				apply_event_to_input(&g_platform_data.logic_input, si);
+				apply_event_to_input(&g_platform_data.render_input, si);
 			}
 		} break;
 
@@ -452,8 +449,8 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 			s_stored_input si = {};
 			si.key = key;
 			si.is_down = is_down;
-			apply_event_to_input(&g_input, si);
-			apply_event_to_input(&g_logic_input, si);
+			apply_event_to_input(&g_platform_data.logic_input, si);
+			apply_event_to_input(&g_platform_data.render_input, si);
 			g_platform_data.any_key_pressed = true;
 		} break;
 
@@ -935,7 +932,7 @@ static s_sound load_sound_from_data(u8* data)
 
 #ifdef m_debug
 
-static void maybe_reload_dll(char* path, HMODULE* out_dll, t_init_game** out_init_game, t_update_game** out_update_game)
+static void maybe_reload_dll(char* path, HMODULE* out_dll, t_init_game** out_init_game, t_update** out_update, t_render** out_render)
 {
 	if(need_to_reload_dll(path))
 	{
@@ -950,8 +947,10 @@ static void maybe_reload_dll(char* path, HMODULE* out_dll, t_init_game** out_ini
 		*out_dll = load_dll("DigHard.dll");
 		*out_init_game = (t_init_game*)GetProcAddress(*out_dll, "init_game");
 		assert(out_init_game);
-		*out_update_game = (t_update_game*)GetProcAddress(*out_dll, "update_game");
-		assert(out_update_game);
+		*out_update = (t_update*)GetProcAddress(*out_dll, "update");
+		assert(out_update);
+		*out_render = (t_render*)GetProcAddress(*out_dll, "render");
+		assert(out_render);
 		log_info("Reloaded DLL!\n");
 		g_platform_data.recompiled = true;
 	}

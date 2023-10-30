@@ -53,11 +53,9 @@ static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_l
 static Mix_Chunk* load_sound_from_file(const char* path);
 static Mix_Chunk* load_sound_from_data(u8* data, int data_size);
 
-static s_input g_input;
-static s_input g_logic_input;
 static u64 g_cycle_frequency;
 static u64 g_start_cycles;
-static SDL_GLContext gContext;
+static SDL_GLContext g_gl_context;
 static SDL_Window* gWindow = NULL;
 static f64 g_start_of_frame_seconds = 0;
 
@@ -135,8 +133,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		return 1;
 	}
 
-	gContext = SDL_GL_CreateContext(gWindow);
-	if(gContext == NULL)
+	g_gl_context = SDL_GL_CreateContext(gWindow);
+	if(g_gl_context == NULL)
 	{
 		printf("OpenGL context could not be created! SDL Error: %s\n", SDL_GetError());
 		return 1;
@@ -246,8 +244,8 @@ static void do_one_frame()
 				s_stored_input si = {};
 				si.key = key;
 				si.is_down = is_down;
-				apply_event_to_input(&g_input, si);
-				apply_event_to_input(&g_logic_input, si);
+				apply_event_to_input(&g_platform_data.logic_input, si);
+				apply_event_to_input(&g_platform_data.render_input, si);
 			} break;
 
 			case SDL_MOUSEBUTTONDOWN:
@@ -258,14 +256,12 @@ static void do_one_frame()
 				s_stored_input si = {};
 				si.key = key;
 				si.is_down = is_down;
-				apply_event_to_input(&g_input, si);
-				apply_event_to_input(&g_logic_input, si);
+				apply_event_to_input(&g_platform_data.logic_input, si);
+				apply_event_to_input(&g_platform_data.render_input, si);
 			} break;
 		}
 	}
 
-	g_platform_data.input = &g_input;
-	g_platform_data.logic_input = &g_logic_input;
 	// g_platform_data.quit_after_this_frame = !result;
 	g_platform_data.window_width = g_window.width;
 	g_platform_data.window_height = g_window.height;

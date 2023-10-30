@@ -34,7 +34,7 @@ if !debug!==0 (
 
 @REM -sFULL_ES3
 pushd build
-	call emcc ..\src\sdl_platform.cpp ..\examples\snake.cpp -gsource-map -Dm_sdl -sFULL_ES3 !comp! -std=c++20 -Wno-writable-strings -sUSE_SDL=2 -sUSE_WEBGL2=1 -sALLOW_MEMORY_GROWTH -o hello.html -I"C:\Users\34687\Desktop\Dev\C\emsdk\upstream\emscripten\cache\sysroot\include"
+	call emcc ..\src\sdl_platform.cpp ..\examples\snake\snake.cpp -gsource-map -Dm_sdl -sFULL_ES3 !comp! -std=c++20 -Wno-writable-strings -sUSE_SDL=2 -sUSE_WEBGL2=1 -sALLOW_MEMORY_GROWTH -o hello.html -I"C:\Users\34687\Desktop\Dev\C\emsdk\upstream\emscripten\cache\sysroot\include"
 popd
 
 copy build\hello.html hello.html > NUL
