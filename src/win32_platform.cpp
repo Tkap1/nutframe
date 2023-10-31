@@ -408,9 +408,11 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 		} break;
 
 		case WM_KEYDOWN:
+		case WM_SYSKEYDOWN:
 		case WM_KEYUP:
+		case WM_SYSKEYUP:
 		{
-			if(msg == WM_KEYDOWN)
+			if(msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
 			{
 				g_platform_data.any_key_pressed = true;
 			}
@@ -425,6 +427,15 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 				si.is_down = is_down;
 				apply_event_to_input(&g_platform_data.logic_input, si);
 				apply_event_to_input(&g_platform_data.render_input, si);
+
+				#ifdef m_debug
+				if(g_platform_data.recording_input && key != c_key_f10) {
+					s_foo ri = {};
+					ri.input = si;
+					ri.update_count = g_platform_data.update_count;
+					g_platform_data.recorded_input.keys.add(ri);
+				}
+				#endif // m_debug
 			}
 		} break;
 
@@ -452,6 +463,15 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 			apply_event_to_input(&g_platform_data.logic_input, si);
 			apply_event_to_input(&g_platform_data.render_input, si);
 			g_platform_data.any_key_pressed = true;
+
+			#ifdef m_debug
+			if(g_platform_data.recording_input) {
+				s_foo ri = {};
+				ri.input = si;
+				ri.update_count = g_platform_data.update_count;
+				g_platform_data.recorded_input.keys.add(ri);
+			}
+			#endif // m_debug
 		} break;
 
 		default:

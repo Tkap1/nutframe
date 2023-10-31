@@ -1731,6 +1731,21 @@ struct s_stored_input
 	int key;
 };
 
+#ifdef m_debug
+struct s_foo
+{
+	int update_count;
+	s_stored_input input;
+};
+
+struct s_recorded_input
+{
+	int starting_update;
+	s_sarray<s_v2, 10240> mouse;
+	s_sarray<s_foo, 1024> keys;
+};
+#endif // m_debug
+
 struct s_key
 {
 	b8 is_down;
@@ -1801,6 +1816,8 @@ struct s_platform_data
 	b8 window_resized;
 
 	#ifdef m_debug
+	int recorded_input_index;
+	s_recorded_input recorded_input;
 	b8 recording_input;
 	b8 replaying_input;
 	b8 loaded_a_state;
@@ -2466,6 +2483,15 @@ static void write_embed_file()
 	exit(0);
 }
 
+static void begin_replaying_input()
+{
+	assert(!g_platform_data.recording_input);
+	g_platform_data.replaying_input = true;
+	s_recorded_input* recorded_input = (s_recorded_input*)read_file("recorded_input", g_platform_data.frame_arena, NULL);
+	memcpy(&g_platform_data.recorded_input, recorded_input, sizeof(*recorded_input));
+	g_platform_data.recorded_input_index = 0;
+}
+
 static void do_game_layer(
 	s_game_renderer* game_renderer, void* game_memory
 	#ifndef m_sdl
@@ -2474,31 +2500,70 @@ static void do_game_layer(
 	#endif
 )
 {
+
+	if(is_key_down(&g_platform_data.logic_input, c_key_left_alt) && is_key_down(&g_platform_data.logic_input, c_key_f4)) {
+		exit(0);
+	}
+
 	#ifdef m_debug
+	char* save_state_path = "save_state";
+
+	if(g_platform_data.recording_input) {
+		g_platform_data.recorded_input.mouse.add(g_platform_data.mouse);
+	}
+
+	if(g_platform_data.replaying_input) {
+		if(g_platform_data.recorded_input.mouse.count <= 0) {
+			u8* data = (u8*)read_file(save_state_path, g_platform_data.frame_arena, NULL);
+			assert(data);
+			memcpy(game_memory, data, c_game_memory);
+			begin_replaying_input();
+			printf("Replay restarted\n");
+		}
+		int frame = g_platform_data.recorded_input.starting_update + g_platform_data.recorded_input_index;
+		g_platform_data.mouse = g_platform_data.recorded_input.mouse[0];
+		g_platform_data.recorded_input.mouse.remove_and_shift(0);
+
+		// @TODO(tkap, 31/10/2023): physically move the mouse
+		SetCursorPos((int)g_platform_data.mouse.x, (int)g_platform_data.mouse.y);
+
+		foreach_val(key_i, key, g_platform_data.recorded_input.keys) {
+			if(key.update_count > frame) {
+				break;
+			}
+			apply_event_to_input(&g_platform_data.logic_input, key.input);
+			apply_event_to_input(&g_platform_data.render_input, key.input);
+			g_platform_data.recorded_input.keys.remove_and_shift(key_i--);
+		}
+	}
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		save states start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
-		char* path = "save_state";
 		if(is_key_pressed(&g_platform_data.logic_input, c_key_f10)) {
 			if(g_platform_data.recording_input) {
 				g_platform_data.recording_input = false;
+				write_file("recorded_input", &g_platform_data.recorded_input, sizeof(g_platform_data.recorded_input));
+				printf("Recording stopped\n");
 			}
 			else {
-				write_file(path, game_memory, c_game_memory);
+				write_file(save_state_path, game_memory, c_game_memory);
 				if(is_key_down(&g_platform_data.logic_input, c_key_left_ctrl)) {
 					g_platform_data.recording_input = true;
+					g_platform_data.recorded_input.starting_update = g_platform_data.update_count;
+					printf("Recording started\n");
 				}
 			}
 		}
 		if(is_key_pressed(&g_platform_data.logic_input, c_key_f11)) {
-			u8* data = (u8*)read_file(path, g_platform_data.frame_arena, NULL);
+			u8* data = (u8*)read_file(save_state_path, g_platform_data.frame_arena, NULL);
 			if(data) {
+				memcpy(game_memory, data, c_game_memory);
 				g_platform_data.loaded_a_state = true;
 				if(is_key_down(&g_platform_data.logic_input, c_key_left_ctrl)) {
-					g_platform_data.replaying_input = true;
+					begin_replaying_input();
+					printf("Begin replay\n");
 				}
 				else {
-					memcpy(game_memory, data, c_game_memory);
 					g_platform_data.replaying_input = false;
 				}
 			}
@@ -2598,6 +2663,12 @@ static void do_game_layer(
 		update(&g_platform_data, game_memory, game_renderer);
 		g_platform_data.update_count += 1;
 		g_platform_data.recompiled = false;
+
+		#ifdef m_debug
+		if(g_platform_data.replaying_input) {
+			g_platform_data.recorded_input_index += 1;
+		}
+		#endif // m_debug
 
 		for(int i = 0; i < c_max_keys; i++) {
 			g_platform_data.logic_input.keys[i].count = 0;
