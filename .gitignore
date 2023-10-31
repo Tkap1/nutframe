@@ -48,3 +48,4 @@ __pycache__
 secret.py
 .vs
 recorded_input
+*.sln

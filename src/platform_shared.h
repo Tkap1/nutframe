@@ -2478,11 +2478,12 @@ static void write_embed_file()
 		fclose(file);
 	}
 
-	printf("Successfully created embed.h!\n");
+	log_info("Successfully created embed.h!\n");
 
 	exit(0);
 }
 
+#ifdef m_debug
 static void begin_replaying_input()
 {
 	assert(!g_platform_data.recording_input);
@@ -2491,6 +2492,7 @@ static void begin_replaying_input()
 	memcpy(&g_platform_data.recorded_input, recorded_input, sizeof(*recorded_input));
 	g_platform_data.recorded_input_index = 0;
 }
+#endif // m_debug
 
 static void do_game_layer(
 	s_game_renderer* game_renderer, void* game_memory
@@ -2508,49 +2510,20 @@ static void do_game_layer(
 	#ifdef m_debug
 	char* save_state_path = "save_state";
 
-	if(g_platform_data.recording_input) {
-		g_platform_data.recorded_input.mouse.add(g_platform_data.mouse);
-	}
-
-	if(g_platform_data.replaying_input) {
-		if(g_platform_data.recorded_input.mouse.count <= 0) {
-			u8* data = (u8*)read_file(save_state_path, g_platform_data.frame_arena, NULL);
-			assert(data);
-			memcpy(game_memory, data, c_game_memory);
-			begin_replaying_input();
-			printf("Replay restarted\n");
-		}
-		int frame = g_platform_data.recorded_input.starting_update + g_platform_data.recorded_input_index;
-		g_platform_data.mouse = g_platform_data.recorded_input.mouse[0];
-		g_platform_data.recorded_input.mouse.remove_and_shift(0);
-
-		// @TODO(tkap, 31/10/2023): physically move the mouse
-		SetCursorPos((int)g_platform_data.mouse.x, (int)g_platform_data.mouse.y);
-
-		foreach_val(key_i, key, g_platform_data.recorded_input.keys) {
-			if(key.update_count > frame) {
-				break;
-			}
-			apply_event_to_input(&g_platform_data.logic_input, key.input);
-			apply_event_to_input(&g_platform_data.render_input, key.input);
-			g_platform_data.recorded_input.keys.remove_and_shift(key_i--);
-		}
-	}
-
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		save states start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
 		if(is_key_pressed(&g_platform_data.logic_input, c_key_f10)) {
 			if(g_platform_data.recording_input) {
 				g_platform_data.recording_input = false;
 				write_file("recorded_input", &g_platform_data.recorded_input, sizeof(g_platform_data.recorded_input));
-				printf("Recording stopped\n");
+				log_info("Recording stopped\n");
 			}
 			else {
 				write_file(save_state_path, game_memory, c_game_memory);
 				if(is_key_down(&g_platform_data.logic_input, c_key_left_ctrl)) {
 					g_platform_data.recording_input = true;
 					g_platform_data.recorded_input.starting_update = g_platform_data.update_count;
-					printf("Recording started\n");
+					log_info("Recording started\n");
 				}
 			}
 		}
@@ -2561,7 +2534,7 @@ static void do_game_layer(
 				g_platform_data.loaded_a_state = true;
 				if(is_key_down(&g_platform_data.logic_input, c_key_left_ctrl)) {
 					begin_replaying_input();
-					printf("Begin replay\n");
+					log_info("Begin replay\n");
 				}
 				else {
 					g_platform_data.replaying_input = false;
@@ -2660,15 +2633,42 @@ static void do_game_layer(
 		g_platform_data.update_time -= delay;
 		time -= delay;
 
-		update(&g_platform_data, game_memory, game_renderer);
-		g_platform_data.update_count += 1;
-		g_platform_data.recompiled = false;
-
 		#ifdef m_debug
+
+		if(g_platform_data.recording_input) {
+			g_platform_data.recorded_input.mouse.add(g_platform_data.mouse);
+		}
+
 		if(g_platform_data.replaying_input) {
+			if(g_platform_data.recorded_input.mouse.count <= 0) {
+				u8* data = (u8*)read_file(save_state_path, g_platform_data.frame_arena, NULL);
+				assert(data);
+				memcpy(game_memory, data, c_game_memory);
+				begin_replaying_input();
+				log_info("Replay restarted\n");
+			}
+			int frame = g_platform_data.recorded_input.starting_update + g_platform_data.recorded_input_index;
+			g_platform_data.mouse = g_platform_data.recorded_input.mouse[0];
+			g_platform_data.recorded_input.mouse.remove_and_shift(0);
+
+			set_cursor_pos((int)g_platform_data.mouse.x, (int)g_platform_data.mouse.y);
+
+			foreach_val(key_i, key, g_platform_data.recorded_input.keys) {
+				if(key.update_count > frame) {
+					break;
+				}
+				apply_event_to_input(&g_platform_data.logic_input, key.input);
+				apply_event_to_input(&g_platform_data.render_input, key.input);
+				g_platform_data.recorded_input.keys.remove_and_shift(key_i--);
+			}
+
 			g_platform_data.recorded_input_index += 1;
 		}
 		#endif // m_debug
+
+		update(&g_platform_data, game_memory, game_renderer);
+		g_platform_data.update_count += 1;
+		g_platform_data.recompiled = false;
 
 		for(int i = 0; i < c_max_keys; i++) {
 			g_platform_data.logic_input.keys[i].count = 0;

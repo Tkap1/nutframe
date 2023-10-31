@@ -1,4 +1,8 @@
 
+does alt f4 work on sdl???
+
+give the platform a function pointer to set cursor pos
+make set cursor pos with non borderless windows i.e. do the screentoclient bs
 
 set a default window resolution so we are not forced to set one up
 

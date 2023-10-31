@@ -35,6 +35,7 @@ struct s_window
 };
 static s_window g_window;
 
+static void set_cursor_pos(int x, int y);
 #include "platform_shared.h"
 
 struct s_voice : IXAudio2VoiceCallback
@@ -1003,3 +1004,8 @@ static void unload_dll(HMODULE dll)
 	check(FreeLibrary(dll));
 }
 #endif // m_debug
+
+static void set_cursor_pos(int x, int y)
+{
+	SetCursorPos(x, y);
+}

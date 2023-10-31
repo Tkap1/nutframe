@@ -40,6 +40,7 @@ struct s_window
 };
 static s_window g_window;
 
+static void set_cursor_pos(int x, int y);
 #include "platform_shared.h"
 
 static b8 play_sound(s_sound* sound);
@@ -246,6 +247,16 @@ static void do_one_frame()
 				si.is_down = is_down;
 				apply_event_to_input(&g_platform_data.logic_input, si);
 				apply_event_to_input(&g_platform_data.render_input, si);
+
+				#ifdef m_debug
+				if(g_platform_data.recording_input && key != c_key_f10) {
+					s_foo ri = {};
+					ri.input = si;
+					ri.update_count = g_platform_data.update_count;
+					g_platform_data.recorded_input.keys.add(ri);
+				}
+				#endif // m_debug
+
 			} break;
 
 			case SDL_MOUSEBUTTONDOWN:
@@ -258,6 +269,16 @@ static void do_one_frame()
 				si.is_down = is_down;
 				apply_event_to_input(&g_platform_data.logic_input, si);
 				apply_event_to_input(&g_platform_data.render_input, si);
+
+				#ifdef m_debug
+				if(g_platform_data.recording_input && key != c_key_f10) {
+					s_foo ri = {};
+					ri.input = si;
+					ri.update_count = g_platform_data.update_count;
+					g_platform_data.recorded_input.keys.add(ri);
+				}
+				#endif // m_debug
+
 			} break;
 		}
 	}
@@ -393,4 +414,9 @@ static b8 play_sound(s_sound* sound)
 		return false;
 	}
 	return true;
+}
+
+static void set_cursor_pos(int x, int y)
+{
+	SDL_WarpMouseInWindow(gWindow, x, y);
 }
