@@ -158,7 +158,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	{
 		s_lin_arena all = {};
-		all.capacity = 30 * c_mb;
+		all.capacity = 100 * c_mb;
 
 		// @Note(tkap, 26/06/2023): We expect this memory to be zero'd
 		all.memory = malloc(all.capacity);
@@ -171,10 +171,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		g_game_frame_arena = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
 		g_platform_data.frame_arena = &g_game_frame_arena;
 
-		g_game_renderer->arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		g_game_renderer->arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		g_game_renderer->transform_arenas[0] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
-		g_game_renderer->transform_arenas[1] = make_lin_arena_from_memory(1 * c_mb, la_get(&all, 1 * c_mb));
+		g_game_renderer->arenas[0] = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
+		g_game_renderer->arenas[1] = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
+		g_game_renderer->transform_arenas[0] = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
+		g_game_renderer->transform_arenas[1] = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
 		g_game_renderer->textures.add({});
 		after_loading_texture(g_game_renderer);
 	}

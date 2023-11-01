@@ -224,9 +224,16 @@ struct s_v3
 
 struct s_v4
 {
-	float x;
-	float y;
-	float z;
+	union
+	{
+		struct
+		{
+			float x;
+			float y;
+			float z;
+		};
+		s_v3 xyz;
+	};
 	float w;
 };
 
@@ -668,7 +675,7 @@ static constexpr s_v2 v2(T v)
 
 static s_v4 v4(s_v3 v3, float a)
 {
-	return {v3.x, v3.y, v3.z, a};
+	return {.x = v3.x, .y = v3.y, .z = v3.z, .w = a};
 }
 
 static constexpr s_v3 v3(float x, float y, float z)
@@ -1440,12 +1447,17 @@ static s_v2 v2_normalized(s_v2 v)
 	return result;
 }
 
-static s_v2 v2_rand_normalized(s_rng* rng)
+static s_v2 v2_rand(s_rng* rng)
 {
-	return v2_normalized(v2(
+	return v2(
 		(float)rng->randf2(),
 		(float)rng->randf2()
-	));
+	);
+}
+
+static s_v2 v2_rand_normalized(s_rng* rng)
+{
+	return v2_normalized(v2_rand(rng));
 }
 
 static float v2_dot(s_v2 a, s_v2 b)
@@ -1626,7 +1638,7 @@ static constexpr int c_left_mouse = 1020;
 static constexpr int c_right_mouse = 1021;
 static constexpr int c_max_keys = 1024;
 
-static constexpr int c_game_memory = 2 * c_mb;
+static constexpr int c_game_memory = 20 * c_mb;
 
 static constexpr s_v2 c_origin_topleft = {1.0f, -1.0f};
 static constexpr s_v2 c_origin_bottomleft = {1.0f, 1.0f};
