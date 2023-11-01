@@ -1343,9 +1343,19 @@ static b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size
 		pos0.y + size0.y > pos1.y && pos0.y < pos1.y + size1.y;
 }
 
+static b8 rect_collides_rect_center(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
+{
+	return rect_collides_rect_topleft(pos0 - size0 * 0.5f, size0, pos1 - size1 * 0.5f, size1);
+}
+
 static b8 mouse_collides_rect_topleft(s_v2 mouse, s_v2 pos, s_v2 size)
 {
 	return rect_collides_rect_topleft(mouse, v2(1, 1), pos, size);
+}
+
+static b8 mouse_collides_rect_center(s_v2 mouse, s_v2 pos, s_v2 size)
+{
+	return rect_collides_rect_center(mouse, v2(1, 1), pos, size);
 }
 
 
@@ -1945,6 +1955,7 @@ static int get_render_offset(int texture, int blend_mode)
 }
 
 // @Note(tkap, 15/10/2023): Should this always return font_size for y (like it does now), or actually get the tallest char?
+// @TODO(tkap, 31/10/2023): Handle new lines
 static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count)
 {
 	assert(count >= 0);

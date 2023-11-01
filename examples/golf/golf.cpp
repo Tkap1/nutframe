@@ -115,7 +115,7 @@ enum e_map
 	e_map_008,
 	e_map_009,
 	e_map_010,
-	e_map_011,
+	// e_map_011,
 	e_map_count,
 };
 
@@ -729,8 +729,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					pos.y += 68.0f;
 				}
 			}
-
-
 		} break;
 
 		case e_state_play: {
