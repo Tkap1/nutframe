@@ -204,7 +204,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	{
 		s_lin_arena all = {};
-		all.capacity = 100 * c_mb;
+		all.capacity = 500 * c_mb;
 
 		#ifdef m_debug
 		// @Note(tkap, 20/10/2023): We give a high base address in debug mode because this gives us consistent pointers, which is nice for debugging.
@@ -223,10 +223,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		game_frame_arena = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
 		g_platform_data.frame_arena = &game_frame_arena;
 
-		game_renderer->arenas[0] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
-		game_renderer->arenas[1] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
-		game_renderer->transform_arenas[0] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
-		game_renderer->transform_arenas[1] = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
+		game_renderer->arenas[0] = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
+		game_renderer->arenas[1] = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
+		game_renderer->transform_arenas[0] = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
+		game_renderer->transform_arenas[1] = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
 		game_renderer->textures.add({});
 		after_loading_texture(game_renderer);
 	}

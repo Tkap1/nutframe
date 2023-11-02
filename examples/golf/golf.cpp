@@ -115,7 +115,7 @@ enum e_map
 	e_map_008,
 	e_map_009,
 	e_map_010,
-	// e_map_011,
+	e_map_011,
 	e_map_count,
 };
 
@@ -1400,6 +1400,14 @@ func void move_ball_to_spawn(s_ball* ball, s_map* map)
 	ball->has_push_queued = false;
 }
 
+func b8 are_we_on_first_map()
+{
+	if(game->modifiers[e_game_modifier_random_map_order]) {
+		return game->random_maps.count == e_map_count - 1;
+	}
+	return game->curr_map == 0;
+}
+
 func b8 are_we_on_last_map()
 {
 	if(game->modifiers[e_game_modifier_random_map_order]) {
@@ -1581,7 +1589,7 @@ func void maybe_add_new_ball(s_str user)
 		move_ball_to_spawn(&ball, map);
 		ball.c.r = c_ball_radius;
 		memcpy(ball.name, user.data, user.len);
-		if(game->curr_map > 0) {
+		if(!are_we_on_first_map()) {
 			int worst_total = 0;
 			int worst_level = 0;
 			foreach_val(worst_i, worst, game->balls) {

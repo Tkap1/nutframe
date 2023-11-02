@@ -3,10 +3,10 @@
 #include "../../src/platform_shared.h"
 #include "variables.h"
 
-global constexpr s_v2 c_base_res = {1920, 1080};
-global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
-global constexpr f64 c_updates_per_second = 240.0;
-global constexpr float c_delta = (float)(1.0 / c_updates_per_second);
+static constexpr s_v2 c_base_res = {1920, 1080};
+static constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
+static constexpr f64 c_updates_per_second = 240.0;
+static constexpr float c_delta = (float)(1.0 / c_updates_per_second);
 
 struct s_game
 {
@@ -14,11 +14,12 @@ struct s_game
 	float total_time;
 };
 
-global s_input* g_input;
-global s_game* game;
-global s_game_renderer* g_r;
-global s_v2 g_mouse;
+static s_input* g_input;
+static s_game* game;
+static s_game_renderer* g_r;
+static s_v2 g_mouse;
 
+func void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input);
 
 #ifdef m_build_dll
 extern "C" {
