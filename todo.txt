@@ -81,10 +81,6 @@ golf:
 
 	do timer for all at once mode
 
-	last leaderboard should last twice as long
-	offset players randomly (unless the all shot at once mode is enabled, maybe) so that CHEATING FUCKS can't
-		just wait and then copy the most successful player
-
 	crazytown:
 		maybe chip along with push, for "jump" shots
 		rcrnstn: A other target that sometimes jumps around that, if you land on it, makes everyone else do a random push

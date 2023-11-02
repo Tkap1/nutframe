@@ -170,6 +170,7 @@ void main()
 			color.rgb *= uv.y * uv.y;
 		}
 		// color.rgb = pow(color.rgb, vec3(2.2));
+		color *= v_color;
 	}
 
 	color = pma(color);

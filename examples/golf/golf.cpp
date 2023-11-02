@@ -664,10 +664,15 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		} break;
 
 		case e_state_stats: {
+			float target_time = 10;
+			b8 last_map = are_we_on_last_map();
+			if(last_map) {
+				target_time = 20;
+			}
 			game->transient.stats_timer += c_delta;
-			if(game->transient.stats_timer >= 10 || is_key_pressed(g_input, c_key_enter)) {
+			if(game->transient.stats_timer >= target_time || is_key_pressed(g_input, c_key_enter)) {
 				game->reset_level = true;
-				if(are_we_on_last_map()) {
+				if(last_map) {
 					game->state = e_state_victory;
 				}
 				else {
@@ -848,13 +853,17 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				y += font_size;
 			}
 
-			draw_rect(g_r, c_half_res, e_layer_background, c_base_res, make_color(1), zero, {.effect_id = 3});
+			s_v4 color = make_color(1);
+			if(are_we_on_last_map()) {
+				color = make_color(1, 0.5f, 0.5f);
+			}
+			draw_rect(g_r, c_half_res, e_layer_background, c_base_res, color, zero, {.effect_id = 3});
 		} break;
 
 		case e_state_victory: {
 			s_v2 pos = c_base_res * v2(0.5f, 0.5f);
 			draw_text(g_r, "That's it lol", pos, e_layer_ui, 64.0f, make_color(1), true, game->font);
-			draw_rect(g_r, c_half_res, e_layer_background, c_base_res, make_color(1), zero, {.effect_id = 3});
+			draw_rect(g_r, c_half_res, e_layer_background, c_base_res, make_color(1, 0.5f, 0.5f), zero, {.effect_id = 3});
 		} break;
 
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		map editor start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
