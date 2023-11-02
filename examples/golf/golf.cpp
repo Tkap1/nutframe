@@ -32,7 +32,7 @@ global constexpr s_v2 c_half_res = {c_base_res.x / 2.0f, c_base_res.y / 2.0f};
 global constexpr f64 c_updates_per_second = 240.0;
 global constexpr float c_delta = (float)(1.0 / c_updates_per_second);
 global constexpr int c_starting_map = 0;
-global constexpr float c_max_inactivity_time = 120.0f;
+global constexpr float c_max_inactivity_time = 90.0f;
 
 enum e_state
 {
@@ -191,6 +191,7 @@ struct s_game_transient
 {
 	s_carray<int, c_max_balls> push_count;
 	s_carray<b8, c_max_balls> has_beat_level;
+	s_carray<b8, c_max_balls> has_given_up_on_level;
 	s_v2 spawn_offset;
 	float first_beat_time;
 	float stats_timer;
@@ -299,6 +300,8 @@ func void do_collision_particles(s_v2 pos, float mag, s_v4 color);
 func void maybe_add_new_ball(s_str user);
 func bool compare_maps_beaten(s_name_and_push_count a, s_name_and_push_count b);
 func void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input);
+func float get_hole_radius();
+func s_v2 get_random_spawn_offset();
 
 #ifdef m_build_dll
 extern "C" {
@@ -398,6 +401,24 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 		}
 
+		if(game->state == e_state_play) {
+			if(content.len >= 10 && strncmp_ignore_case(content.data, "leavelevel", 10)) {
+				int ball_index = get_ball_by_name(user);
+				if(ball_index >= 0) {
+					game->transient.has_given_up_on_level[ball_index] = true;
+				}
+			}
+		}
+
+		if(game->state == e_state_play) {
+			if(content.len >= 9 && strncmp_ignore_case(content.data, "leavegame", 9)) {
+				int ball_index = get_ball_by_name(user);
+				if(ball_index >= 0) {
+					game->balls[ball_index].inactivity_time = 999999;
+				}
+			}
+		}
+
 		// printf("%.*s: %.*s\n", user.len, user.data, content.len, content.data);
 		if(game->state == e_state_play && content.len > 4 && strncmp_ignore_case(content.data, "push", 4)) {
 			char* out = null;
@@ -410,7 +431,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			// printf("%i, %i\n", angle, strength);
 
 			int ball_index = get_ball_by_name(user);
-			if(ball_index >= 0) {
+			if(ball_index >= 0 && !game->transient.has_given_up_on_level[ball_index]) {
 				s_ball* ball = &game->balls[ball_index];
 				ball->inactivity_time = 0;
 				s_v2 push_vector = v2_from_angle(deg_to_rad((float)angle)) * range_lerp((float)strength, 1, 100, 25, 2000);
@@ -438,8 +459,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			if(game->reset_level) {
 				memset(&game->transient, 0, sizeof(game->transient));
 				game->reset_level = false;
-				game->transient.spawn_offset.x = (float)game->rng.randf2() * c_ball_radius * 2;
-				game->transient.spawn_offset.y = (float)game->rng.randf2() * c_ball_radius * 2;
+				game->transient.spawn_offset = get_random_spawn_offset();
 
 				s_map* map = &game->maps[game->curr_map];
 				foreach_ptr(ball_i, ball, game->balls) {
@@ -469,7 +489,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			#endif // m_debug
 
 			if(game->modifiers[e_game_modifier_all_shoot_at_once]) {
-				b8 all_ready = true;
+				b8 all_ready = game->balls.count > 0;
 				foreach_ptr(ball_i, ball, game->balls) {
 					if(game->transient.has_beat_level[ball_i]) { continue; }
 					if(!ball->has_push_queued) {
@@ -738,11 +758,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			draw_texture(g_r, c_base_res * v2(c_angle_indicator_x, c_angle_indicator_y), e_layer_ui, v2(128), make_color(1), game->angle_indicator);
 
 			{
-				s_v2 pos = c_base_res * v2(0.575f, 0.2f);
+				s_v2 pos = c_base_res * v2(0.7f, 0.2f);
 				s_v4 color = hsv_to_rgb(v3(sinf2((float)renderer->total_time * 0.5f), 1.0f, 1.0f));
 				draw_text(g_r, "Type join to play", pos, e_layer_ui, 24.0f, color, false, game->font);
 				pos.y += 24.0f;
 				draw_text(g_r, "Type push angle strength", pos, e_layer_ui, 24.0f, color, false, game->font);
+				pos.y += 48.0f;
+				draw_text(g_r, "Type leavelevel to skip level", pos, e_layer_ui, 24.0f, color, false, game->font);
+				pos.y += 24.0f;
+				draw_text(g_r, "Type leavegame to leave the game", pos, e_layer_ui, 24.0f, color, false, game->font);
 			}
 
 			s_v2 pos = c_base_res * v2(0.5f, 0.5f);
@@ -752,6 +776,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			foreach_val(ball_i, ball, game->balls) {
+
+				if(game->transient.has_given_up_on_level[ball_i]) { continue; }
+
 				s_v2 hole_pos = tile_index_to_pos(map->hole) + v2(c_tile_size * 0.5f);
 				b8 in_hole = c2CircletoCircle(ball.c, {.p = {hole_pos.x, hole_pos.y}, .r = c_ball_radius * 2.0f}) != 0;
 
@@ -1300,12 +1327,12 @@ func void draw_map(s_map* map)
 	}
 	{
 		s_v2 pos = tile_index_to_pos(map->hole) + v2(c_tile_size * 0.5f);
-		draw_rect(g_r, pos, e_layer_hole, v2(c_ball_radius * 4.0f), rgb(0xA98841), {.blend_mode = e_blend_mode_additive}, {.flags = e_render_flag_circle});
+		draw_rect(g_r, pos, e_layer_hole, v2(get_hole_radius() * 2.0f), rgb(0xA98841), {.blend_mode = e_blend_mode_additive}, {.flags = e_render_flag_circle});
 	}
 
 	if(game->state == e_state_map_editor) {
 		s_v2 pos = tile_index_to_pos(map->spawn) + v2(c_tile_size * 0.5f);
-		draw_rect(g_r, pos, e_layer_hole, v2(c_ball_radius * 4.0f), rgb(0xD6DFAC), {.blend_mode = e_blend_mode_additive}, {.flags = e_render_flag_circle});
+		draw_rect(g_r, pos, e_layer_hole, v2(get_hole_radius() * 2.0f), rgb(0xD6DFAC), {.blend_mode = e_blend_mode_additive}, {.flags = e_render_flag_circle});
 	}
 }
 
@@ -1385,6 +1412,7 @@ func b8 has_anyone_beaten_level()
 func b8 has_everyone_beaten_level()
 {
 	for(int i = 0; i < game->balls.count; i++) {
+		if(game->transient.has_given_up_on_level[i]) { continue; }
 		if(!game->transient.has_beat_level[i]) {
 			return false;
 		}
@@ -1394,8 +1422,15 @@ func b8 has_everyone_beaten_level()
 
 func void move_ball_to_spawn(s_ball* ball, s_map* map)
 {
-	ball->c.p.x = tile_index_to_tile_center(map->spawn).x + game->transient.spawn_offset.x;
-	ball->c.p.y = tile_index_to_tile_center(map->spawn).y + game->transient.spawn_offset.y;
+	s_v2 offset;
+	if(game->modifiers[e_game_modifier_all_shoot_at_once]) {
+		offset = game->transient.spawn_offset;
+	}
+	else {
+		offset = get_random_spawn_offset();
+	}
+	ball->c.p.x = tile_index_to_tile_center(map->spawn).x + offset.x;
+	ball->c.p.y = tile_index_to_tile_center(map->spawn).y + offset.y;
 	ball->pos_before_last_push = v2(ball->c.p);
 	ball->has_push_queued = false;
 }
@@ -1608,4 +1643,19 @@ func void maybe_add_new_ball(s_str user)
 func bool compare_maps_beaten(s_name_and_push_count a, s_name_and_push_count b)
 {
 	return a.maps_beaten < b.maps_beaten;
+}
+
+func float get_hole_radius()
+{
+	return c_ball_radius * 2;
+}
+
+func s_v2 get_random_spawn_offset()
+{
+	float move_radius = get_hole_radius() - c_ball_radius;
+	s_v2 offset = v2(
+		(float)game->rng.randf2() * move_radius,
+		(float)game->rng.randf2() * move_radius
+	);
+	return offset;
 }
