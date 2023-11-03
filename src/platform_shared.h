@@ -2404,10 +2404,10 @@ static t ui_slider(
 	draw_rect(game_renderer, handle_pos, 11, handle_size, handle_color, {}, {.flags = e_render_flag_circle, .origin_offset = c_origin_topleft});
 	s_v2 text_pos = pos;
 	text_pos += size / 2;
-	if(is_int) {
+	if constexpr(is_int) {
 		draw_text(game_renderer, format_text("%i", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
 	}
-	else if(is_float) {
+	else if constexpr(is_float) {
 		draw_text(game_renderer, format_text("%.2f", result), text_pos, 15, font_size, rgb(0xFB9766), true, font);
 	}
 	return result;
