@@ -440,6 +440,15 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 			}
 		} break;
 
+		// @TODO(tkap, 11/11/2023): We probably want to record char events
+		case WM_CHAR: {
+			int c = (int)wparam;
+			if(c >= 0 && c <= 126) {
+				g_platform_data.logic_input.char_events.add((char)c);
+				g_platform_data.render_input.char_events.add((char)c);
+			}
+		} break;
+
 		case WM_LBUTTONDOWN:
 			key = c_left_mouse;
 			is_down = true;

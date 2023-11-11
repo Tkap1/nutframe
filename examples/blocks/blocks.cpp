@@ -157,7 +157,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			for(int i = 0; i < p->projectiles_to_spawn; i++) {
 				s_projectile new_p = zero;
 				new_p.pos = p->pos;
-				new_p.vel = v2_rand(&game->rng) * v2(1.0f, 5.0f);
+				new_p.vel = v2_rand_minus_1_to_1(&game->rng) * v2(1.0f, 5.0f);
 				new_p.projectiles_to_spawn = p->projectiles_to_spawn - 1;
 				if(new_p.vel.y > 0) { new_p.vel.y *= -1; }
 				game->projectiles.add(new_p);

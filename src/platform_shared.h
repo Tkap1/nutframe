@@ -1447,7 +1447,15 @@ static s_v2 v2_normalized(s_v2 v)
 	return result;
 }
 
-static s_v2 v2_rand(s_rng* rng)
+static s_v2 v2_rand_0_to_1(s_rng* rng)
+{
+	return v2(
+		rng->randf32(),
+		rng->randf32()
+	);
+}
+
+static s_v2 v2_rand_minus_1_to_1(s_rng* rng)
 {
 	return v2(
 		(float)rng->randf2(),
@@ -1455,9 +1463,9 @@ static s_v2 v2_rand(s_rng* rng)
 	);
 }
 
-static s_v2 v2_rand_normalized(s_rng* rng)
+static s_v2 v2_rand_minus_1_to_1_normalized(s_rng* rng)
 {
-	return v2_normalized(v2_rand(rng));
+	return v2_normalized(v2_rand_minus_1_to_1(rng));
 }
 
 static float v2_dot(s_v2 a, s_v2 b)
@@ -1776,6 +1784,7 @@ struct s_key
 
 struct s_input
 {
+	s_sarray<char, 128> char_events;
 	s_carray<s_key, c_max_keys> keys;
 };
 
@@ -1912,11 +1921,11 @@ struct s_game_renderer
 #ifdef m_build_dll
 typedef void (t_init_game)(s_platform_data*);
 typedef void (t_update)(s_platform_data*, void*, s_game_renderer*);
-typedef void (t_render)(s_platform_data*, void*, s_game_renderer*);
+typedef void (t_render)(s_platform_data*, void*, s_game_renderer*, float);
 #else // m_build_dll
 void init_game(s_platform_data* platform_data);
 void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer);
-void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer);
+void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, float interp_dt);
 #endif
 
 
@@ -1959,6 +1968,21 @@ static b8 is_key_pressed(s_input* input, int key) {
 static b8 is_key_released(s_input* input, int key) {
 	assert(key < c_max_keys);
 	return (!input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
+}
+
+static b8 is_number(char c)
+{
+	return c >= '0' && c <= '9';
+}
+
+static b8 is_alpha(char c)
+{
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+static b8 is_alpha_numeric(char c)
+{
+	return is_number(c) || is_alpha(c);
 }
 
 static int get_render_offset(int texture, int blend_mode)
@@ -2055,7 +2079,7 @@ static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_
 	bucket_add(&render_data.framebuffer->transforms[get_render_offset(texture.game_id, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
 }
 
-static void draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_pos, int layer, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
+static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_pos, int layer, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
 {
 	if(!render_data.framebuffer) {
 		render_data.framebuffer = &game_renderer->framebuffers[0];
@@ -2120,6 +2144,7 @@ static void draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		pos.x += glyph.advance_width * scale;
 
 	}
+	return pos;
 }
 
 static s_lin_arena make_lin_arena(u64 capacity)
@@ -2696,19 +2721,22 @@ static void do_game_layer(
 		for(int i = 0; i < c_max_keys; i++) {
 			g_platform_data.logic_input.keys[i].count = 0;
 		}
+		g_platform_data.logic_input.char_events.count = 0;
 
 		#ifdef m_debug
 		g_platform_data.loaded_a_state = false;
 		#endif // m_debug
 	}
-	render(&g_platform_data, game_memory, game_renderer);
+
+	float interp_dt = (float)(time / delay);
+	render(&g_platform_data, game_memory, game_renderer, interp_dt);
 	g_platform_data.render_count += 1;
 
 	reset_ui();
 	for(int i = 0; i < c_max_keys; i++) {
 		g_platform_data.render_input.keys[i].count = 0;
 	}
-
+	g_platform_data.render_input.char_events.count = 0;
 
 	if(g_do_embed) {
 		write_embed_file();

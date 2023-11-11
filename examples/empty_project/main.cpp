@@ -19,7 +19,7 @@ static s_game* game;
 static s_game_renderer* g_r;
 static s_v2 g_mouse;
 
-func void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input);
+static void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input);
 
 #ifdef m_build_dll
 extern "C" {
@@ -43,7 +43,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 }
 
-m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
+m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, float interp_dt)
 {
 	set_globals(platform_data, game_memory, renderer, &platform_data->render_input);
 }

@@ -1,4 +1,6 @@
 
+DO char events in sdl
+
 
 when pressing f8 to bring up the live variable stuff, a single key press may toggle more than once. we may be using the wrong input or something
 	or not clearing it, idk
