@@ -2091,8 +2091,8 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 
 	int len = (int)strlen(text);
 	assert(len > 0);
-	s_v2 text_size = get_text_size(text, font, font_size);
 	if(centered) {
+		s_v2 text_size = get_text_size(text, font, font_size);
 		in_pos.x -= text_size.x / 2;
 		in_pos.y -= text_size.y / 2;
 	}
@@ -2115,7 +2115,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		glyph_pos.x += glyph.x0 * scale;
 		glyph_pos.y += -glyph.y0 * scale;
 
-		glyph_pos.y += text_size.y;
+		glyph_pos.y += font->ascent * scale;
 		t.flags |= e_render_flag_use_texture | e_render_flag_text;
 		t.pos = glyph_pos;
 

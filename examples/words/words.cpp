@@ -56,6 +56,7 @@ struct s_level_data
 	int score;
 	float spawn_speed_multiplier;
 	s_carray<b8, c_max_words> words_active;
+	s_carray<float, c_max_words> words_width;
 	s_carray<s_v2, c_max_words> prev_words_pos;
 	s_carray<s_v2, c_max_words> words_pos;
 	s_carray<s_str<16>, c_max_words> words_text;
@@ -105,7 +106,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->initialized = true;
 		platform_data->variables_path = "examples/words/variables.h";
 		game->font = &renderer->fonts[0];
-		// game->rng.seed = platform_data->get_random_seed();
+		game->rng.seed = platform_data->get_random_seed();
 		game->reset_level = true;
 	}
 
@@ -186,6 +187,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		for(int word_i = 0; word_i < c_max_words; word_i++) {
 			if(!ld->words_active[word_i]) { continue; }
 			ld->words_pos[word_i].x -= c_delta * 100;
+
+			if(ld->words_pos[word_i].x + ld->words_width[word_i] < 0) {
+				ld->words_active[word_i] = false;
+				// @TODO(tkap, 11/11/2023): lose
+			}
 		}
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		update words end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -210,7 +216,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	draw_text(g_r, format_text("%i", ld->score), c_base_res * v2(0.5f, 0.1f), 1, c_font_size, rgb(0xFCF5D5), true, game->font);
 
-	struct s_foo
+	struct s_sub_str
 	{
 		int start;
 		int end;
@@ -218,7 +224,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	};
 	for(int word_i = 0; word_i < c_max_words; word_i++) {
 		if(!ld->words_active[word_i]) { continue; }
-		s_sarray<s_foo, c_max_words * 3> foos;
+		s_sarray<s_sub_str, c_max_words * 3> sub_strs;
 		s_v2 base_pos = lerp(ld->prev_words_pos[word_i], ld->words_pos[word_i], interp_dt);
 
 		b8 match_something = false;
@@ -230,9 +236,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				char text_c = ld->words_text[word_i][text_i];
 				if(text_c != input_c) {
 					if(match_something) {
-						foos.add({.start = 0, .end = text_i - 1, .color = make_color(0, 1, 0)});
+						sub_strs.add({.start = 0, .end = text_i - 1, .color = make_color(0, 1, 0)});
 						if(text_i > 0 && input_c != 0) {
-							foos.add({.start = text_i, .end = text_i, .color = make_color(1, 0, 0)});
+							sub_strs.add({.start = text_i, .end = text_i, .color = make_color(1, 0, 0)});
 							start = text_i + 1;
 						}
 						else {
@@ -244,14 +250,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				match_something = true;
 			}
 		}
-		foos.add({.start = start, .end = ld->words_text[word_i].len - 1, .color = make_color(1)});
+		sub_strs.add({.start = start, .end = ld->words_text[word_i].len - 1, .color = make_color(1)});
 
 		s_v2 pos = base_pos;
-		foreach_val(foo_i, foo, foos) {
-			if(foo.start > foo.end) { continue; }
+		foreach_val(sub_str_i, sub_str, sub_strs) {
+			if(sub_str.start > sub_str.end) { continue; }
 			char buffer[128] = zero;
-			memcpy(buffer, &ld->words_text[word_i][foo.start], (foo.end - foo.start) + 1);
-			pos = draw_text(g_r, buffer, pos, 1, c_font_size, foo.color, false, game->font);
+			memcpy(buffer, &ld->words_text[word_i][sub_str.start], (sub_str.end - sub_str.start) + 1);
+			pos = draw_text(g_r, buffer, pos, 1, c_font_size, sub_str.color, false, game->font);
 		}
 	}
 }
@@ -279,6 +285,7 @@ func int make_word(char* text, s_v2 pos)
 		ld->words_text[word_i] = make_str<16>(text);
 		ld->prev_words_pos[word_i] = pos;
 		ld->words_pos[word_i] = pos;
+		ld->words_width[word_i] = get_text_size(text, game->font, c_font_size).x;
 		return word_i;
 	}
 	assert(false);
