@@ -2115,7 +2115,8 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		glyph_pos.x += glyph.x0 * scale;
 		glyph_pos.y += -glyph.y0 * scale;
 
-		glyph_pos.y += font->ascent * scale;
+		// glyph_pos.y += font->ascent * scale;
+		glyph_pos.y += font_size;
 		t.flags |= e_render_flag_use_texture | e_render_flag_text;
 		t.pos = glyph_pos;
 

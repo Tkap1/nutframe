@@ -248,6 +248,12 @@ static void do_one_frame()
 				apply_event_to_input(&g_platform_data.logic_input, si);
 				apply_event_to_input(&g_platform_data.render_input, si);
 
+				// @Note(tkap, 11/11/2023): SDL does not give us a text input event for backspace, so let's hack it
+				if(key == c_key_backspace && is_down) {
+					g_platform_data.logic_input.char_events.add('\b');
+					g_platform_data.render_input.char_events.add('\b');
+				}
+
 				#ifdef m_debug
 				if(g_platform_data.recording_input && key != c_key_f10) {
 					s_foo ri = {};
@@ -279,6 +285,12 @@ static void do_one_frame()
 				}
 				#endif // m_debug
 
+			} break;
+
+			case SDL_TEXTINPUT: {
+				char c = e.text.text[0];
+				g_platform_data.logic_input.char_events.add((char)c);
+				g_platform_data.render_input.char_events.add((char)c);
 			} break;
 		}
 	}
@@ -339,6 +351,9 @@ static int sdl_key_to_windows_key(int key) {
 			{.sdl = SDLK_RSHIFT, .win = c_key_right_shift},
 			{.sdl = SDLK_ESCAPE, .win = c_key_escape},
 			{.sdl = SDLK_RETURN, .win = c_key_enter},
+			{.sdl = SDLK_KP_PLUS, .win = c_key_add},
+			{.sdl = SDLK_KP_MINUS, .win = c_key_subtract},
+			{.sdl = SDLK_BACKSPACE, .win = c_key_backspace},
 			{.sdl = SDL_BUTTON_LEFT, .win = c_left_mouse},
 			{.sdl = SDL_BUTTON_RIGHT, .win = c_right_mouse},
 		};
