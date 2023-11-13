@@ -1940,7 +1940,7 @@ void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* 
 
 
 static int get_render_offset(int texture, int blend_mode);
-static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count);
+static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count, int in_column = 0);
 static s_v2 get_text_size(const char* text, s_font* font, float font_size);
 template <typename t>
 static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc);
@@ -2000,28 +2000,40 @@ static int get_render_offset(int texture, int blend_mode)
 	return texture * e_blend_mode_count + blend_mode;
 }
 
-// @Note(tkap, 15/10/2023): Should this always return font_size for y (like it does now), or actually get the tallest char?
+static int get_spaces_for_column(int column)
+{
+	constexpr int tab_size = 4;
+	if(tab_size <= 0) { return 0; }
+	return tab_size - (column % tab_size);
+}
+
 // @TODO(tkap, 31/10/2023): Handle new lines
-static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count)
+static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count, int in_column)
 {
 	assert(count >= 0);
 	if(count <= 0) { return {}; }
 
+	int column = in_column;
+
 	s_v2 size = {};
 	float scale = font->scale * (font_size / font->size);
+	size.y = font_size;
 
 	for(int char_i = 0; char_i < count; char_i++)
 	{
 		char c = text[char_i];
 		s_glyph glyph = font->glyph_arr[c];
-		s_v2 draw_size = v2((glyph.x1 - glyph.x0) * scale, (glyph.y1 - glyph.y0) * scale);
-		if(char_i == count - 1) {
-			size.x += (glyph.x1 - glyph.x0) * scale;
+		if(c == '\t')
+		{
+			int spaces = get_spaces_for_column(column);
+			size.x += glyph.advance_width * scale * spaces;
+			column += spaces;
 		}
-		else {
+		else
+		{
 			size.x += glyph.advance_width * scale;
+			column += 1;
 		}
-		size.y = at_least(draw_size.y, size.y);
 	}
 
 	return size;
@@ -2107,7 +2119,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		in_pos.y -= text_size.y / 2;
 	}
 	s_v2 pos = in_pos;
-	// pos.y += font->ascent * scale;
+	pos.y += font->ascent * scale;
 	for(int char_i = 0; char_i < len; char_i++) {
 		int c = text[char_i];
 		if(c <= 0 || c >= 128) { continue; }
@@ -2126,7 +2138,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		glyph_pos.y += -glyph.y0 * scale;
 
 		// glyph_pos.y += font->ascent * scale;
-		glyph_pos.y += font_size;
+		// glyph_pos.y += font_size;
 		t.flags |= e_render_flag_use_texture | e_render_flag_text;
 		t.pos = glyph_pos;
 
@@ -2155,7 +2167,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		pos.x += glyph.advance_width * scale;
 
 	}
-	return pos;
+	return v2(pos.x, in_pos.y);
 }
 
 static s_lin_arena make_lin_arena(u64 capacity)
