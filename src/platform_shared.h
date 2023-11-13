@@ -1220,6 +1220,31 @@ static void operator*=(s_v2& a, float b)
 	a.y *= b;
 }
 
+static float smoothstep(float edge0, float edge1, float x)
+{
+	// Scale, bias and saturate x to 0..1 range
+	x = clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+	// Evaluate polynomial
+	return x * x * (3 - 2 * x);
+}
+
+
+static s_v2 v2_rotated(s_v2 v, float angle)
+{
+
+	float x = v.x;
+	float y = v.y;
+
+	float cs = cosf(angle);
+	float sn = sinf(angle);
+
+	v.x = x * cs - y * sn;
+	v.y = x * sn + y * cs;
+
+	return v;
+}
+
+
 static s_v2 v2_rotate_around(s_v2 v, s_v2 pivot, float angle)
 {
 	s_v2 p = v;
@@ -1512,6 +1537,14 @@ static s_v2 v2_reflect(s_v2 v, s_v2 normal)
 	result.x = v.x - (2.0f * normal.x) * dotProduct;
 	result.y = v.y - (2.0f * normal.y) * dotProduct;
 
+	return result;
+}
+
+static s_v2 random_point_rect_topleft(s_v2 pos, s_v2 size, s_rng* rng)
+{
+	s_v2 result;
+	result.x = pos.x + size.x * rng->randf32();
+	result.y = pos.y + size.y * rng->randf32();
 	return result;
 }
 

@@ -30,6 +30,8 @@ uniform float snake_apple_time;
 uniform sampler2D in_texture;
 uniform sampler2D noise;
 
+#define pi 3.1415
+
 mat2 rot(float angle)
 {
 	float c = cos(-angle);

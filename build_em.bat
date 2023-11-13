@@ -13,7 +13,7 @@ set comp=!comp! -lwebsocket.js
 set comp=!comp! -sSTACK_SIZE=1048576
 set comp=!comp! --shell-file ../shell.html
 
-set debug=1
+set debug=0
 if !debug!==0 (
 	set comp=!comp! -O3
 ) else (

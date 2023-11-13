@@ -353,7 +353,7 @@ static constexpr char* c_common_words[] = {
 	"best",
 	"hour",
 	"better",
-	"true .",
+	"true",
 	"during",
 	"hundred",
 	"five",
