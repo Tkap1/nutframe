@@ -308,6 +308,7 @@ extern "C" {
 #endif // m_build_dll
 m_dll_export void init_game(s_platform_data* platform_data)
 {
+	platform_data->set_base_resolution((int)c_base_res.x, (int)c_base_res.y);
 	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
 	platform_data->update_delay = 1.0 / c_updates_per_second;
 }
@@ -1274,10 +1275,6 @@ func s_sarray<s_str, 128> get_chat_messages(s_platform_data* platform_data)
 	return result;
 }
 
-func b8 is_number(char c)
-{
-	return c >= '0' && c <= '9';
-}
 
 func int parse_int(char *in, char **out)
 {

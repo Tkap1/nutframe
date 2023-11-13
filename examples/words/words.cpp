@@ -453,16 +453,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	live_variable(&platform_data->vars, c_font_size, 4.0f, 128.0f, true);
 
-	draw_rect(g_r, c_half_res, 0, c_base_res, make_color(0.15f), zero, {.effect_id = 69});
+	draw_rect(g_r, c_half_res, 0, c_base_res, make_color(0.15f));
 
 	// if(is_key_down(g_input, c_left_mouse)) {
 	// if(is_key_pressed(g_input, c_right_mouse)) {
-	// 	do_particles(100, v2(g_mouse.x, g_mouse.y), v2(512), e_particle_spawn_rect, {
+	// 	do_particles(100, v2(g_mouse.x, g_mouse.y), v2(512), e_particle_spawn_star, {
 	// 		.shrink = 0.5f,
 	// 		.slowdown = 1.0f,
 	// 		.duration = 0.5f,
 	// 		.duration_rand = 1,
-	// 		.speed = 1000,
+	// 		.speed = 100,
 	// 		.speed_rand = 1,
 	// 		.angle_rand = 1,
 	// 		.radius = 4 * 2.0f,

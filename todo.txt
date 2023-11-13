@@ -88,3 +88,5 @@ golf:
 
 word game:
 	make other modes a lil bit easier at the start
+	are we not preventing name too long? people exceed the 16 char limit
+	wpm count

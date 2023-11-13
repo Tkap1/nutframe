@@ -49,3 +49,4 @@ secret.py
 .vs
 recorded_input
 *.sln
+leaderboard.json
