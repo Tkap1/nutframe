@@ -534,6 +534,11 @@ struct s_carray
 		elements[a] = elements[b];
 		elements[b] = temp;
 	}
+
+	constexpr int max_elements()
+	{
+		return n;
+	}
 };
 
 template <typename t, int n1, int n2>
@@ -711,6 +716,14 @@ static constexpr s_v3 v3(s_v4 v)
 	result.y = v.y;
 	result.z = v.z;
 	return result;
+}
+
+template <typename t>
+static void swap(t* a, t* b)
+{
+	t temp = *a;
+	*a = *b;
+	*b = temp;
 }
 
 static s_v4 hsv_to_rgb(s_v3 color)
@@ -1072,6 +1085,14 @@ static b8 write_file(const char* path, void* data, u64 size)
 
 
 #endif // m_game
+
+static constexpr s_v2i v2i(int val)
+{
+	s_v2i result;
+	result.x = val;
+	result.y = val;
+	return result;
+}
 
 static constexpr s_v2i v2i(int x, int y)
 {
@@ -2099,13 +2120,38 @@ static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_
 	t.pos = pos;
 	t.draw_size = size;
 	t.color = color;
+	t.uv_min = v2(0);
+	t.uv_max = v2(1);
 	if(texture.comes_from_framebuffer) {
-		t.uv_min = v2(0, 1);
-		t.uv_max = v2(1, 0);
+		swap(&t.uv_min.y, &t.uv_max.y);
 	}
-	else {
-		t.uv_min = v2(0);
-		t.uv_max = v2(1);
+	t.mix_color = v41f(1);
+	bucket_add(&render_data.framebuffer->transforms[get_render_offset(texture.game_id, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+}
+
+static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_v2i sprite_pos, s_v2i sprite_size, s_render_data render_data = {}, s_transform t = {})
+{
+	if(!render_data.framebuffer) {
+		render_data.framebuffer = &game_renderer->framebuffers[0];
+	}
+
+	t.layer = layer;
+	t.flags |= e_render_flag_use_texture;
+	t.pos = pos;
+	t.draw_size = size;
+	t.color = color;
+	t.uv_min = v2(
+		(float)sprite_pos.x / texture.size.x,
+		(float)sprite_pos.y / texture.size.y
+	);
+	t.uv_max = v2(
+		t.uv_min.x + sprite_size.x / (float)texture.size.x,
+		t.uv_min.y + sprite_size.y / (float)texture.size.y
+	);
+	if(texture.comes_from_framebuffer) {
+		// @Note(tkap, 13/11/2023): If this triggers it means that we do not set texture size for framebuffer textures. Should do that...
+		assert(texture.size.x > 0 && texture.size.y > 0);
+		swap(&t.uv_min.y, &t.uv_max.y);
 	}
 	t.mix_color = v41f(1);
 	bucket_add(&render_data.framebuffer->transforms[get_render_offset(texture.game_id, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);

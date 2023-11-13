@@ -114,6 +114,8 @@ struct s_game
 	b8 has_submitted_player_name;
 	s_str<128> player_name;
 	s_sarray<s_leaderboard_entry, 16> leaderboard_entries;
+	s_texture atlas;
+	s_carray<s_sound*, 3> pop_sounds;
 };
 
 global s_input* g_input;
@@ -161,6 +163,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->reset_level = true;
 		game->speed_index = 4;
 		game->next_state = -1;
+		game->pop_sounds[0] = platform_data->load_sound(platform_data, "examples/words/pop.wav", platform_data->frame_arena);
+		game->pop_sounds[1] = platform_data->load_sound(platform_data, "examples/words/pop2.wav", platform_data->frame_arena);
+		game->pop_sounds[2] = platform_data->load_sound(platform_data, "examples/words/pop3.wav", platform_data->frame_arena);
 	}
 
 	c_delta = (float)(1.0 / c_updates_per_second) * get_game_speed_multiplier();
@@ -252,39 +257,44 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						ld->text_input.data[ld->text_input.len] = c;
 						ld->text_input.len += 1;
 						ld->text_input.data[ld->text_input.len] = 0;
+
+						// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		remove completed words start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+						{
+							int score_to_add = 0;
+							for(int word_i = 0; word_i < c_max_words; word_i++) {
+								if(!ld->words_active[word_i]) { continue; }
+								if(ld->text_input.len < ld->words_text[word_i].len) { continue; }
+
+								b8 word_matches = true;
+								for(int text_i = 0; text_i < ld->words_text[word_i].len; text_i++) {
+									int input_index = ld->text_input.len - ld->words_text[word_i].len + text_i;
+									char input_c = ld->text_input[input_index];
+									char text_c = ld->words_text[word_i][text_i];
+									if(text_c != input_c) {
+										word_matches = false;
+										break;
+									}
+								}
+								if(word_matches) {
+									ld->words_active[word_i] = false;
+									score_to_add += ld->words_text[word_i].len;
+								}
+							}
+							if(score_to_add > 0) {
+								ld->text_input.len = 0;
+								ld->score += score_to_add;
+								platform_data->play_sound(game->pop_sounds[game->rng.randu() % game->pop_sounds.max_elements()]);
+							}
+						}
+						// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		remove completed words end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 					}
+				}
+
+				if(is_key_pressed(g_input, c_key_backspace) && is_key_down(g_input, c_key_left_ctrl)) {
+					ld->text_input.len = 0;
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		handle input end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		remove completed words start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				int score_to_add = 0;
-				for(int word_i = 0; word_i < c_max_words; word_i++) {
-					if(!ld->words_active[word_i]) { continue; }
-					if(ld->text_input.len < ld->words_text[word_i].len) { continue; }
-
-					b8 word_matches = true;
-					for(int text_i = 0; text_i < ld->words_text[word_i].len; text_i++) {
-						int input_index = ld->text_input.len - ld->words_text[word_i].len + text_i;
-						char input_c = ld->text_input[input_index];
-						char text_c = ld->words_text[word_i][text_i];
-						if(text_c != input_c) {
-							word_matches = false;
-							break;
-						}
-					}
-					if(word_matches) {
-						ld->words_active[word_i] = false;
-						score_to_add += ld->words_text[word_i].len;
-					}
-				}
-				if(score_to_add > 0) {
-					ld->text_input.len = 0;
-					ld->score += score_to_add;
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		remove completed words end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn words start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -310,7 +320,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						if(ld->score > 0) {
 							if(game->has_submitted_player_name) {
 									#ifdef __EMSCRIPTEN__
-									send_message(format_text("%s:%i", game->player_name.data, ld->score));
+									send_message(format_text("%i:%s:%i", game->mode, game->player_name.data, ld->score));
 									#endif // __EMSCRIPTEN__
 							}
 							game->next_state = e_state_leaderboard;
@@ -344,7 +354,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				if(is_key_pressed(g_input, c_key_enter) && game->player_name.len >= 3) {
 					game->has_submitted_player_name = true;
 					#ifdef __EMSCRIPTEN__
-					send_message(format_text("%s:%i", game->player_name.data, ld->score));
+					send_message(format_text("%i:%s:%i", game->mode, game->player_name.data, ld->score));
 					#endif // __EMSCRIPTEN__
 				}
 			}
@@ -442,9 +452,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		case e_state_leaderboard: {
 			if(!game->has_submitted_player_name) {
-				draw_text(g_r, "Enter name...", c_half_res * v2(1.0f, 0.85f), 1, c_font_size, make_color(1), false, game->font);
+				draw_text(g_r, "Enter name...", c_half_res * v2(1.0f, 0.85f), 1, c_font_size, make_color(1), true, game->font);
 				if(game->player_name.len > 0) {
-					draw_text(g_r, game->player_name.data, c_half_res, 1, c_font_size, make_color(1), false, game->font);
+					draw_text(g_r, game->player_name.data, c_half_res, 1, c_font_size, make_color(1), true, game->font);
 				}
 			}
 			else {
@@ -453,8 +463,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				float score_x = c_base_res.x * 0.6f;
 				float y = 150;
 				for(int entry_i = 0; entry_i < game->leaderboard_entries.count; entry_i++) {
-					draw_text(g_r, game->leaderboard_entries[entry_i].name.data, v2(name_x, y), 1, c_font_size, make_color(1), true, game->font);
-					draw_text(g_r, format_text("%i", game->leaderboard_entries[entry_i].score), v2(score_x, y), 1, c_font_size, make_color(1), true, game->font);
+					draw_text(g_r, game->leaderboard_entries[entry_i].name.data, v2(name_x, y), 1, c_font_size, make_color(1), false, game->font);
+					draw_text(g_r, format_text("%i", game->leaderboard_entries[entry_i].score), v2(score_x, y), 1, c_font_size, make_color(1), false, game->font);
 					y += c_font_size + 8;
 				}
 			}
@@ -519,7 +529,7 @@ func float get_best_new_word_y_pos(s_rng* rng)
 {
 	s_level_data* ld = &game->level_data;
 	float best_y = 0;
-	for(int i = 0; i < 100; i++) {
+	for(int i = 0; i < 1000; i++) {
 		best_y = rng->randf_range(0.0f, c_base_res.y - c_font_size);
 		b8 too_close_to_other_word = false;
 		for(int word_i = 0; word_i < c_max_words; word_i++) {
@@ -529,7 +539,7 @@ func float get_best_new_word_y_pos(s_rng* rng)
 			if(text_end_x < c_base_res.x - c_font_size * 2) { continue; }
 
 			float y_dist = fabsf(ld->words_pos[word_i].y + c_font_size / 2 - (best_y + c_font_size / 2));
-			if(y_dist > c_font_size * 2) { continue; }
+			if(y_dist > c_font_size * 1.1f) { continue; }
 
 			too_close_to_other_word = true;
 			break;
@@ -597,11 +607,11 @@ func char* get_word_str_for_game_mode(e_game_mode mode, s_rng* rng)
 #include <emscripten/websocket.h>
 
 
-global const EmscriptenWebSocketOpenEvent* g_websocket_event = null;
+global int g_socket = -1;
 global EMSCRIPTEN_WEBSOCKET_T g_ws;
 EM_BOOL onopen(int eventType, const EmscriptenWebSocketOpenEvent *websocketEvent, void *userData) {
 	puts("onopen");
-	g_websocket_event = websocketEvent;
+	g_socket = websocketEvent->socket;
 	return EM_TRUE;
 }
 EM_BOOL onerror(int eventType, const EmscriptenWebSocketErrorEvent *websocketEvent, void *userData) {
@@ -620,13 +630,14 @@ EM_BOOL onmessage(int eventType, const EmscriptenWebSocketMessageEvent *websocke
 		strcpy(g_socket_buffer, (char*)websocketEvent->data);
 		printf("message: %s\n", websocketEvent->data);
 	}
+	g_socket = websocketEvent->socket;
 
 	return EM_TRUE;
 }
 
 static void send_message(char* text)
 {
-	if(!g_websocket_event && !g_want_to_send_data) {
+	if(g_socket == -1 && !g_want_to_send_data) {
 		printf("INIT WEBSOCKET GARBAGE\n");
 		EmscriptenWebSocketCreateAttributes ws_attrs = {
 			"ws://try-explains.gl.at.ply.gg:20119",
@@ -639,12 +650,11 @@ static void send_message(char* text)
 		emscripten_websocket_set_onclose_callback(g_ws, NULL, onclose);
 		emscripten_websocket_set_onmessage_callback(g_ws, NULL, onmessage);
 	}
-	// while(!g_websocket_event) { continue; }
 
 	g_want_to_send_data = true;
-	if(g_websocket_event) {
-		printf("sent data\n");
-		emscripten_websocket_send_utf8_text(g_websocket_event->socket, text);
+	if(g_socket != -1) {
+		printf("SENDING: %s\n", text);
+		emscripten_websocket_send_utf8_text(g_socket, text);
 		g_want_to_send_data = false;
 	}
 

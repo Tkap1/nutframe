@@ -947,7 +947,14 @@ static s_sound load_sound_from_data(u8* data)
 	assert(fmt.num_channels == c_num_channels);
 	assert(fmt.sample_rate == c_sample_rate);
 	data += sizeof(fmt);
-	s_data_chunk data_chunk = *(s_data_chunk*)data;
+
+	s_data_chunk data_chunk;
+	for(int i = 0; i < 1024; i++) {
+		data_chunk = *(s_data_chunk*)data;
+		b8 is_valid = memcmp(&data_chunk.sub_chunk2_id, "data", 4) == 0;
+		if(is_valid) { break; }
+		data += 1;
+	}
 	assert(memcmp(&data_chunk.sub_chunk2_id, "data", 4) == 0);
 	data += 8;
 
