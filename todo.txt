@@ -1,6 +1,6 @@
 
-DO char events in sdl
-
+get rid of g_window??
+SDL needs the new base size vs wndow size
 
 when pressing f8 to bring up the live variable stuff, a single key press may toggle more than once. we may be using the wrong input or something
 	or not clearing it, idk

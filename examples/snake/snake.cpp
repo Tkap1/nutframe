@@ -60,6 +60,7 @@ extern "C" {
 
 m_dll_export void init_game(s_platform_data* platform_data)
 {
+	platform_data->set_base_resolution((int)c_base_res.x, (int)c_base_res.y);
 	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
 }
 

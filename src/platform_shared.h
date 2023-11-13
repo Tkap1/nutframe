@@ -237,6 +237,14 @@ struct s_v4
 	float w;
 };
 
+struct s_recti
+{
+	int x;
+	int y;
+	int width;
+	int height;
+};
+
 
 #ifndef m_game
 #ifndef m_debug
@@ -1845,6 +1853,7 @@ struct s_platform_data
 	b8 any_key_pressed;
 	b8 is_window_active;
 	b8 window_resized;
+	b8 game_called_set_window_size;
 
 	#ifdef m_debug
 	int recorded_input_index;
@@ -1880,6 +1889,7 @@ struct s_platform_data
 	s_ui_interaction (*ui_button)(s_game_renderer*, const char*, s_v2, s_v2, s_font*, float, s_input*, s_v2);
 	void (*ui_checkbox)(s_game_renderer*, const char*, s_v2, s_v2, b8*, s_input*, s_v2);
 	void (*set_window_size)(int, int);
+	void (*set_base_resolution)(int, int);
 	char* variables_path;
 
 	#ifdef m_debug
@@ -2278,7 +2288,7 @@ static b8 check_for_shader_errors(u32 id, char* out_error);
 static s_texture load_texture_from_file(const char* path, u32 filtering);
 static void after_loading_texture(s_game_renderer* game_renderer);
 
-static void set_window_size(int width, int height)
+static void set_base_resolution(int width, int height)
 {
 	g_base_res.x = (float)width;
 	g_base_res.y = (float)height;
@@ -2864,6 +2874,29 @@ static void finish_attribs(s_attrib_handler* handler)
 	}
 }
 
+static s_recti do_letter_boxing(int base_width, int base_height, int window_width, int window_height)
+{
+	s_recti result = {0, 0, window_width, window_height};
+	float base_ar = base_width / (float)base_height;
+	float window_ar = window_width / (float)window_height;
+	if(!floats_equal(base_ar, window_ar)) {
+		b8 shrink_x = window_width / base_ar >= window_height;
+		if(shrink_x) {
+			int diff_from_width = window_width - base_width;
+			int diff_from_height = (int)((base_height - window_height) * base_ar);
+			result.x = diff_from_height / 2 + diff_from_width / 2;
+			result.width = window_width - diff_from_height - diff_from_width;
+		}
+		else {
+			int diff_from_height = window_height - base_height;
+			int diff_from_width = (int)((base_width - window_width) / base_ar);
+			result.y = diff_from_width / 2 + diff_from_height / 2;
+			result.height = window_height - diff_from_width - diff_from_height;
+		}
+	}
+	return result;
+}
+
 static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer)
 {
 	gl(glUseProgram(platform_renderer->programs[e_shader_default]));
@@ -2918,9 +2951,10 @@ static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* g
 		game_renderer->did_we_alloc = false;
 	}
 
+	s_recti rect = do_letter_boxing((int)g_base_res.x, (int)g_base_res.y, g_window.width, g_window.height);
 	foreach_ptr(framebuffer_i, framebuffer, game_renderer->framebuffers) {
 		gl(glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->gpu_id));
-		gl(glViewport(0, 0, g_window.width, g_window.height));
+		gl(glViewport(rect.x, rect.y, rect.width, rect.height));
 		gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 		if(framebuffer->do_depth) {
 			gl(glEnable(GL_DEPTH_TEST));

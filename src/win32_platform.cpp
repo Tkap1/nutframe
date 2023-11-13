@@ -70,7 +70,7 @@ static f64 get_seconds();
 static void set_vsync(b8 val);
 static int cycle_between_available_resolutions(int current);
 static void center_window();
-static s_v2i set_actual_window_size(int width, int height);
+static void set_actual_window_size(int width, int height);
 static void wide_to_unicode(wchar_t* wide, char* out);
 static u32 get_random_seed();
 static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
@@ -146,7 +146,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_platform_data.ui_checkbox = ui_checkbox;
 
 	// @TODO(tkap, 24/10/2023): Probably need a distinction between window size an internal resolution
-	g_platform_data.set_window_size = set_window_size;
+	g_platform_data.set_base_resolution = set_base_resolution;
+	g_platform_data.set_window_size = set_actual_window_size;
 	// g_platform_data.show_cursor = ShowCursor;
 	g_platform_data.cycle_between_available_resolutions = cycle_between_available_resolutions;
 
@@ -175,13 +176,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_window.width = (int)g_base_res.x;
 	g_window.height = (int)g_base_res.y;
 
-	if(should_go_borderless((int)g_base_res.x, (int)g_base_res.y)) {
-		set_borderless(g_window.handle);
+	if(!g_platform_data.game_called_set_window_size) {
+		set_actual_window_size((int)g_base_res.x, (int)g_base_res.y);
 	}
-	else {
-		set_non_borderless(g_window.handle);
-	}
-	set_actual_window_size((int)g_base_res.x, (int)g_base_res.y);
+
 	center_window();
 	ShowWindow(g_window.handle, true);
 
@@ -564,9 +562,7 @@ static void create_window(int width, int height)
 		window_class.hIcon = LoadIcon(instance, MAKEINTRESOURCE(MY_ICON));
 		check(RegisterClassEx(&window_class));
 
-		// DWORD style = (WS_OVERLAPPEDWINDOW | WS_VISIBLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX;
 		DWORD style = (WS_OVERLAPPEDWINDOW) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX;
-		// DWORD style = WS_POPUP | WS_VISIBLE;
 		RECT rect = {};
 		rect.right = width;
 		rect.bottom = height;
@@ -825,8 +821,16 @@ static int cycle_between_available_resolutions(int current)
 
 }
 
-static s_v2i set_actual_window_size(int width, int height)
+static void set_actual_window_size(int width, int height)
 {
+	g_platform_data.game_called_set_window_size = true;
+	if(should_go_borderless(width, height)) {
+		set_borderless(g_window.handle);
+	}
+	else {
+		set_non_borderless(g_window.handle);
+	}
+
 	LONG style = GetWindowLongA(g_window.handle, GWL_STYLE);
 	RECT rect = {};
 	rect.right = width;
@@ -835,7 +839,6 @@ static s_v2i set_actual_window_size(int width, int height)
 	int true_width = rect.right - rect.left;
 	int true_height = rect.bottom - rect.top;
 	SetWindowPos(g_window.handle, NULL, 0, 0, true_width, true_height, SWP_NOMOVE | SWP_NOZORDER);
-	return v2i(true_width, true_height);
 }
 
 static void center_window()
