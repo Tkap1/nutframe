@@ -2575,6 +2575,8 @@ static void begin_replaying_input()
 }
 #endif // m_debug
 
+static s_recti do_letter_boxing(int base_width, int base_height, int window_width, int window_height);
+
 static void do_game_layer(
 	s_game_renderer* game_renderer, void* game_memory
 	#ifndef m_sdl
@@ -2583,6 +2585,21 @@ static void do_game_layer(
 	#endif
 )
 {
+
+	// @Note(tkap, 13/11/2023): Adjust mouse coordinates based on letterboxing
+	{
+		s_recti rect = do_letter_boxing((int)g_base_res.x, (int)g_base_res.y, g_platform_data.window_width, g_platform_data.window_height);
+		g_platform_data.mouse.x = range_lerp(
+			g_platform_data.mouse.x,
+			(float)rect.x, (float)rect.x + rect.width,
+			0.0f, g_base_res.x
+		);
+		g_platform_data.mouse.y = range_lerp(
+			g_platform_data.mouse.y,
+			(float)rect.y, (float)rect.y + rect.height,
+			0.0f, g_base_res.y
+		);
+	}
 
 	if(is_key_down(&g_platform_data.logic_input, c_key_left_alt) && is_key_down(&g_platform_data.logic_input, c_key_f4)) {
 		exit(0);

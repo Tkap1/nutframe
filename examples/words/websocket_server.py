@@ -14,19 +14,16 @@ async def echo(websocket):
 		words = message.split(":")
 		if len(words) != 3: continue
 		mode = str_to_int(words[0].strip())
-		print(mode)
 		if mode == None: continue
 		if mode < 0 or mode > 2: continue
 		name = words[1].strip()
 		score = str_to_int(words[2].strip())
-		print(score)
 		if not score: continue
 		add_or_update_entry(mode, name, score)
 		data = read_leaderboard()
 		output = ""
 		for key, value in data[mode].items():
 			output += f"{key}:{value}\n"
-		print(output)
 		await websocket.send(output)
 
 
@@ -42,6 +39,7 @@ def read_leaderboard():
 def add_or_update_entry(mode, name, score):
 	data = read_leaderboard()
 
+	print(f"{name}: {score} for mode {mode}")
 	data[mode][name] = max(data[mode].get(name, 1), score)
 
 	with open("leaderboard.json", "w") as f:
