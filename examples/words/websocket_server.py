@@ -2,27 +2,32 @@ import asyncio
 import json
 from websockets.server import serve
 
+def str_to_int(text):
+	try:
+		return int(text)
+	except ValueError:
+		return None
+
 async def echo(websocket):
 	async for message in websocket:
 		message = message.strip()
-		colon_index = message.find(":")
-		if colon_index != -1:
-			name = message[0: colon_index].strip()
-			if len(name) <= 16:
-				score_str = message[colon_index + 1:].strip()
-				try:
-					score = int(score_str)
-					if score > 0:
-						add_or_update_entry(name, score)
-
-						data = read_leaderboard()
-						output = ""
-						for key, value in data.items():
-							output += f"{key}:{value}\n"
-						await websocket.send(output)
-
-				except ValueError:
-					pass
+		words = message.split(":")
+		if len(words) != 3: continue
+		mode = str_to_int(words[0].strip())
+		print(mode)
+		if mode == None: continue
+		if mode < 0 or mode > 2: continue
+		name = words[1].strip()
+		score = str_to_int(words[2].strip())
+		print(score)
+		if not score: continue
+		add_or_update_entry(mode, name, score)
+		data = read_leaderboard()
+		output = ""
+		for key, value in data[mode].items():
+			output += f"{key}:{value}\n"
+		print(output)
+		await websocket.send(output)
 
 
 def read_leaderboard():
@@ -34,10 +39,10 @@ def read_leaderboard():
 		pass
 	return data
 
-def add_or_update_entry(name, score):
+def add_or_update_entry(mode, name, score):
 	data = read_leaderboard()
 
-	data[name] = max(data.get(name, 1), score)
+	data[mode][name] = max(data[mode].get(name, 1), score)
 
 	with open("leaderboard.json", "w") as f:
 		json.dump(data, f)

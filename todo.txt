@@ -1,4 +1,6 @@
 
+fix mouse coords. they are broken because letterboxing stuff
+
 why is our small sort inconsistent??? leaderboard shuffles around for some reason in the word game
 pressing mouse wheel crashes SDL, maybe windows too?
 
@@ -88,3 +90,7 @@ golf:
 		rcrnstn: A other target that sometimes jumps around that, if you land on it, makes everyone else do a random push
 		mode (or map?) where each time someone gets in the whole, the hole teleports
 
+
+
+word game:
+	prevent spawn overlap

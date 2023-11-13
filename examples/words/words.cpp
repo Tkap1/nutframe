@@ -23,11 +23,25 @@ static constexpr int c_max_words = 1024;
 static constexpr float c_game_speeds[] = {0.0f, 0.1f, 0.25f, 0.5f, 1.0f, 2.0f, 4.0f, 8.0f};
 static constexpr int c_max_player_name = 17;
 
+constexpr char* c_game_modes_str[] = {
+	"Normal", "snake_case", "camelCase",
+};
+
 enum e_state
 {
+	e_state_game_mode,
 	e_state_play,
 	e_state_leaderboard,
 };
+
+enum e_game_mode
+{
+	e_game_mode_normal,
+	e_game_mode_snake_case,
+	e_game_mode_camel_case,
+	e_game_mode_count,
+};
+static_assert(array_count(c_game_modes_str) == e_game_mode_count);
 
 template <int n>
 struct s_str
@@ -79,7 +93,7 @@ struct s_level_data
 	s_carray<float, c_max_words> words_width;
 	s_carray<s_v2, c_max_words> prev_words_pos;
 	s_carray<s_v2, c_max_words> words_pos;
-	s_carray<s_str<16>, c_max_words> words_text;
+	s_carray<s_str<64>, c_max_words> words_text;
 	s_str<1024> text_input;
 	s_loop_timer spawn_word_timer;
 	s_sarray<int, array_count(c_common_words)> available_word_indices;
@@ -88,6 +102,7 @@ struct s_level_data
 struct s_game
 {
 	b8 initialized;
+	e_game_mode mode;
 	int speed_index;
 	e_state state;
 	int next_state;
@@ -111,6 +126,7 @@ func int make_word(char* text, s_v2 pos);
 func void prepare_random_words();
 func float get_best_new_word_y_pos(s_rng* rng);
 func float get_game_speed_multiplier();
+func char* get_word_str_for_game_mode(e_game_mode mode, s_rng* rng);
 static void send_message(char* text);
 
 #ifdef __EMSCRIPTEN__
@@ -169,8 +185,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 	#ifdef __EMSCRIPTEN__
 	if(g_want_to_send_data) {
-		char* text = format_text("%s:%i", game->player_name.data, ld->score);
-		printf("sent %s\n", text);
+		char* text = format_text("%i:%s:%i", game->mode, game->player_name.data, ld->score);
 		send_message(text);
 	}
 
@@ -219,6 +234,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	#endif
 
 	switch(game->state) {
+
+		case e_state_game_mode: {
+		} break;
+
 		case e_state_play: {
 			memcpy(&ld->prev_words_pos[0], &ld->words_pos[0], c_max_words * sizeof(ld->words_pos[0]));
 
@@ -272,11 +291,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				ld->spawn_word_timer.duration = 1.0f;
 				int count = ld->spawn_word_timer.update(c_delta * (1.0f + ld->spawn_speed_multiplier));
 				for(int i = 0; i < count; i++) {
-					if(ld->available_word_indices.count <= 0) {
-						prepare_random_words();
-					}
 					make_word(
-						c_common_words[ld->available_word_indices.pop()],
+						get_word_str_for_game_mode(game->mode, &game->rng),
 						v2(c_base_res.x, get_best_new_word_y_pos(&game->rng))
 					);
 				}
@@ -350,9 +366,24 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	live_variable(&platform_data->vars, c_font_size, 4.0f, 128.0f, true);
 
-	draw_rect(g_r, c_half_res, 0, c_base_res, make_color(0.3f));
+	draw_rect(g_r, c_half_res, 0, c_base_res, make_color(0.15f));
 
 	switch(game->state) {
+
+		case e_state_game_mode: {
+			float button_width = 400.0f;
+			s_v2 pos = v2(c_half_res.x - button_width / 2, c_half_res.y - c_font_size * 2);
+			for(int mode_i = 0; mode_i < e_game_mode_count; mode_i++) {
+				s_ui_interaction interaction = platform_data->ui_button(
+					g_r, c_game_modes_str[mode_i], pos, v2(button_width, c_font_size), game->font, c_font_size, g_input, g_mouse
+				);
+				if(interaction.state == e_ui_active) {
+					game->mode = (e_game_mode)mode_i;
+					game->next_state = e_state_play;
+				}
+				pos.y += c_font_size + 8;
+			}
+		} break;
 
 		case e_state_play: {
 			s_level_data* ld = &game->level_data;
@@ -411,9 +442,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		case e_state_leaderboard: {
 			if(!game->has_submitted_player_name) {
-				draw_text(g_r, "Enter name...", c_half_res * v2(1.0f, 0.85f), 1, c_font_size, make_color(1), true, game->font);
+				draw_text(g_r, "Enter name...", c_half_res * v2(1.0f, 0.85f), 1, c_font_size, make_color(1), false, game->font);
 				if(game->player_name.len > 0) {
-					draw_text(g_r, game->player_name.data, c_half_res, 1, c_font_size, make_color(1), true, game->font);
+					draw_text(g_r, game->player_name.data, c_half_res, 1, c_font_size, make_color(1), false, game->font);
 				}
 			}
 			else {
@@ -453,7 +484,7 @@ func int make_word(char* text, s_v2 pos)
 	for(int word_i = 0; word_i < c_max_words; word_i++) {
 		if(ld->words_active[word_i]) { continue; }
 		ld->words_active[word_i] = true;
-		ld->words_text[word_i] = make_str<16>(text);
+		ld->words_text[word_i] = make_str<64>(text);
 		ld->prev_words_pos[word_i] = pos;
 		ld->words_pos[word_i] = pos;
 		ld->words_width[word_i] = get_text_size(text, game->font, c_font_size).x;
@@ -511,6 +542,53 @@ func float get_best_new_word_y_pos(s_rng* rng)
 func float get_game_speed_multiplier()
 {
 	return c_game_speeds[game->speed_index];
+}
+
+func char* get_word_str_for_game_mode(e_game_mode mode, s_rng* rng)
+{
+	s_level_data* ld = &game->level_data;
+	switch(mode) {
+		case e_game_mode_normal: {
+			if(ld->available_word_indices.count <= 0) {
+				prepare_random_words();
+			}
+			return c_common_words[ld->available_word_indices.pop()];
+		} break;
+
+		case e_game_mode_snake_case: {
+			s_str_builder<1024> result;
+			int num_words = rng->rand_range_ii(2, 4);
+			for(int i = 0; i < num_words; i++) {
+				if(ld->available_word_indices.count <= 0) {
+					prepare_random_words();
+				}
+				result.add("%s", c_common_words[ld->available_word_indices.pop()]);
+				if(i < num_words - 1) {
+					result.add("_");
+				}
+			}
+			return format_text("%s", result.data);
+
+		} break;
+
+		case e_game_mode_camel_case: {
+			s_str_builder<1024> result;
+			int num_words = rng->rand_range_ii(2, 4);
+			for(int i = 0; i < num_words; i++) {
+				if(ld->available_word_indices.count <= 0) {
+					prepare_random_words();
+				}
+				int len_before = result.len;
+				result.add("%s", c_common_words[ld->available_word_indices.pop()]);
+				if(i > 0) {
+					result.data[len_before] = to_upper_case(result.data[len_before]);
+				}
+			}
+			return format_text("%s", result.data);
+		} break;
+	}
+
+	return null;
 }
 
 #ifdef __EMSCRIPTEN__

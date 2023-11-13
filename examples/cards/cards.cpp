@@ -57,7 +57,6 @@ struct s_area
 
 struct s_area_state
 {
-	int foo;
 	s_sarray<int, 16> cards;
 };
 

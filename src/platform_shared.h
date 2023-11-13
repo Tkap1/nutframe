@@ -849,7 +849,7 @@ template <int max_chars>
 struct s_str_builder
 {
 	int tab_count;
-	int len;
+	int len = 0;
 	char data[max_chars];
 
 	void add_(const char* what, b8 use_tabs, va_list args);
@@ -1528,6 +1528,12 @@ static int str_find_from_left(const char* haystack, int haystack_len, const char
 static char lower(char c)
 {
 	if(c >= 'A' && c <= 'Z') { return c + ('a' - 'A'); }
+	return c;
+}
+
+static char to_upper_case(char c)
+{
+	if(c >= 'a' && c <= 'z') { return c - ('a' - 'A'); }
 	return c;
 }
 
