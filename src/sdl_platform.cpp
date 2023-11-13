@@ -59,6 +59,11 @@ static s_game_renderer* g_game_renderer;
 static s_sarray<Mix_Chunk*, 16> g_sdl_audio;
 s_lin_arena g_game_frame_arena = {};
 
+#ifdef __EMSCRIPTEN__
+static int g_previous_window_width = 0;
+static int g_previous_window_height = 0;
+#endif // __EMSCRIPTEN__
+
 #if defined(m_debug) || !defined(_WIN32)
 int main(int argc, char** argv)
 #else
@@ -213,6 +218,18 @@ static void set_vsync(b8 val)
 	SDL_GL_SetSwapInterval(val ? 1 : 0);
 }
 
+#ifdef __EMSCRIPTEN__
+EM_JS(int, browser_get_width, (), {
+    const { width, height } = canvas.getBoundingClientRect();
+    return width;
+});
+
+EM_JS(int, browser_get_height, (), {
+    const { width, height } = canvas.getBoundingClientRect();
+    return height;
+});
+#endif // __EMSCRIPTEN__
+
 static void do_one_frame()
 {
 	f64 seconds = get_seconds();
@@ -236,7 +253,7 @@ static void do_one_frame()
 					int height = e.window.data2;
 					g_platform_data.window_width = width;
 					g_platform_data.window_height = height;
-					gl(glViewport(0, 0, width, height));
+					g_platform_data.window_resized = true;
 				}
 			} break;
 
@@ -308,6 +325,20 @@ static void do_one_frame()
 	}
 	// g_platform_data.is_window_active = GetActiveWindow() == g_window.handle;
 
+	#ifdef __EMSCRIPTEN__
+	int width = browser_get_width();
+	int height = browser_get_height();
+	g_platform_data.window_width = width;
+	g_platform_data.window_height = height;
+	if(g_previous_window_width != width || g_previous_window_height != height) {
+		set_window_size(width, height);
+		g_platform_data.window_resized = true;
+	}
+	g_previous_window_width = width;
+	g_previous_window_height = width;
+	#endif // __EMSCRIPTEN__
+
+
 	do_game_layer(g_game_renderer, g_game_memory);
 
 	gl_render(&g_platform_renderer, g_game_renderer);
@@ -357,6 +388,7 @@ static int sdl_key_to_windows_key(int key) {
 			{.sdl = SDLK_BACKSPACE, .win = c_key_backspace},
 			{.sdl = SDL_BUTTON_LEFT, .win = c_left_mouse},
 			{.sdl = SDL_BUTTON_RIGHT, .win = c_right_mouse},
+			{.sdl = SDL_BUTTON_MIDDLE, .win = c_middle_mouse},
 		};
 
 		b8 handled = false;

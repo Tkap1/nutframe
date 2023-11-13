@@ -1,4 +1,7 @@
 
+why is our small sort inconsistent??? leaderboard shuffles around for some reason in the word game
+pressing mouse wheel crashes SDL, maybe windows too?
+
 somethings such as setting the set_base_resolution function pointer should happen inside platform_shared, so we dont have to repeat them
 	on every platform
 

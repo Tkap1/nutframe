@@ -1652,6 +1652,10 @@ static constexpr int c_key_left_ctrl = 0xA2;
 static constexpr int c_key_right_ctrl = 0xA3;
 static constexpr int c_left_mouse = 1020;
 static constexpr int c_right_mouse = 1021;
+
+ // @TODO(tkap, 13/11/2023): handle this on windows
+static constexpr int c_middle_mouse = 1022;
+
 static constexpr int c_max_keys = 1024;
 
 static constexpr int c_game_memory = 20 * c_mb;

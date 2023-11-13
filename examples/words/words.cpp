@@ -127,6 +127,7 @@ extern "C" {
 #endif // m_build_dll
 m_dll_export void init_game(s_platform_data* platform_data)
 {
+	platform_data->set_base_resolution((int)c_base_res.x, (int)c_base_res.y);
 	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
 	platform_data->update_delay = 1.0 / c_updates_per_second;
 }
@@ -199,6 +200,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			start = index + 1;
 			game->leaderboard_entries.add({.score = score, .name = name});
 		}
+		game->leaderboard_entries.small_sort();
 	}
 
 	#endif // __EMSCRIPTEN__
@@ -348,6 +350,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	live_variable(&platform_data->vars, c_font_size, 4.0f, 128.0f, true);
 
+	draw_rect(g_r, c_half_res, 0, c_base_res, make_color(0.3f));
+
 	switch(game->state) {
 
 		case e_state_play: {
@@ -417,7 +421,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				float name_x = c_base_res.x * 0.1f;
 				float score_x = c_base_res.x * 0.6f;
 				float y = 150;
-				game->leaderboard_entries.small_sort();
 				for(int entry_i = 0; entry_i < game->leaderboard_entries.count; entry_i++) {
 					draw_text(g_r, game->leaderboard_entries[entry_i].name.data, v2(name_x, y), 1, c_font_size, make_color(1), true, game->font);
 					draw_text(g_r, format_text("%i", game->leaderboard_entries[entry_i].score), v2(score_x, y), 1, c_font_size, make_color(1), true, game->font);
