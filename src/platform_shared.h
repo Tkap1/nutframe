@@ -2571,7 +2571,7 @@ static void do_game_layer(
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		save states start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
-		if(is_key_pressed(&g_platform_data.logic_input, c_key_f10)) {
+		if(is_key_pressed(&g_platform_data.render_input, c_key_f10)) {
 			if(g_platform_data.recording_input) {
 				g_platform_data.recording_input = false;
 				write_file("recorded_input", &g_platform_data.recorded_input, sizeof(g_platform_data.recorded_input));
@@ -2586,7 +2586,7 @@ static void do_game_layer(
 				}
 			}
 		}
-		if(is_key_pressed(&g_platform_data.logic_input, c_key_f11)) {
+		if(is_key_pressed(&g_platform_data.render_input, c_key_f11)) {
 			u8* data = (u8*)read_file(save_state_path, g_platform_data.frame_arena, NULL);
 			if(data) {
 				memcpy(game_memory, data, c_game_memory);
@@ -2603,7 +2603,7 @@ static void do_game_layer(
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		save states end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-	if(is_key_pressed(&g_platform_data.logic_input, c_key_f8)) {
+	if(is_key_pressed(&g_platform_data.render_input, c_key_f8)) {
 		g_platform_data.show_live_vars = !g_platform_data.show_live_vars;
 	}
 

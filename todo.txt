@@ -1,11 +1,10 @@
 
+fix text rendering, now the slide text is fucked
+
 somethings such as setting the set_base_resolution function pointer should happen inside platform_shared, so we dont have to repeat them
 	on every platform
 
 we need to resize framebuffers on window size change??
-
-when pressing f8 to bring up the live variable stuff, a single key press may toggle more than once. we may be using the wrong input or something
-	or not clearing it, idk
 
 give the platform a function pointer to set cursor pos
 make set cursor pos with non borderless windows i.e. do the screentoclient bs
