@@ -1,8 +1,5 @@
 
-fix mouse coords. they are broken because letterboxing stuff
-
 why is our small sort inconsistent??? leaderboard shuffles around for some reason in the word game
-pressing mouse wheel crashes SDL, maybe windows too?
 
 somethings such as setting the set_base_resolution function pointer should happen inside platform_shared, so we dont have to repeat them
 	on every platform
@@ -12,7 +9,8 @@ we need to resize framebuffers on window size change??
 give the platform a function pointer to set cursor pos
 make set cursor pos with non borderless windows i.e. do the screentoclient bs
 
-set a default window resolution so we are not forced to set one up
+NOT SURE ABOUT THIS
+	set a default window resolution so we are not forced to set one up
 
 maybe we want a different struct for platform_data that contains stuff that the game shouldnt touch.
 	or we add an _ to them to still give the game access but making it clear that they are not supposed to change it

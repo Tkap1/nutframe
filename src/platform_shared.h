@@ -959,7 +959,7 @@ void s_str_builder<max_chars>::pop_tab()
 
 #ifndef m_game
 
-static s_v2 g_base_res = {};
+static s_v2 g_base_res = {0, 0};
 
 #ifdef m_debug
 #define gl(...) __VA_ARGS__; {int error = glGetError(); if(error != 0) { on_gl_error(#__VA_ARGS__, error); }}
@@ -2586,7 +2586,7 @@ static void do_game_layer(
 )
 {
 
-	// @Note(tkap, 13/11/2023): Adjust mouse coordinates based on letterboxing
+	// @Note(tkap, 13/11/2023): Adjust mouse coordinates based on window size. We want mouse to always in the [0, base_res] space
 	{
 		s_recti rect = do_letter_boxing((int)g_base_res.x, (int)g_base_res.y, g_platform_data.window_width, g_platform_data.window_height);
 		g_platform_data.mouse.x = range_lerp(
