@@ -32,14 +32,6 @@
 
 #include "resource.h"
 
-
-struct s_window
-{
-	int width;
-	int height;
-};
-static s_window g_window;
-
 static void set_cursor_pos(int x, int y);
 #include "platform_shared.h"
 
@@ -53,11 +45,13 @@ static f64 get_seconds();
 static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
 static Mix_Chunk* load_sound_from_file(const char* path);
 static Mix_Chunk* load_sound_from_data(u8* data, int data_size);
+static void set_window_size(int width, int height);
+static void center_window();
 
 static u64 g_cycle_frequency;
 static u64 g_start_cycles;
 static SDL_GLContext g_gl_context;
-static SDL_Window* gWindow = NULL;
+static SDL_Window* g_window = NULL;
 static f64 g_start_of_frame_seconds = 0;
 
 static void* g_game_memory;
@@ -102,14 +96,27 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_platform_data.ui_button = ui_button;
 	g_platform_data.ui_checkbox = ui_checkbox;
 	g_platform_data.set_window_size = set_window_size;
+	g_platform_data.set_base_resolution = set_base_resolution;
+
+
+	g_window = SDL_CreateWindow(
+		"DigHard", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+		256, 256, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL
+	);
 
 	init_game(&g_platform_data);
 	if(g_base_res.x <= 0 && g_base_res.y <= 0) {
-		log_error("Invalid window size");
+		log_error("Invalid base resolution");
 		exit(1);
 	}
-	g_window.width = (int)g_base_res.x;
-	g_window.height = (int)g_base_res.y;
+	g_platform_data.window_width = (int)g_base_res.x;
+	g_platform_data.window_height = (int)g_base_res.y;
+
+	if(!g_platform_data.game_called_set_window_size) {
+		set_window_size(g_platform_data.window_width, g_platform_data.window_height);
+	}
+	center_window();
+	SDL_ShowWindow(g_window);
 
 	#ifdef __EMSCRIPTEN__
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -124,17 +131,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_start_cycles = SDL_GetPerformanceCounter();
 	g_cycle_frequency = SDL_GetPerformanceFrequency();
 
-	gWindow = SDL_CreateWindow(
-		"SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-		g_window.width, g_window.height, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL
-	);
-	if(gWindow == NULL)
+	if(g_window == NULL)
 	{
 		printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
 		return 1;
 	}
 
-	g_gl_context = SDL_GL_CreateContext(gWindow);
+	g_gl_context = SDL_GL_CreateContext(g_window);
 	if(g_gl_context == NULL)
 	{
 		printf("OpenGL context could not be created! SDL Error: %s\n", SDL_GetError());
@@ -231,8 +234,8 @@ static void do_one_frame()
 				{
 					int width = e.window.data1;
 					int height = e.window.data2;
-					g_window.width = width;
-					g_window.height = height;
+					g_platform_data.window_width = width;
+					g_platform_data.window_height = height;
 					gl(glViewport(0, 0, width, height));
 				}
 			} break;
@@ -296,8 +299,6 @@ static void do_one_frame()
 	}
 
 	// g_platform_data.quit_after_this_frame = !result;
-	g_platform_data.window_width = g_window.width;
-	g_platform_data.window_height = g_window.height;
 
 	{
 		int x, y;
@@ -311,7 +312,7 @@ static void do_one_frame()
 
 	gl_render(&g_platform_renderer, g_game_renderer);
 
-	SDL_GL_SwapWindow(gWindow);
+	SDL_GL_SwapWindow(g_window);
 	// return result;
 }
 
@@ -433,5 +434,16 @@ static b8 play_sound(s_sound* sound)
 
 static void set_cursor_pos(int x, int y)
 {
-	SDL_WarpMouseInWindow(gWindow, x, y);
+	SDL_WarpMouseInWindow(g_window, x, y);
+}
+
+static void set_window_size(int width, int height)
+{
+	g_platform_data.game_called_set_window_size = true;
+	SDL_SetWindowSize(g_window, width, height);
+}
+
+static void center_window()
+{
+	SDL_SetWindowPosition(g_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }

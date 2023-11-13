@@ -2903,7 +2903,7 @@ static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* g
 
 	{
 		int location = gl(glGetUniformLocation(platform_renderer->programs[e_shader_default], "window_size"));
-		s_v2 window_size = v2(g_window.width, g_window.height);
+		s_v2 window_size = v2(g_platform_data.window_width, g_platform_data.window_height);
 		gl(glUniform2fv(location, 1, &window_size.x));
 	}
 	{
@@ -2951,7 +2951,7 @@ static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* g
 		game_renderer->did_we_alloc = false;
 	}
 
-	s_recti rect = do_letter_boxing((int)g_base_res.x, (int)g_base_res.y, g_window.width, g_window.height);
+	s_recti rect = do_letter_boxing((int)g_base_res.x, (int)g_base_res.y, g_platform_data.window_width, g_platform_data.window_height);
 	foreach_ptr(framebuffer_i, framebuffer, game_renderer->framebuffers) {
 		gl(glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->gpu_id));
 		gl(glViewport(rect.x, rect.y, rect.width, rect.height));
@@ -3262,7 +3262,7 @@ static s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, b8 do_dep
 
 	gl(glGenTextures(1, &result.texture.gpu_id));
 	gl(glBindTexture(GL_TEXTURE_2D, result.texture.gpu_id));
-	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_window.width, g_window.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
+	gl(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_platform_data.window_width, g_platform_data.window_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 	gl(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, result.texture.gpu_id, 0));

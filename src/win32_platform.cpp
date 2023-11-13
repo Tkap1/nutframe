@@ -30,8 +30,6 @@ struct s_window
 {
 	HDC dc;
 	HWND handle;
-	int width;
-	int height;
 };
 static s_window g_window;
 
@@ -170,11 +168,11 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	#endif
 
 	if(g_base_res.x <= 0 && g_base_res.y <= 0) {
-		log_error("Invalid window size");
+		log_error("Invalid base resolution");
 		exit(1);
 	}
-	g_window.width = (int)g_base_res.x;
-	g_window.height = (int)g_base_res.y;
+	g_platform_data.window_width = (int)g_base_res.x;
+	g_platform_data.window_height = (int)g_base_res.y;
 
 	if(!g_platform_data.game_called_set_window_size) {
 		set_actual_window_size((int)g_base_res.x, (int)g_base_res.y);
@@ -266,8 +264,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		}
 
 		g_platform_data.quit_after_this_frame = !running;
-		g_platform_data.window_width = g_window.width;
-		g_platform_data.window_height = g_window.height;
 
 		#ifdef m_debug
 		maybe_reload_dll("build/DigHard.dll", &dll, &init_game, &update, &render);
@@ -401,8 +397,8 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 			int height = HIWORD(lparam);
 			if(width <= 0 || height <= 0) { break; }
 
-			g_window.width = width;
-			g_window.height = height;
+			g_platform_data.window_width = width;
+			g_platform_data.window_height = height;
 			g_platform_data.window_resized = true;
 		} break;
 
