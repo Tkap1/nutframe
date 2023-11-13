@@ -54,7 +54,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 }
 #endif // m_build_dll
 
-func void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input)
+static void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input)
 {
 	g_mouse = platform_data->mouse;
 	game = (s_game*)game_memory;
