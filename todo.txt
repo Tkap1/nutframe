@@ -1,4 +1,9 @@
 
+integrate console
+
+release keys when losing focus (on windows)
+	check if sdl has the same problem
+
 why is our small sort inconsistent??? leaderboard shuffles around for some reason in the word game
 
 somethings such as setting the set_base_resolution function pointer should happen inside platform_shared, so we dont have to repeat them
