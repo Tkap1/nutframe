@@ -2033,9 +2033,11 @@ struct s_console
 	float curr_y;
 	float target_y;
 	int cursor;
+	int last_command_index;
 	float cursor_visual_x;
-	s_str<1024> input;
-	s_sarray<s_str<128>, 16> buffer;
+	s_str<128> input;
+	s_sarray<s_str<128>, 32> buffer;
+	s_sarray<s_str<128>, 32> prev_commands;
 	s_sarray<s_console_command, 128> commands;
 };
 #else // m_debug
@@ -2824,10 +2826,15 @@ static void update_console(s_console* cn, s_game_renderer* game_renderer)
 		}
 	}
 
+	if(cn->input.len <= 0) {
+		cn->last_command_index = -1;
+	}
+
 	if(is_open) {
 		foreach_val(c_i, c, input->char_events) {
 			if(c == '\r') {
 				if(cn->input.len > 0) {
+					cn->prev_commands.insert(0, cn->input);
 					b8 found_command = false;
 					s_parse_identifier result = parse_identifier(cn->input.data);
 					if(result.end) {
@@ -2837,6 +2844,7 @@ static void update_console(s_console* cn, s_game_renderer* game_renderer)
 							if(strncmp(cn->input.data, command.name, len) == 0) {
 								found_command = true;
 								command.func_ptr(cn, result.end);
+								break;
 							}
 						}
 					}
@@ -2849,6 +2857,12 @@ static void update_console(s_console* cn, s_game_renderer* game_renderer)
 						}
 					}
 				}
+				cn->cursor = 0;
+				cn->input.len = 0;
+				cn->input.null_terminate();
+			}
+			// escape
+			else if(c == 27) {
 				cn->cursor = 0;
 				cn->input.len = 0;
 				cn->input.null_terminate();
@@ -2882,25 +2896,51 @@ static void update_console(s_console* cn, s_game_renderer* game_renderer)
 		if(is_key_pressed(input, c_key_right)) {
 			cn->cursor = at_most(cn->input.len, cn->cursor + 1);
 		}
+		if(is_key_pressed(input, c_key_home)) {
+			cn->cursor = 0;
+		}
+		if(is_key_pressed(input, c_key_end)) {
+			cn->cursor = cn->input.len;
+		}
+		if(is_key_pressed(input, c_key_up)) {
+			if(cn->prev_commands.count > 0) {
+				cn->last_command_index = at_most(cn->prev_commands.count - 1, cn->last_command_index + 1);
+				cn->input = cn->prev_commands[cn->last_command_index];
+				cn->cursor = cn->prev_commands[cn->last_command_index].len;
+			}
+		}
+		if(is_key_pressed(input, c_key_down)) {
+			if(cn->prev_commands.count > 0) {
+				cn->last_command_index = at_least(-1, cn->last_command_index - 1);
+				if(cn->last_command_index == -1) {
+					cn->cursor = 0;
+					cn->input.len = 0;
+					cn->input.null_terminate();
+				}
+				else {
+					cn->input = cn->prev_commands[cn->last_command_index];
+					cn->cursor = cn->prev_commands[cn->last_command_index].len;
+				}
+			}
+		}
 	}
 
 	float delta = (float)g_platform_data.frame_time;
 	s_font* font = &game_renderer->fonts[0];
 	cn->curr_y = lerp_snap(cn->curr_y, cn->target_y, delta * 20.0f, 0.001f);
-	constexpr float input_height = 64.0f;
-	constexpr float font_size = 64.0f;
+	constexpr float input_height = 32.0f;
 	float input_y = g_base_res.y * cn->curr_y - input_height;
-	float cursor_target_x = get_text_size_with_count(cn->input.data, font, font_size, cn->cursor).x;
+	float cursor_target_x = get_text_size_with_count(cn->input.data, font, input_height, cn->cursor).x;
 	cn->cursor_visual_x = lerp_snap(cn->cursor_visual_x, cursor_target_x, delta * 20, 0.1f);
 	draw_rect(game_renderer, v2(0, 0), 50, v2(g_base_res.x, g_base_res.y * cn->curr_y), rgb(0x44736B), {}, {.origin_offset = c_origin_topleft});
 	draw_rect(game_renderer, v2(0.0f, input_y), 51, v2(g_base_res.x, input_height), rgb(0x5CA79A), {}, {.origin_offset = c_origin_topleft});
-	draw_rect(game_renderer, v2(cn->cursor_visual_x, input_y), 55, v2(20.0f, input_height), rgb(0x571E38), {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, v2(cn->cursor_visual_x, input_y), 55, v2(input_height * 0.33f, input_height), rgb(0x571E38), {}, {.origin_offset = c_origin_topleft});
 	if(cn->input.len > 0) {
-		draw_text(game_renderer, cn->input.data, v2(0.0f, input_y), 52, font_size, make_color(1), false, font);
+		draw_text(game_renderer, cn->input.data, v2(0.0f, input_y), 52, input_height, make_color(1), false, font);
 	}
 
 	foreach_val(msg_i, msg, cn->buffer) {
-		draw_text(game_renderer, msg.data, v2(0.0f, input_y - (msg_i + 1) * font_size), 52, font_size, make_color(1), false, font);
+		draw_text(game_renderer, msg.data, v2(0.0f, input_y - (msg_i + 1) * input_height), 52, input_height, make_color(1), false, font);
 	}
 }
 

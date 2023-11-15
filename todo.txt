@@ -2,8 +2,7 @@
 
 we need to support key echo/repeat for moving the console cursor
 integrate console
-	support home, end, ctrl left, ctrl right
-	up and down??
+	support ctrl left, ctrl right
 	autocompelte
 
 very low updates per second fucks with the sliders
