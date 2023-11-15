@@ -334,6 +334,20 @@ struct s_rng
 
 };
 
+
+template <typename t>
+static t at_least(t a, t b)
+{
+	return a > b ? a : b;
+}
+
+template <typename t>
+static t at_most(t a, t b)
+{
+	return b > a ? a : b;
+}
+
+
 template <typename T, int N>
 struct s_sarray
 {
@@ -449,11 +463,17 @@ struct s_sarray
 		return false;
 	}
 
+	// @TODO(tkap, 15/11/2023): Currently, if the array if full and you call this, the last element will get removed.
+	// Not sure if that is what we want...
 	constexpr void insert(int index, T element)
 	{
 		assert(index >= 0);
 		assert(index < N);
 		assert(index <= count);
+
+		if(count >= N) {
+			count -= 1;
+		}
 
 		int to_move = count - index;
 		count += 1;
@@ -623,18 +643,6 @@ static constexpr s_v4 rgba(int hex)
 	result.z = ((hex & 0x0000FF00) >> 8) / 255.0f;
 	result.w = ((hex & 0x000000FF) >> 0) / 255.0f;
 	return result;
-}
-
-template <typename t>
-static t at_least(t a, t b)
-{
-	return a > b ? a : b;
-}
-
-template <typename t>
-static t at_most(t a, t b)
-{
-	return b > a ? a : b;
 }
 
 static b8 floats_equal(float a, float b)
@@ -855,6 +863,57 @@ static void la_pop(s_lin_arena* arena)
 {
 	assert(arena->push.count > 0);
 	arena->used = arena->push.pop();
+}
+
+
+static b8 is_number(char c)
+{
+	return c >= '0' && c <= '9';
+}
+
+static b8 is_alpha(char c)
+{
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+static b8 is_alpha_numeric(char c)
+{
+	return is_number(c) || is_alpha(c);
+}
+
+static b8 can_start_identifier(char c)
+{
+	return is_alpha(c) || c == '_';
+}
+
+static b8 can_continue_identifier(char c)
+{
+	return is_alpha(c) || is_number(c) || c == '_';
+}
+
+struct s_parse_identifier
+{
+	char* start;
+	char* end;
+};
+
+static s_parse_identifier parse_identifier(char* str)
+{
+	assert(str);
+	s_parse_identifier result = {};
+	while(*str == ' ') { str += 1; }
+	char* cursor = str;
+	result.start = str;
+	b8 found_something = false;
+	if(can_start_identifier(*cursor)) {
+		found_something = true;
+		cursor += 1;
+		while(can_continue_identifier(*cursor)) { cursor += 1; }
+	}
+	if(found_something) {
+		result.end = cursor;
+	}
+	return result;
 }
 
 
@@ -1937,6 +1996,53 @@ struct s_ui_interaction
 	e_ui state;
 };
 
+template <int n>
+struct s_str
+{
+	int len;
+	char data[n];
+
+	char& operator[](int i)
+	{
+		assert(i >= 0);
+		assert(i <= len);
+		return data[i];
+	}
+
+	void null_terminate()
+	{
+		assert(len >= 0);
+		assert(len < n);
+		data[len] = 0;
+	}
+};
+
+#ifdef m_debug
+#define add_console_command(...) add_console_command_(__VA_ARGS__)
+#define add_msg_to_console(...) add_msg_to_console_(__VA_ARGS__)
+struct s_console;
+typedef void(*t_console_func)(s_console*, char*);
+struct s_console_command
+{
+	char* name;
+	t_console_func func_ptr;
+};
+
+struct s_console
+{
+	float curr_y;
+	float target_y;
+	int cursor;
+	float cursor_visual_x;
+	s_str<1024> input;
+	s_sarray<s_str<128>, 16> buffer;
+	s_sarray<s_console_command, 128> commands;
+};
+#else // m_debug
+#define add_console_command(...)
+#define add_msg_to_console(...)
+#endif // m_debug
+
 struct s_platform_data
 {
 	b8 recompiled;
@@ -1954,6 +2060,8 @@ struct s_platform_data
 	b8 loaded_a_state;
 	u32 program_that_failed;
 	char program_error[1024];
+
+	s_console console;
 	#endif // m_debug
 
 	int update_count;
@@ -2069,21 +2177,6 @@ static b8 is_key_pressed(s_input* input, int key) {
 static b8 is_key_released(s_input* input, int key) {
 	assert(key < c_max_keys);
 	return (!input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
-}
-
-static b8 is_number(char c)
-{
-	return c >= '0' && c <= '9';
-}
-
-static b8 is_alpha(char c)
-{
-	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-
-static b8 is_alpha_numeric(char c)
-{
-	return is_number(c) || is_alpha(c);
 }
 
 static int get_render_offset(int texture, int blend_mode)
@@ -2410,6 +2503,34 @@ static void on_failed_assert(const char* cond, const char* file, int line)
 	// }
 }
 
+#ifdef m_debug
+static void add_console_command_(s_console* cn, char* name, t_console_func func_ptr)
+{
+	s_console_command new_command = {};
+	new_command.name = name;
+	new_command.func_ptr = func_ptr;
+
+	foreach_val(command_i, command, cn->commands) {
+		if(strcmp(command.name, name) == 0) {
+			cn->commands[command_i] = new_command;
+			return;
+		}
+	}
+	cn->commands.add(new_command);
+}
+
+static void add_msg_to_console_(s_console* cn, char* text)
+{
+	s_str<128> str;
+	int len = (int)strlen(text);
+	assert(len > 0);
+	assert(len < 128);
+	str.len = len;
+	memcpy(str.data, text, len + 1);
+	cn->buffer.insert(0, str);
+}
+#endif // m_debug
+
 #ifndef m_game
 static u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
 static b8 check_for_shader_errors(u32 id, char* out_error);
@@ -2683,6 +2804,111 @@ static void begin_replaying_input()
 
 static s_recti do_letter_boxing(int base_width, int base_height, int window_width, int window_height);
 
+static void update_console(s_console* cn, s_game_renderer* game_renderer)
+{
+	b8 is_open = cn->target_y > 0;
+
+	s_input* input = &g_platform_data.render_input;
+
+	if(is_key_pressed(input, c_key_f7)) {
+		if(is_open) {
+			cn->target_y = 0;
+		}
+		else {
+			if(is_key_down(input, c_key_left_ctrl)) {
+				cn->target_y = 1.0f;
+			}
+			else {
+				cn->target_y = 0.5f;
+			}
+		}
+	}
+
+	if(is_open) {
+		foreach_val(c_i, c, input->char_events) {
+			if(c == '\r') {
+				if(cn->input.len > 0) {
+					b8 found_command = false;
+					s_parse_identifier result = parse_identifier(cn->input.data);
+					if(result.end) {
+						foreach_val(command_i, command, cn->commands) {
+							int len = (int)strlen(command.name);
+							if(len > cn->input.len) { continue; }
+							if(strncmp(cn->input.data, command.name, len) == 0) {
+								found_command = true;
+								command.func_ptr(cn, result.end);
+							}
+						}
+					}
+					if(!found_command) {
+						if(result.end) {
+							add_msg_to_console(cn, format_text("Command '%.*s' not found", result.end - result.start, result.start));
+						}
+						else {
+							add_msg_to_console(cn, "Expected identifier");
+						}
+					}
+				}
+				cn->cursor = 0;
+				cn->input.len = 0;
+				cn->input.null_terminate();
+			}
+			else if(c == '\b') {
+				if(cn->cursor > 0) {
+					cn->cursor -= 1;
+					int chars_right = cn->input.len - cn->cursor;
+					if(chars_right > 0) {
+						memmove(&cn->input[cn->cursor], &cn->input[cn->cursor + 1], chars_right);
+					}
+					cn->input.len -= 1;
+					cn->input.null_terminate();
+				}
+			}
+			else {
+				int chars_right = cn->input.len - cn->cursor;
+				if(chars_right > 0) {
+					memmove(&cn->input[cn->cursor + 1], &cn->input[cn->cursor], chars_right);
+				}
+				cn->input.data[cn->cursor] = c;
+				cn->cursor += 1;
+				cn->input.len += 1;
+				cn->input.null_terminate();
+			}
+		}
+
+		if(is_key_pressed(input, c_key_left)) {
+			cn->cursor = max(0, cn->cursor - 1);
+		}
+		if(is_key_pressed(input, c_key_right)) {
+			cn->cursor = at_most(cn->input.len, cn->cursor + 1);
+		}
+	}
+
+	float delta = (float)g_platform_data.frame_time;
+	s_font* font = &game_renderer->fonts[0];
+	cn->curr_y = lerp_snap(cn->curr_y, cn->target_y, delta * 20.0f, 0.001f);
+	constexpr float input_height = 64.0f;
+	constexpr float font_size = 64.0f;
+	float input_y = g_base_res.y * cn->curr_y - input_height;
+	float cursor_target_x = get_text_size_with_count(cn->input.data, font, font_size, cn->cursor).x;
+	cn->cursor_visual_x = lerp_snap(cn->cursor_visual_x, cursor_target_x, delta * 20, 0.1f);
+	draw_rect(game_renderer, v2(0, 0), 50, v2(g_base_res.x, g_base_res.y * cn->curr_y), rgb(0x44736B), {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, v2(0.0f, input_y), 51, v2(g_base_res.x, input_height), rgb(0x5CA79A), {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, v2(cn->cursor_visual_x, input_y), 55, v2(20.0f, input_height), rgb(0x571E38), {}, {.origin_offset = c_origin_topleft});
+	if(cn->input.len > 0) {
+		draw_text(game_renderer, cn->input.data, v2(0.0f, input_y), 52, font_size, make_color(1), false, font);
+	}
+
+	foreach_val(msg_i, msg, cn->buffer) {
+		draw_text(game_renderer, msg.data, v2(0.0f, input_y - (msg_i + 1) * font_size), 52, font_size, make_color(1), false, font);
+	}
+}
+
+static void console_quit(s_console* cn, char* text)
+{
+	exit(1);
+}
+
 static void do_game_layer(
 	s_game_renderer* game_renderer, void* game_memory
 	#ifndef m_sdl
@@ -2691,6 +2917,13 @@ static void do_game_layer(
 	#endif
 )
 {
+
+	#ifdef m_debug
+	if(g_platform_data.update_count <= 0) {
+		add_console_command(&g_platform_data.console, "quit", console_quit);
+		add_console_command(&g_platform_data.console, "exit", console_quit);
+	}
+	#endif // m_debug
 
 	// @Note(tkap, 13/11/2023): Adjust mouse coordinates based on window size. We want mouse to always in the [0, base_res] space
 	{
@@ -2883,6 +3116,10 @@ static void do_game_layer(
 		g_platform_data.loaded_a_state = false;
 		#endif // m_debug
 	}
+
+	#ifdef m_debug
+	update_console(&g_platform_data.console, game_renderer);
+	#endif // m_debug
 
 	float interp_dt = (float)(time / delay);
 	render(&g_platform_data, game_memory, game_renderer, interp_dt);

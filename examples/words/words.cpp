@@ -67,20 +67,6 @@ enum e_game_mode
 };
 static_assert(array_count(c_game_modes_str) == e_game_mode_count);
 
-template <int n>
-struct s_str
-{
-	int len;
-	char data[n];
-
-	char& operator[](int i)
-	{
-		assert(i >= 0);
-		assert(i <= len);
-		return data[i];
-	}
-};
-
 struct s_loop_timer
 {
 	float time;
@@ -456,22 +442,22 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	draw_rect(g_r, c_half_res, 0, c_base_res, make_color(0.15f));
 
-	// if(is_key_down(g_input, c_left_mouse)) {
+	if(is_key_down(g_input, c_left_mouse)) {
 	// if(is_key_pressed(g_input, c_right_mouse)) {
-	// 	do_particles(100, v2(g_mouse.x, g_mouse.y), v2(512), e_particle_spawn_star, {
-	// 		.shrink = 0.5f,
-	// 		.slowdown = 1.0f,
-	// 		.duration = 0.5f,
-	// 		.duration_rand = 1,
-	// 		.speed = 100,
-	// 		.speed_rand = 1,
-	// 		.angle_rand = 1,
-	// 		.radius = 4 * 2.0f,
-	// 		.radius_rand = 0,
-	// 		.color = v3(0.25f),
-	// 		.color_rand = v3(1, 0, 1),
-	// 	});
-	// }
+		do_particles(100, v2(g_mouse.x, g_mouse.y), v2(512), e_particle_spawn_star, {
+			.shrink = 0.5f,
+			.slowdown = 1.0f,
+			.duration = 2.5f,
+			.duration_rand = 1,
+			.speed = 10,
+			.speed_rand = 1,
+			.angle_rand = 1,
+			.radius = 4 * 2.0f,
+			.radius_rand = 0,
+			.color = v3(0.25f),
+			.color_rand = v3(1, 0, 1),
+		});
+	}
 
 	switch(game->state) {
 

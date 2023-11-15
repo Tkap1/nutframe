@@ -169,6 +169,7 @@ struct s_map
 };
 #pragma pack(pop)
 
+// @Fixme(tkap, 15/11/2023): Engine already has this struct, but different
 struct s_str
 {
 	char* data;

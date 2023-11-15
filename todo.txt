@@ -1,7 +1,13 @@
 
+
+we need to support key echo/repeat for moving the console cursor
 integrate console
+	support home, end, ctrl left, ctrl right
+	up and down??
+	autocompelte
 
 very low updates per second fucks with the sliders
+	move them to render land?
 
 release keys when losing focus (on windows)
 	check if sdl has the same problem
