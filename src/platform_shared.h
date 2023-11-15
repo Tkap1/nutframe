@@ -1102,6 +1102,14 @@ static constexpr s_v2i v2i(int x, int y)
 	return result;
 }
 
+static s_v2i index_1d_to_2d(int val, int width, int height)
+{
+	return v2i(
+		val % width,
+		val / height
+	);
+}
+
 static s_v4 v41f(float v)
 {
 	s_v4 result;
@@ -1300,6 +1308,15 @@ static float lerp(float a, float b, float t)
 	return a + (b - a) * t;
 }
 
+static float lerp_snap(float a, float b, float t, float max_diff)
+{
+	float result = a + (b - a) * t;
+	if(fabsf(result - b) < max_diff) {
+		result = b;
+	}
+	return result;
+}
+
 template <typename t>
 static t max(t a, t b)
 {
@@ -1474,6 +1491,16 @@ static s_v2 lerp_snap(s_v2 a, s_v2 b, float t)
 	result.y = lerp(a.y, b.y, t);
 	return result;
 }
+
+
+static s_v2 lerp_snap(s_v2 a, s_v2 b, float t, s_v2 max_diff)
+{
+	s_v2 result;
+	result.x = lerp_snap(a.x, b.x, t, max_diff.x);
+	result.y = lerp_snap(a.y, b.y, t, max_diff.y);
+	return result;
+}
+
 
 static s_v4 lerp(s_v4 a, s_v4 b, float t)
 {

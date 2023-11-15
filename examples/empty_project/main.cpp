@@ -12,6 +12,7 @@ struct s_game
 {
 	b8 initialized;
 	float total_time;
+	s_font* font;
 };
 
 static s_input* g_input;
@@ -38,6 +39,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 	if(!game->initialized) {
 		game->initialized = true;
+		game->font = &renderer->fonts[0];
 	}
 
 	game->total_time += c_delta;
