@@ -228,6 +228,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->pop_sounds[1] = platform_data->load_sound(platform_data, "examples/words/pop2.wav", platform_data->frame_arena);
 		game->pop_sounds[2] = platform_data->load_sound(platform_data, "examples/words/pop3.wav", platform_data->frame_arena);
 		game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
+		renderer->set_vsync(true);
 	}
 
 	c_delta = (float)(1.0 / c_updates_per_second) * get_game_speed_multiplier();

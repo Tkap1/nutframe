@@ -115,6 +115,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		game->state = e_state_map_select;
 		platform_data->variables_path = "examples/cards/variables.h";
 		game->rng.seed = platform_data->get_random_seed();
+		renderer->set_vsync(true);
 		generate_map();
 	}
 	game->total_time += delta;

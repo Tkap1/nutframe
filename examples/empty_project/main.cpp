@@ -40,6 +40,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	if(!game->initialized) {
 		game->initialized = true;
 		game->font = &renderer->fonts[0];
+		renderer->set_vsync(true);
 	}
 
 	game->total_time += c_delta;

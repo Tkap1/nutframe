@@ -95,6 +95,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	if(!game->initialized) {
 		game->initialized = true;
 		game->rng.seed = platform_data->get_random_seed();
+		renderer->set_vsync(true);
 		generate_map();
 	}
 

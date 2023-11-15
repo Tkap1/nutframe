@@ -20,6 +20,8 @@ static constexpr s_v4 c_tile_colors[] = {
 	rgb(0xEECD9A),
 	rgb(0xB88070),
 	rgb(0x61141E),
+	rgb(0x9DC4A3),
+	rgb(0x5CA79A),
 };
 
 enum e_layer
@@ -63,8 +65,13 @@ static s_v2 g_mouse;
 
 static void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input);
 static int value_from_tile(int tile);
-static s_grid do_movement(s_grid grid, int start_x, int start_y, b8 positive_movement, b8 move_x);
+
+[[nodiscard]]
+static s_grid do_movement(s_grid grid, int start_x, int start_y, b8 positive_movement, b8 move_x, b8* did_we_actually_move);
 static b8 can_make_a_move(s_grid grid);
+static int get_best_movement(s_grid grid, s_rng* rng);
+static b8 do_we_win(s_grid grid);
+static s_grid add_new_random_piece(s_grid grid, s_rng* rng);
 
 #ifdef m_build_dll
 extern "C" {
@@ -73,7 +80,7 @@ m_dll_export void init_game(s_platform_data* platform_data)
 {
 	platform_data->set_base_resolution((int)c_base_res.x, (int)c_base_res.y);
 	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
-	platform_data->update_delay = 1.0;
+	platform_data->update_delay = 1.0/60.0;
 }
 
 m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
@@ -87,6 +94,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		platform_data->variables_path = "examples/2048/variables.h";
 		game->rng.seed = platform_data->get_random_seed();
 		game->next_state = e_state_play;
+		renderer->set_vsync(true);
 	}
 }
 
@@ -120,26 +128,35 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			b8 do_we_want_to_move = false;
 			b8 positive_movement = true;
 
-			if(is_key_pressed(g_input, c_key_left)) {
+			int movement_index = -1;
+
+			// @Note(tkap, 15/11/2023): Random solver
+			#if 0
+			if(platform_data->render_count % 10 == 0) {
+				movement_index = get_best_movement(game->grid, &game->rng);
+			}
+			#endif
+
+			if(is_key_pressed(g_input, c_key_left) || movement_index == 0) {
 				start_x = 1;
 				do_we_want_to_move = true;
 				positive_movement = false;
 			}
 
-			else if(is_key_pressed(g_input, c_key_right)) {
+			else if(is_key_pressed(g_input, c_key_right) || movement_index == 1) {
 				start_x = c_tiles_right - 1;
 				start_y = c_tiles_down - 1;
 				do_we_want_to_move = true;
 			}
 
-			else if(is_key_pressed(g_input, c_key_up)) {
+			else if(is_key_pressed(g_input, c_key_up) || movement_index == 2) {
 				start_y = 1;
 				move_x = false;
 				do_we_want_to_move = true;
 				positive_movement = false;
 			}
 
-			else if(is_key_pressed(g_input, c_key_down)) {
+			else if(is_key_pressed(g_input, c_key_down) || movement_index == 3) {
 				start_x = c_tiles_right - 1;
 				start_y = c_tiles_down - 1;
 				do_we_want_to_move = true;
@@ -148,9 +165,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			b8 did_we_actually_move = false;
 			if(do_we_want_to_move) {
-				s_grid grid_before_movement = game->grid;
-				game->grid = do_movement(game->grid, start_x, start_y, positive_movement, move_x);
-				did_we_actually_move = memcmp(&game->grid, &grid_before_movement, sizeof(game->grid)) != 0;
+				game->grid = do_movement(game->grid, start_x, start_y, positive_movement, move_x, &did_we_actually_move);
 			}
 
 			if(!can_make_a_move(game->grid)) {
@@ -159,28 +174,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			if(did_we_actually_move) {
 
-				for(int y = 0; y < c_tiles_down; y++) {
-					for(int x = 0; x < c_tiles_right; x++) {
-						if(game->grid.grid[y][x] >= 11) { // 2048
-							game->next_state = e_state_win;
-						}
-					}
+				if(do_we_win(game->grid)) {
+					game->next_state = e_state_win;
 				}
-
-				s_sarray<int, c_tiles_right * c_tiles_down> options;
-				for(int i = 0; i < c_tiles_right * c_tiles_down; i++) {
-					options.add(i);
-				}
-				options.shuffle(&game->rng);
-				while(true) {
-					int choice = options.pop();
-					s_v2i index = index_1d_to_2d(choice, c_tiles_right, c_tiles_down);
-					if(game->grid.grid[index.y][index.x] <= 0) {
-						game->grid.pos[index.y][index.x] = {};
-						game->grid.grid[index.y][index.x] = 1;
-						break;
-					}
-				}
+				game->grid = add_new_random_piece(game->grid, &game->rng);
 			}
 
 		} break;
@@ -245,9 +242,11 @@ static b8 can_make_a_move(s_grid grid)
 	b8 positive_movement[] = {false, true, false, true};
 	b8 move_x[] = {true, true, false, false};
 
+	b8 did_we_actually_move = false;
+
 	for(int i = 0; i < array_count(start_x); i++) {
-		auto temp = do_movement(grid, start_x[i], start_y[i], positive_movement[i], move_x[i]);
-		if(memcmp(&temp, &grid, sizeof(grid)) != 0) {
+		auto temp = do_movement(grid, start_x[i], start_y[i], positive_movement[i], move_x[i], &did_we_actually_move);
+		if(did_we_actually_move) {
 			return true;
 		}
 	}
@@ -255,8 +254,10 @@ static b8 can_make_a_move(s_grid grid)
 	return false;
 }
 
-static s_grid do_movement(s_grid grid, int start_x, int start_y, b8 positive_movement, b8 move_x)
+[[nodiscard]]
+static s_grid do_movement(s_grid grid, int start_x, int start_y, b8 positive_movement, b8 move_x, b8* did_we_actually_move)
 {
+	t_grid before_movement = grid.grid;
 	for(int y = start_y; positive_movement ? (y >= 0) : (y < c_tiles_down); positive_movement ? y-- : y++) {
 		for(int x = start_x; positive_movement ? (x >= 0) : (x < c_tiles_right); positive_movement ? x-- : x++) {
 			if(!grid.grid[y][x]) { continue; }
@@ -300,6 +301,102 @@ static s_grid do_movement(s_grid grid, int start_x, int start_y, b8 positive_mov
 					curr_y += positive_movement ? 1 : -1;
 				}
 			}
+		}
+	}
+	*did_we_actually_move = memcmp(&before_movement, &grid.grid, sizeof(before_movement)) != 0;
+	return grid;
+}
+
+static int get_score(s_grid grid)
+{
+	int result = 0;
+	for(int y = 0; y < c_tiles_down; y++) {
+		for(int x = 0; x < c_tiles_right; x++) {
+			int tile_value = grid.grid[y][x];
+			if(tile_value > 0) {
+				if(tile_value < 4) {
+					result -= 4 - tile_value;
+				}
+				else {
+					result += value_from_tile(grid.grid[y][x]) * value_from_tile(grid.grid[y][x]);
+				}
+			}
+		}
+	}
+	return result;
+}
+
+static int get_best_movement(s_grid grid, s_rng* rng)
+{
+	constexpr int c_simulations = 1000;
+	constexpr int c_moves_per_simulation = 10;
+
+	int start_x[] = {1, c_tiles_right - 1, 0, c_tiles_right - 1};
+	int start_y[] = {0, c_tiles_down - 1, 1, c_tiles_down - 1};
+	b8 positive_movement[] = {false, true, false, true};
+	b8 move_x[] = {true, true, false, false};
+
+	int best_score = -10000;
+	int rand_index = rng->rand_range_ii(0, 3);
+	for(int i = 0; i < c_simulations; i++) {
+		int first_rand_index = 0;
+		s_grid temp_grid = grid;
+		for(int j = 0; j < c_moves_per_simulation; j++) {
+			int r = rng->rand_range_ii(0, 3);
+			if(j == 0) {
+				first_rand_index = r;
+			}
+			b8 did_we_actually_move = false;
+			temp_grid = do_movement(temp_grid, start_x[r], start_y[r], positive_movement[r], move_x[r], &did_we_actually_move);
+
+			if(do_we_win(temp_grid)) {
+				return first_rand_index;
+			}
+
+			if(did_we_actually_move) {
+				temp_grid = add_new_random_piece(temp_grid, rng);
+			}
+		}
+		int score = get_score(temp_grid);
+		if(!can_make_a_move(temp_grid)) {
+			score = -10000;
+		}
+		if(score > best_score) {
+			// printf("improved score %i (%i)\n", score, best_score);
+			best_score = score;
+			rand_index = first_rand_index;
+		}
+	}
+	printf("best score %i, %i \n", best_score, rand_index);
+	return rand_index;
+}
+
+static b8 do_we_win(s_grid grid)
+{
+	for(int y = 0; y < c_tiles_down; y++) {
+		for(int x = 0; x < c_tiles_right; x++) {
+			if(grid.grid[y][x] >= 11) { // 2048
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+static s_grid add_new_random_piece(s_grid grid, s_rng* rng)
+{
+	s_sarray<int, c_tiles_right * c_tiles_down> options;
+	for(int i = 0; i < c_tiles_right * c_tiles_down; i++) {
+		options.add(i);
+	}
+	options.shuffle(rng);
+	while(true) {
+		int choice = options.pop();
+		s_v2i index = index_1d_to_2d(choice, c_tiles_right);
+		if(grid.grid[index.y][index.x] <= 0) {
+			grid.pos[index.y][index.x] = {};
+			grid.grid[index.y][index.x] = 1;
+			break;
 		}
 	}
 	return grid;

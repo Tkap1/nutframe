@@ -1102,11 +1102,11 @@ static constexpr s_v2i v2i(int x, int y)
 	return result;
 }
 
-static s_v2i index_1d_to_2d(int val, int width, int height)
+static s_v2i index_1d_to_2d(int val, int width)
 {
 	return v2i(
 		val % width,
-		val / height
+		val / width
 	);
 }
 

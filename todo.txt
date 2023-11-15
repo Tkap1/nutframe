@@ -1,6 +1,8 @@
 
 integrate console
 
+very low updates per second fucks with the sliders
+
 release keys when losing focus (on windows)
 	check if sdl has the same problem
 
