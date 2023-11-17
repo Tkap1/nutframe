@@ -170,7 +170,7 @@ struct s_map
 #pragma pack(pop)
 
 // @Fixme(tkap, 15/11/2023): Engine already has this struct, but different
-struct s_str
+struct s_sstr
 {
 	char* data;
 	int len;
@@ -272,9 +272,9 @@ func s_sarray<s_collision_data, 16> get_collisions(c2Circle circle, s_v2 vel, s_
 func s_sarray<s_v2i, 16> get_interactive_tile_collisions(c2Circle circle, s_map* map);
 func s_v2 v2(c2v v);
 func void make_process_close_when_app_closes(HANDLE process);
-func s_sarray<s_str, 128> get_chat_messages(s_platform_data* platform_data);
+func s_sarray<s_sstr, 128> get_chat_messages(s_platform_data* platform_data);
 func int parse_int(char* in, char** out);
-func int get_ball_by_name(s_str name);
+func int get_ball_by_name(s_sstr name);
 func b8 is_valid_index(s_v2i index, int width, int height);
 func void draw_map(s_map* map);
 func void load_map(char* file_path, s_platform_data* platform_data, s_map* out_map);
@@ -298,7 +298,7 @@ func int get_worst_pushes_that_beat_level();
 func void do_particles(int count, s_v2 pos, s_particle_data data);
 func void beat_level_particles(s_v2 pos);
 func void do_collision_particles(s_v2 pos, float mag, s_v4 color);
-func void maybe_add_new_ball(s_str user);
+func void maybe_add_new_ball(s_sstr user);
 func bool compare_maps_beaten(s_name_and_push_count a, s_name_and_push_count b);
 func void set_globals(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, s_input* input);
 func float get_hole_radius();
@@ -387,13 +387,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	#endif // m_debug
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		handle twitch messages start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-	s_sarray<s_str, 128> msgs = get_chat_messages(platform_data);
+	s_sarray<s_sstr, 128> msgs = get_chat_messages(platform_data);
 	foreach_val(msg_i, msg, msgs) {
-		s_str user = zero;
+		s_sstr user = zero;
 		int index = str_find_from_left(msg.data, msg.len, ":", 1);
 		user.data = msg.data;
 		user.len = index;
-		s_str content = zero;
+		s_sstr content = zero;
 		content.data = msg.data + index + 1;
 		content.len = msg.len - index - 1;
 
@@ -476,7 +476,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				// @Hack(tkap, 27/10/2023):
 				g_input->keys[c_key_f5].count = 0;
 
-				s_str name = zero;
+				s_sstr name = zero;
 				char buffer[1024] = zero;
 				for(int i = 0; i < 6; i++) {
 					buffer[i] = game->rng.randu() % ('z' - 'a') + 'a';
@@ -1244,9 +1244,9 @@ func void make_process_close_when_app_closes(HANDLE process)
 	assert(assign_result);
 }
 
-func s_sarray<s_str, 128> get_chat_messages(s_platform_data* platform_data)
+func s_sarray<s_sstr, 128> get_chat_messages(s_platform_data* platform_data)
 {
-	s_sarray<s_str, 128> result;
+	s_sarray<s_sstr, 128> result;
 	char* data = platform_data->read_file("chat_messages.txt", platform_data->frame_arena, null);
 	if(!data) { return result; }
 	data += game->last_chat_file_offset;
@@ -1260,7 +1260,7 @@ func s_sarray<s_str, 128> get_chat_messages(s_platform_data* platform_data)
 		else if(c == '\r') { do_thing = true; }
 
 		if(do_thing) {
-			s_str s = zero;
+			s_sstr s = zero;
 			s.data = &data[start];
 			s.len = index - start;
 			if(s.len > 0) {
@@ -1295,7 +1295,7 @@ func int parse_int(char *in, char **out)
 	return result * sign;
 }
 
-func int get_ball_by_name(s_str name)
+func int get_ball_by_name(s_sstr name)
 {
 	foreach_ptr(ball_i, ball, game->balls) {
 		if(strncmp(ball->name, name.data, name.len) == 0) {
@@ -1617,7 +1617,7 @@ func void do_collision_particles(s_v2 pos, float mag, s_v4 color)
 	#undef mod
 }
 
-func void maybe_add_new_ball(s_str user)
+func void maybe_add_new_ball(s_sstr user)
 {
 	int already_present_index = get_ball_by_name(user);
 	if(already_present_index < 0) {
