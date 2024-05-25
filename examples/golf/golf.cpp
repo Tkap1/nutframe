@@ -692,7 +692,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	}
 }
 
-m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
+m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, float interp_dt)
 {
 	set_globals(platform_data, game_memory, renderer, &platform_data->render_input);
 

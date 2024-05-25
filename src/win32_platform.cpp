@@ -78,6 +78,7 @@ static b8 thread_safe_set_bool_to_true(volatile int* var);
 static b8 should_go_borderless(int width, int height);
 static void set_borderless(HWND handle);
 static void set_non_borderless(HWND handle);
+static void print_win32_error();
 
 #ifdef m_debug
 static DWORD WINAPI watch_dir(void* arg);
@@ -606,11 +607,11 @@ static void create_window(int width, int height)
 			WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
 			WGL_CONTEXT_MINOR_VERSION_ARB, 3,
 			WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-			WGL_CONTEXT_FLAGS_ARB,
-			// WGL_CONTEXT_DEBUG_BIT_ARB,
+			// WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
 			0
 		};
 		HGLRC glrc = wglCreateContextAttribsARB(g_window.dc, NULL, gl_attribs);
+		assert(glrc);
 		check(wglMakeCurrent(g_window.dc, glrc));
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		window end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -619,10 +620,10 @@ static void create_window(int width, int height)
 static PROC load_gl_func(const char* name)
 {
 	PROC result = wglGetProcAddress(name);
-	if(!result)
-	{
+	if(!result) {
 		printf("Failed to load %s\n", name);
 		assert(false);
+		return NULL;
 	}
 	return result;
 }
@@ -751,8 +752,7 @@ static f64 get_seconds()
 
 static void set_vsync(b8 val)
 {
-	if(wglSwapIntervalEXT)
-	{
+	if(wglSwapIntervalEXT) {
 		wglSwapIntervalEXT(val ? 1 : 0);
 	}
 }
