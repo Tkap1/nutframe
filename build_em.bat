@@ -13,7 +13,7 @@ set comp=!comp! -lwebsocket.js
 set comp=!comp! -sSTACK_SIZE=1048576
 set comp=!comp! --shell-file ../shell.html
 
-set debug=0
+set debug=1
 if !debug!==0 (
 	set comp=!comp! -O3
 ) else (
@@ -38,7 +38,7 @@ if !debug!==0 (
 
 @REM -sFULL_ES3
 pushd build
-	call emcc ..\src\sdl_platform.cpp ..\examples\words\words.cpp -Dm_sdl -sFULL_ES3 !comp! -std=c++20 -Wno-writable-strings -sUSE_SDL=2 -sUSE_WEBGL2=1 -sALLOW_MEMORY_GROWTH -o index.html -I"C:\Users\34687\Desktop\Dev\C\emsdk\upstream\emscripten\cache\sysroot\include"
+	call emcc ..\src\sdl_platform.cpp ..\examples\snake\snake.cpp -Dm_sdl -sFULL_ES3 !comp! -std=c++20 -Wno-writable-strings -sUSE_SDL=2 -sUSE_WEBGL2=1 -sALLOW_MEMORY_GROWTH -o index.html -I"C:\Users\34687\Desktop\Dev\C\emsdk\upstream\emscripten\cache\sysroot\include"
 popd
 
 copy build\index.html index.html > NUL

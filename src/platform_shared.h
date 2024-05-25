@@ -145,7 +145,7 @@ X(PFNGLUNIFORM1FPROC, glUniform1f) \
 X(PFNGLDETACHSHADERPROC, glDetachShader) \
 X(PFNGLGETPROGRAMIVPROC, glGetProgramiv) \
 X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
-X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers)
+X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers) \
 
 #endif // __EMSCRIPTEN__
 
@@ -192,6 +192,9 @@ static constexpr float pi = 3.1415926f;
 static constexpr float tau = 6.283185f;
 static constexpr float epsilon = 0.000001f;
 
+#define rad2deg (pi * 180)
+#define deg2rad (pi / 180)
+
 static void on_failed_assert(const char* cond, const char* file, int line);
 
 template<typename t0, typename t1>
@@ -217,8 +220,15 @@ struct s_v2i
 
 struct s_v3
 {
-	float x;
-	float y;
+	union
+	{
+		struct
+		{
+			float x;
+			float y;
+		};
+		s_v2 xy;
+	};
 	float z;
 };
 
@@ -235,6 +245,13 @@ struct s_v4
 		s_v3 xyz;
 	};
 	float w;
+};
+
+union s_m4
+{
+	float all[16];
+	float elements[4][4];
+	s_v4 v[4];
 };
 
 struct s_recti
@@ -584,6 +601,12 @@ struct s_texture
 	const char* path;
 };
 
+struct s_camera3d
+{
+	s_v3 pos;
+	s_v3 target;
+};
+
 struct s_glyph
 {
 	int advance_width;
@@ -717,6 +740,15 @@ static constexpr s_v3 v3(float x)
 	return result;
 }
 
+static constexpr s_v3 v3(s_v2 v, float z)
+{
+	s_v3 result;
+	result.x = v.x;
+	result.y = v.y;
+	result.z = z;
+	return result;
+}
+
 static constexpr s_v3 v3(s_v4 v)
 {
 	s_v3 result;
@@ -725,6 +757,160 @@ static constexpr s_v3 v3(s_v4 v)
 	result.z = v.z;
 	return result;
 }
+
+static float v3_dot(s_v3 a, s_v3 b)
+{
+	float Result = (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
+	return (Result);
+}
+
+
+static s_m4 m4_translate(s_v3 v)
+{
+	return {{
+		1,0,0,0,
+		0,1,0,0,
+		0,0,1,0,
+		v.x,v.y,v.z,1
+	}};
+}
+
+static s_m4 m4_scale(s_v3 scale)
+{
+	return {{
+		scale.x,	0,			0,			0,
+		0,			scale.y,	0,			0,
+		0,			0,			scale.z,	0,
+		0,			0,			0,			1
+	}};
+}
+
+static s_m4 m4_perspective(float FOV, float AspectRatio, float Near, float Far)
+{
+	s_m4 Result = {0};
+
+	// See https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluPerspective.xml
+
+	float Cotangent = 1.0f / tanf((FOV * deg2rad) / 2.0f);
+	Result.elements[0][0] = Cotangent / AspectRatio;
+	Result.elements[1][1] = Cotangent;
+	Result.elements[2][3] = -1.0f;
+
+	Result.elements[2][2] = (Near + Far) / (Near - Far);
+	Result.elements[3][2] = (2.0f * Near * Far) / (Near - Far);
+
+	return Result;
+}
+
+static s_v3 v3_cross(s_v3 a, s_v3 b)
+{
+	s_v3 Result;
+
+	Result.x = (a.y * b.z) - (a.z * b.y);
+	Result.y = (a.z * b.x) - (a.x * b.z);
+	Result.z = (a.x * b.y) - (a.y * b.x);
+
+	return (Result);
+}
+
+
+static s_v3 operator-(s_v3 a, s_v3 b)
+{
+	s_v3 result;
+	result.x = a.x - b.x;
+	result.y = a.y - b.y;
+	result.z = a.z - b.z;
+	return result;
+}
+
+
+static s_m4 look_at_internal(s_v3 F, s_v3 S, s_v3 U, s_v3 Eye)
+{
+	s_m4 Result;
+
+	Result.elements[0][0] = S.x;
+	Result.elements[0][1] = U.x;
+	Result.elements[0][2] = -F.x;
+	Result.elements[0][3] = 0.0f;
+
+	Result.elements[1][0] = S.y;
+	Result.elements[1][1] = U.y;
+	Result.elements[1][2] = -F.y;
+	Result.elements[1][3] = 0.0f;
+
+	Result.elements[2][0] = S.z;
+	Result.elements[2][1] = U.z;
+	Result.elements[2][2] = -F.z;
+	Result.elements[2][3] = 0.0f;
+
+	Result.elements[3][0] = -v3_dot(S, Eye);
+	Result.elements[3][1] = -v3_dot(U, Eye);
+	Result.elements[3][2] = v3_dot(F, Eye);
+	Result.elements[3][3] = 1.0f;
+
+	return Result;
+}
+
+static float v3_length_squared(s_v3 v)
+{
+	return v.x * v.x + v.y * v.y + v.z * v.z;
+}
+
+static float v3_length(s_v3 v)
+{
+	return sqrtf(v3_length_squared(v));
+}
+
+
+static s_v3 v3_normalized(s_v3 v)
+{
+	s_v3 result = v;
+	float length = v3_length(v);
+	if(!floats_equal(length, 0))
+	{
+		result.x /= length;
+		result.y /= length;
+		result.z /= length;
+	}
+	return result;
+}
+
+
+static s_m4 look_at(s_v3 Eye, s_v3 Center, s_v3 Up)
+{
+	s_v3 F = v3_normalized(Center - Eye);
+	s_v3 S = v3_normalized(v3_cross(F, Up));
+	s_v3 U = v3_cross(S, F);
+
+	return look_at_internal(F, S, U, Eye);
+}
+
+
+static s_m4 m4_multiply(s_m4 left, s_m4 right)
+{
+
+	s_m4 result;
+
+	int Columns;
+	for(Columns = 0; Columns < 4; ++Columns)
+	{
+		int Rows;
+		for(Rows = 0; Rows < 4; ++Rows)
+		{
+			float sum = 0;
+			int CurrentMatrice;
+			for(CurrentMatrice = 0; CurrentMatrice < 4; ++CurrentMatrice)
+			{
+				sum += left.elements[CurrentMatrice][Columns] * right.elements[Rows][CurrentMatrice];
+			}
+
+			result.elements[Rows][Columns] = sum;
+		}
+	}
+
+	return result;
+}
+
 
 template <typename t>
 static void swap(t* a, t* b)
@@ -1034,7 +1220,7 @@ void s_str_builder<max_chars>::pop_tab()
 static s_v2 g_base_res = {0, 0};
 
 #ifdef m_debug
-#define gl(...) __VA_ARGS__; {int error = glGetError(); if(error != 0) { on_gl_error(#__VA_ARGS__, error); }}
+#define gl(...) __VA_ARGS__; {int error = glGetError(); if(error != 0) { on_gl_error(#__VA_ARGS__, __FILE__, __LINE__, error); }}
 #else // m_debug
 #define gl(...) __VA_ARGS__
 #endif // m_debug
@@ -1042,6 +1228,7 @@ static s_v2 g_base_res = {0, 0};
 enum e_shader
 {
 	e_shader_default,
+	e_shader_basic_3d,
 	e_shader_count
 };
 
@@ -1196,27 +1383,11 @@ static s_v2i operator+(s_v2i a, s_v2i b)
 	return result;
 }
 
-static s_v2 operator+(s_v2 a, float b)
-{
-	s_v2 result;
-	result.x = a.x + b;
-	result.y = a.y + b;
-	return result;
-}
-
 static s_v2 operator-(s_v2 a, s_v2 b)
 {
 	s_v2 result;
 	result.x = a.x - b.x;
 	result.y = a.y - b.y;
-	return result;
-}
-
-static s_v2 operator-(s_v2 a, float b)
-{
-	s_v2 result;
-	result.x = a.x - b;
-	result.y = a.y - b;
 	return result;
 }
 
@@ -1244,6 +1415,7 @@ static s_v3 operator*(s_v3 a, float b)
 	result.z = a.z * b;
 	return result;
 }
+
 
 static s_v2i operator*(s_v2i a, int b)
 {
@@ -1880,14 +2052,15 @@ struct s_transform
 	int effect_id;
 	float mix_weight;
 	float rotation;
-	s_v2 pos;
 	s_v2 origin_offset;
 	s_v2 draw_size;
 	s_v2 texture_size;
 	s_v2 uv_min;
 	s_v2 uv_max;
+	s_v3 pos;
 	s_v4 color;
 	s_v4 mix_color;
+	s_m4 model;
 };
 #pragma pack(pop)
 
@@ -2236,7 +2409,7 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 		render_data.framebuffer = &game_renderer->framebuffers[0];
 	}
 
-	t.pos = pos;
+	t.pos = v3(pos, 0);
 	t.layer = layer;
 	t.draw_size = size;
 	t.color = color;
@@ -2246,6 +2419,25 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 	bucket_add(&render_data.framebuffer->transforms[get_render_offset(0, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
 }
 
+// static void draw_cube(s_game_renderer* game_renderer, s_v3 pos, s_v3 size, s_v4 color, s_render_data render_data = {}, s_transform t = {})
+// {
+// 	if(!render_data.framebuffer) {
+// 		render_data.framebuffer = &game_renderer->framebuffers[0];
+// 	}
+
+// 	s_m4 model = m4_translate(pos);
+// 	model = m4_multiply(model, m4_scale(size));
+
+// 	t.model = model;
+// 	t.pos = pos;
+// 	// t.draw_size = size;
+// 	t.color = color;
+// 	t.uv_min = v2(0, 0);
+// 	t.uv_max = v2(1, 1);
+// 	t.mix_color = v41f(1);
+// 	bucket_add(&render_data.framebuffer->transforms[get_render_offset(0, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+// }
+
 static void draw_line(s_game_renderer* game_renderer, s_v2 from, s_v2 to, int layer, float thickness, s_v4 color, s_render_data render_data = {}, s_transform t = {})
 {
 	if(!render_data.framebuffer) {
@@ -2253,7 +2445,7 @@ static void draw_line(s_game_renderer* game_renderer, s_v2 from, s_v2 to, int la
 	}
 
 	t.flags |= e_render_flag_line;
-	t.pos = from;
+	t.pos = v3(from, 0);
 	t.layer = layer;
 	t.draw_size = to;
 	t.texture_size.x = thickness;
@@ -2272,7 +2464,7 @@ static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_
 
 	t.layer = layer;
 	t.flags |= e_render_flag_use_texture;
-	t.pos = pos;
+	t.pos = v3(pos, 0);
 	t.draw_size = size;
 	t.color = color;
 	t.uv_min = v2(0);
@@ -2292,7 +2484,7 @@ static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2
 
 	t.layer = layer;
 	t.flags |= e_render_flag_use_texture;
-	t.pos = pos;
+	t.pos = v3(pos, 0);
 	t.draw_size = size;
 	t.color = color;
 	t.uv_min = v2(
@@ -2351,10 +2543,10 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		// glyph_pos.y += font->ascent * scale;
 		// glyph_pos.y += font_size;
 		t.flags |= e_render_flag_use_texture | e_render_flag_text;
-		t.pos = glyph_pos;
+		t.pos = v3(glyph_pos, 0);
 
-		s_v2 center = t.pos + t.draw_size / 2 * v2(1, -1);
-		s_v2 bottomleft = t.pos;
+		s_v2 center = t.pos.xy + t.draw_size / 2 * v2(1, -1);
+		s_v2 bottomleft = t.pos.xy;
 
 		// s_v2 topleft = t.pos + t.draw_size * v2(0, -1);
 		// draw_rect(t.pos, 1, t.draw_size, make_color(0.4f, 0,0), {}, {.origin_offset = c_origin_bottomleft});
@@ -2363,7 +2555,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), {}, {.origin_offset = c_origin_bottomleft});
 		// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), {}, {.origin_offset = c_origin_topleft});
 
-		t.pos = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
+		t.pos.xy = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
 
 		t.color = color;
 		t.uv_min = glyph.uv_min;
@@ -2550,6 +2742,10 @@ static constexpr s_shader_paths c_shader_paths[e_shader_count] = {
 	{
 		.vertex_path = "shaders/vertex.vertex",
 		.fragment_path = "shaders/fragment.fragment",
+	},
+	{
+		.vertex_path = "shaders/basic_3d.vertex",
+		.fragment_path = "shaders/basic_3d.fragment",
 	},
 };
 
@@ -3178,7 +3374,7 @@ static void do_game_layer(
 	g_platform_data.frame_arena->used = 0;
 }
 
-static void on_gl_error(const char* expr, int error)
+static void on_gl_error(const char* expr, char* file, int line, int error)
 {
 	#define m_gl_errors \
 	X(GL_INVALID_ENUM, "GL_INVALID_ENUM") \
@@ -3202,6 +3398,8 @@ static void on_gl_error(const char* expr, int error)
 	#undef m_gl_errors
 
 	printf("GL ERROR: %s - %i (%s)\n", expr, error, error_str);
+	printf("  %s(%i)\n", file, line);
+	printf("--------\n");
 }
 
 static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer, s_lin_arena* arena)
@@ -3213,10 +3411,7 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
 
 	s_attrib_handler handler = {};
-	add_int_attrib(&handler, 1);
-	add_int_attrib(&handler, 1);
-	add_int_attrib(&handler, 1);
-	add_int_attrib(&handler, 1);
+	add_int_attrib(&handler, 4);
 	add_float_attrib(&handler, 1);
 	add_float_attrib(&handler, 1);
 	add_float_attrib(&handler, 2);
@@ -3224,7 +3419,13 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	add_float_attrib(&handler, 2);
 	add_float_attrib(&handler, 2);
 	add_float_attrib(&handler, 2);
-	add_float_attrib(&handler, 2);
+	add_float_attrib(&handler, 3);
+	add_float_attrib(&handler, 4);
+	add_float_attrib(&handler, 4);
+
+	// @Note(tkap, 25/05/2024): model matrix
+	add_float_attrib(&handler, 4);
+	add_float_attrib(&handler, 4);
 	add_float_attrib(&handler, 4);
 	add_float_attrib(&handler, 4);
 	finish_attribs(&handler);
@@ -3244,7 +3445,8 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 
 	load_font(game_renderer, "assets/consola.ttf", 128, arena);
 
-	gl(glUseProgram(platform_renderer->programs[e_shader_default]));
+	// @TODO(tkap, 25/05/2024): dont think we need this
+	// gl(glUseProgram(platform_renderer->programs[e_shader_default]));
 
 	s_framebuffer framebuffer = {};
 	framebuffer.do_depth = true;
