@@ -193,6 +193,7 @@ static constexpr s64 c_tb = 1024 * c_gb;
 static constexpr float pi = 3.1415926f;
 static constexpr float tau = 6.283185f;
 static constexpr float epsilon = 0.000001f;
+static constexpr f64 epsilon64 = 0.000000001;
 
 #define rad2deg (pi * 180)
 #define deg2rad (pi / 180)
@@ -372,6 +373,15 @@ struct s_ray
 	s_v3 dir;
 };
 
+struct s_ray_collision
+{
+	b8 hit;
+	float distance;
+	s_v3 normal;
+	s_v3 point;
+};
+
+
 template <typename t>
 static t at_least(t a, t b)
 {
@@ -543,7 +553,7 @@ struct s_sarray
 		return count <= 0;
 	}
 
-	void small_sort(bool (*compare_func)(T, T) = NULL)
+	void small_sort(bool (*compare_func)(T, T) = NULL, b8 reverse = false)
 	{
 		// @Note(tkap, 25/06/2023): Let's not get crazy with insertion sort, bro
 		assert(count < 256);
@@ -556,11 +566,19 @@ struct s_sarray
 				T* b = &elements[j - 1];
 
 				if(compare_func) {
-					if(compare_func(*a, *b)) { break; }
+					if(reverse) {
+						if(!compare_func(*a, *b)) { break; }
+					}
+					else {
+						if(compare_func(*a, *b)) { break; }
+					}
 				}
 				else {
-					if(*a > *b) {
-						break;
+					if(reverse) {
+						if(*a < *b) { break; }
+					}
+					else {
+						if(*a > *b) { break; }
 					}
 				}
 				T temp = *a;
@@ -691,6 +709,11 @@ static constexpr s_v4 rgba(int hex)
 static b8 floats_equal(float a, float b)
 {
 	return (a >= b - epsilon && a <= b + epsilon);
+}
+
+static b8 floats64_equal(f64 a, f64 b)
+{
+	return (a >= b - epsilon64 && a <= b + epsilon64);
 }
 
 static b8 is_zero(float x)
@@ -993,6 +1016,24 @@ static float lerp(float a, float b, float t)
 {
 	return a + (b - a) * t;
 }
+
+static s_v2 lerp(s_v2 a, s_v2 b, float t)
+{
+	s_v2 result;
+	result.x = lerp(a.x, b.x, t);
+	result.y = lerp(a.y, b.y, t);
+	return result;
+}
+
+static s_v3 lerp(s_v3 a, s_v3 b, float t)
+{
+	s_v3 result;
+	result.x = lerp(a.x, b.x, t);
+	result.y = lerp(a.y, b.y, t);
+	result.z = lerp(a.z, b.z, t);
+	return result;
+}
+
 
 static float lerp_snap(float a, float b, float t, float max_diff)
 {
@@ -1717,11 +1758,29 @@ static s_v2 operator/(s_v2 a, float b)
 	return result;
 }
 
+static s_v3 operator/(s_v3 a, float b)
+{
+	s_v3 result;
+	result.x = a.x / b;
+	result.y = a.y / b;
+	result.z = a.z / b;
+	return result;
+}
+
 static s_v2 operator/(s_v2 a, s_v2 b)
 {
 	s_v2 result;
 	result.x = a.x / b.x;
 	result.y = a.y / b.y;
+	return result;
+}
+
+static s_v3 operator/(s_v3 a, s_v3 b)
+{
+	s_v3 result;
+	result.x = a.x / b.x;
+	result.y = a.y / b.y;
+	result.z = a.z / b.z;
 	return result;
 }
 
@@ -2026,15 +2085,6 @@ static float v2_length(s_v2 a)
 static float v2_distance(s_v2 a, s_v2 b)
 {
 	return v2_length(a - b);
-}
-
-
-static s_v2 lerp(s_v2 a, s_v2 b, float t)
-{
-	s_v2 result;
-	result.x = lerp(a.x, b.x, t);
-	result.y = lerp(a.y, b.y, t);
-	return result;
 }
 
 static s_v2 lerp_snap(s_v2 a, s_v2 b, float t)
@@ -4587,4 +4637,15 @@ static s_time_data process_time(f64 time)
 	time -= data.seconds;
 	data.ms = (int)floor(time * 1000);
 	return data;
+}
+
+static b8 is_bit_index_set(int a, int b)
+{
+	assert(b <= 31);
+	return (a & (1 << b)) != 0;
+}
+
+static int to_bit(int a)
+{
+	return 1 << a;
 }

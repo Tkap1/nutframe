@@ -76,6 +76,7 @@ struct s_game
 	s_sound* shoot_sound;
 	s_sound* jump_sound;
 	s_sound* win_sound;
+	s_sarray<f64, c_max_leaderboard_entries> leaderboard_arr;
 };
 
 static s_input* g_input;
@@ -238,7 +239,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 
 				b8 pushed = false;
-				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player x collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				float x_vel = player->vel.x + input_vel;
 				if(x_vel > 0) {
 					player->flip_x = false;
@@ -251,6 +251,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				else {
 					player->state = 0;
 				}
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player x collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				player->pos.x += x_vel;
 				auto collision_arr = get_tile_collisions(player->pos, c_player_collision_size, c_play_tile_size);
 				foreach_val(collision_i, collision, collision_arr) {
@@ -334,6 +335,19 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					if(collides) {
 						game->state = e_state_victory;
 						platform_data->play_sound(game->win_sound);
+						if(game->leaderboard_arr.count >= c_max_leaderboard_entries) {
+							f64 slowest_time = -1;
+							int index = 0;
+							foreach_val(time_i, time, game->leaderboard_arr) {
+								if(time > slowest_time) {
+									index = time_i;
+									slowest_time = time;
+								}
+							}
+							game->leaderboard_arr.remove_and_swap(index);
+						}
+						game->leaderboard_arr.add(game->timer);
+						game->leaderboard_arr.small_sort();
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check end point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -422,8 +436,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	live_variable(&platform_data->vars, c_projectile_speed, 0.0f, 5.0f, true);
 
 	float delta = (float)platform_data->frame_time;
-	float time = (float)g_r->total_time;
-	unreferenced(time);
 
 	if(g_input->wheel_movement > 0) {
 		game->editor_cam.zoom *= 1.1f;
@@ -503,11 +515,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				for(int x = bounds.x0; x <= bounds.x1; x++) {
 					s8 tile = game->map.tile_arr[y][x];
 					if(tile > 0) {
+						s_v3 pos = v3((float)x * c_play_tile_size, (float)y * c_play_tile_size, 0.0f);
 						if(tile == e_tile_spike) {
-							draw_texture_3d(g_r, v3((float)x * c_play_tile_size, (float)y * c_play_tile_size, 0.0f), v2(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
+							draw_texture_3d(g_r, pos, v2(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
 						}
 						else {
-							draw_textured_cube(g_r, v3((float)x * c_play_tile_size, (float)y * c_play_tile_size, 0.0f), v3(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
+							draw_textured_cube(g_r, pos, v3(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
 						}
 					}
 				}
@@ -726,9 +739,39 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				game->state = e_state_play;
 			}
 
-			s_time_data data = process_time(game->timer);
-			char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-			draw_text(g_r, text, c_half_res, 10, 64, make_color(1), true, game->font);
+			{
+				s_time_data data = process_time(game->timer);
+				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+				draw_text(g_r, text, c_half_res * v2(1.0f, 0.2f), 10, 64, make_color(1), true, game->font);
+			}
+
+			s_v2 pos = c_half_res * v2(1.0f, 0.7f);
+			b8 found_current = false;
+			for(int time_i = 0; time_i < at_most(10, game->leaderboard_arr.count); time_i++) {
+				f64 time = game->leaderboard_arr[time_i];
+				s_time_data data = process_time(time);
+				s_v4 color = make_color(0.8f);
+				if(!found_current && floats64_equal(time, game->timer)) {
+					found_current = true;
+					color = rgb(0xD3A861);
+				}
+				draw_text(g_r, format_text("%i", time_i + 1), pos - v2(250, 24), 10, 48, color, false, game->font);
+				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+				draw_text(g_r, text, pos, 10, 48, color, true, game->font);
+				pos.y += 48;
+			}
+			if(!found_current) {
+				foreach_val(time_i, time, game->leaderboard_arr) {
+					if(floats64_equal(time, game->timer)) {
+						s_time_data data = process_time(time);
+						s_v4 color = rgb(0xD3A861);
+						draw_text(g_r, format_text("%i", time_i + 1), pos - v2(250, 24), 10, 48, color, false, game->font);
+						char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+						draw_text(g_r, text, pos, 10, 48, color, true, game->font);
+						break;
+					}
+				}
+			}
 		} break;
 
 		invalid_default_case;
@@ -745,7 +788,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 #ifdef m_build_dll
 }
 #endif // m_build_dll
-
 
 
 static s_v2i pos_to_index(s_v2 pos, int tile_size)
@@ -835,7 +877,7 @@ static void load_map(s_map* map, s_platform_data* platform_data)
 	}
 }
 
-static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, int tile_size)
+static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, int tile_size, int tile_blacklist_mask)
 {
 	s_sarray<s_tile_collision, 16> result;
 	s_v2i base_index = pos_to_index(pos, tile_size);
@@ -844,6 +886,7 @@ static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, i
 			s_v2i index = base_index + v2i(x, y);
 			if(index_has_tile(index)) {
 				e_tile tile = game->map.tile_arr[index.y][index.x];
+				if(is_bit_index_set(tile_blacklist_mask, tile)) { continue; }
 				s_v2 tile_center = v2(index) * v2(tile_size);
 				float temp_tile_size = (float)tile_size;
 				if(tile == e_tile_spike) {

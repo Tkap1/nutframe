@@ -12,6 +12,7 @@ static constexpr int c_end_point_version = 1;
 static constexpr int c_max_jumps = 1;
 static constexpr int c_max_projectiles = 128;
 static constexpr int c_projectile_duration = 2000;
+static constexpr int c_max_leaderboard_entries = 128;
 
 static constexpr float c_player_z = 0.0f;
 static constexpr float c_gravity = 0.001f;
@@ -104,5 +105,5 @@ static b8 is_index_valid(s_v2i index);
 static s_recti get_3d_tile_bounds(s_camera3d cam);
 static void load_map(s_map* map, s_platform_data* platform_data);
 static b8 index_has_tile(s_v2i index);
-static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, int tile_size);
+static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, int tile_size, int tile_blacklist_mask = 0);
 static s_v2 index_to_pos(s_v2i index, int tile_size);
