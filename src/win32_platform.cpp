@@ -203,7 +203,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		s_lin_arena all = {};
 		all.capacity = 500 * c_mb;
 
-		#ifdef m_debug
+		#if defined(m_debug) && !defined(__SANITIZE_ADDRESS__)
 		// @Note(tkap, 20/10/2023): We give a high base address in debug mode because this gives us consistent pointers, which is nice for debugging.
 		// Doing this breaks address sanitizers, but we can always change this to NULL if we need to use one.
 		void* base_address = (void*)(4 * c_tb);

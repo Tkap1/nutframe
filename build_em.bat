@@ -22,6 +22,10 @@ if !debug!==0 (
 	set comp=!comp! -sASSERTIONS=1
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
 	set comp=!comp! --preload-file ../shaders/fragment.fragment@shaders/fragment.fragment
+	set comp=!comp! --preload-file ../shaders/basic_3d.vertex@shaders/basic_3d.vertex
+	set comp=!comp! --preload-file ../shaders/basic_3d.fragment@shaders/basic_3d.fragment
+	set comp=!comp! --preload-file ../shaders/3d_flat.vertex@shaders/3d_flat.vertex
+	set comp=!comp! --preload-file ../shaders/3d_flat.fragment@shaders/3d_flat.fragment
 	set comp=!comp! --preload-file ../examples/snake/noise.png@examples/snake/noise.png
 	set comp=!comp! --preload-file ../examples/snake/snake_head.png@examples/snake/snake_head.png
 	set comp=!comp! --preload-file ../examples/snake/snake_body.png@examples/snake/snake_body.png
@@ -38,7 +42,7 @@ if !debug!==0 (
 
 @REM -sFULL_ES3
 pushd build
-	call emcc ..\src\sdl_platform.cpp ..\examples\snake\snake.cpp -Dm_sdl -sFULL_ES3 !comp! -std=c++20 -Wno-writable-strings -sUSE_SDL=2 -sUSE_WEBGL2=1 -sALLOW_MEMORY_GROWTH -o index.html -I"C:\Users\34687\Desktop\Dev\C\emsdk\upstream\emscripten\cache\sysroot\include"
+	call emcc ..\src\sdl_platform.cpp ..\examples\speedjam5\platformer.cpp -Dm_sdl -sFULL_ES3 !comp! -std=c++20 -Wno-writable-strings -sUSE_SDL=2 -sUSE_WEBGL2=1 -sALLOW_MEMORY_GROWTH -o index.html -I"C:\Users\34687\Desktop\Dev\C\emsdk\upstream\emscripten\cache\sysroot\include"
 popd
 
 copy build\index.html index.html > NUL

@@ -132,8 +132,8 @@ void main()
 	v_color = in_color;
 	v_mix_color = in_mix_color;
 
-	float z = float(in_layer) / 100.0;
-	z += float(in_sublayer) / 4.0 / 100.0;
+	float z = float(-in_layer) / 100.0;
+	z += float(-in_sublayer) / 4.0 / 100.0;
 	v_uv = uvs[gl_VertexID];
 	v_local_uv = local_uv[gl_VertexID];
 
