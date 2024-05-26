@@ -260,13 +260,16 @@ static void do_one_frame()
 			case SDL_KEYDOWN:
 			case SDL_KEYUP: {
 				int key = sdl_key_to_windows_key(e.key.keysym.sym);
+				b8 is_repeat = e.key.repeat;
 				if(key == -1) { break; }
 				b8 is_down = e.type == SDL_KEYDOWN;
 				s_stored_input si = {};
 				si.key = key;
 				si.is_down = is_down;
-				apply_event_to_input(&g_platform_data.logic_input, si);
-				apply_event_to_input(&g_platform_data.render_input, si);
+				if(!is_repeat) {
+					apply_event_to_input(&g_platform_data.logic_input, si);
+					apply_event_to_input(&g_platform_data.render_input, si);
+				}
 
 				// @Note(tkap, 11/11/2023): SDL does not give us a text input event for backspace, so let's hack it
 				if(key == c_key_backspace && is_down) {
@@ -275,7 +278,7 @@ static void do_one_frame()
 				}
 
 				#ifdef m_debug
-				if(g_platform_data.recording_input && key != c_key_f10) {
+				if(g_platform_data.recording_input && key != c_key_f10 && !is_repeat) {
 					s_foo ri = {};
 					ri.input = si;
 					ri.update_count = g_platform_data.update_count;
