@@ -2442,6 +2442,7 @@ struct s_key
 
 struct s_input
 {
+	float wheel_movement;
 	s_sarray<char, 128> char_events;
 	s_carray<s_key, c_max_keys> keys;
 };
@@ -2767,6 +2768,26 @@ static void draw_cube(s_game_renderer* game_renderer, s_v3 pos, s_v3 size, s_v4 
 	t.uv_max = v2(1, 1);
 	t.mix_color = v41f(1);
 	bucket_add(&render_data.framebuffer->transforms[get_render_offset(game_renderer, render_data.shader, 0, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+}
+
+static void draw_textured_cube(s_game_renderer* game_renderer, s_v3 pos, s_v3 size, s_v4 color, s_texture texture, s_render_data render_data = {}, s_transform t = {})
+{
+	if(!render_data.framebuffer) {
+		render_data.framebuffer = &game_renderer->framebuffers[0];
+	}
+
+	if(render_data.shader == 0) { render_data.shader = 1; }
+
+	s_m4 model = m4_translate(pos);
+	model = m4_multiply(model, m4_scale(size));
+	t.flags |= e_render_flag_use_texture;
+	t.model = model;
+	t.pos = pos;
+	t.color = color;
+	t.uv_min = v2(0, 0);
+	t.uv_max = v2(1, 1);
+	t.mix_color = v41f(1);
+	bucket_add(&render_data.framebuffer->transforms[get_render_offset(game_renderer, render_data.shader, texture.game_id, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
 }
 
 static void draw_texture_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_texture texture, s_render_data render_data = {}, s_transform t = {})
@@ -3391,6 +3412,7 @@ static void begin_replaying_input()
 
 static s_recti do_letter_boxing(int base_width, int base_height, int window_width, int window_height);
 
+#ifdef m_debug
 static void update_console(s_console* cn, s_game_renderer* game_renderer)
 {
 	b8 is_open = cn->target_y > 0;
@@ -3533,6 +3555,7 @@ static void console_quit(s_console* cn, char* text)
 {
 	exit(1);
 }
+#endif // m_debug
 
 static void do_game_layer(
 	s_game_renderer* game_renderer, void* game_memory
@@ -3731,6 +3754,7 @@ static void do_game_layer(
 		update(&g_platform_data, game_memory, game_renderer);
 		g_platform_data.update_count += 1;
 		g_platform_data.recompiled = false;
+		g_platform_data.logic_input.wheel_movement = 0;
 
 		for(int i = 0; i < c_max_keys; i++) {
 			g_platform_data.logic_input.keys[i].count = 0;
@@ -3749,6 +3773,7 @@ static void do_game_layer(
 	float interp_dt = (float)(time / delay);
 	render(&g_platform_data, game_memory, game_renderer, interp_dt);
 	g_platform_data.render_count += 1;
+	g_platform_data.render_input.wheel_movement = 0;
 
 	reset_ui();
 	for(int i = 0; i < c_max_keys; i++) {
@@ -4221,12 +4246,12 @@ static s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 
 	int width, height, num_channels;
 	void* data = stbi_load_from_memory(embed_data[g_asset_index], embed_sizes[g_asset_index], &width, &height, &num_channels, 4);
-	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR, GL_RGBA);
+	s_texture result = load_texture_from_data(data, width, height, GL_NEAREST, GL_RGBA);
 	g_asset_index += 1;
 
 	#else
 
-	s_texture result = load_texture_from_file(path, GL_LINEAR);
+	s_texture result = load_texture_from_file(path, GL_NEAREST);
 	#endif
 
 	result.game_id = game_renderer->textures.count;
@@ -4541,3 +4566,21 @@ static void reset_ui()
 #endif // m_game
 
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+struct s_time_data
+{
+	int minutes;
+	int seconds;
+	int ms;
+};
+
+static s_time_data process_time(f64 time)
+{
+	s_time_data data = {};
+	data.minutes = (int)floor(time / 60);
+	time -= data.minutes * 60;
+	data.seconds = (int)floor(time);
+	time -= data.seconds;
+	data.ms = (int)floor(time * 1000);
+	return data;
+}

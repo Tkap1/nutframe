@@ -6,31 +6,12 @@
 #include "platformer.h"
 
 static constexpr s_v2 c_base_res = {800, 800};
-// static constexpr s_v2 c_half_res = {c_base_res.x * 0.5f, c_base_res.y * 0.5f};
-
-enum e_state
-{
-	e_state_play,
-	e_state_editor,
-};
-
-template <typename t, int n>
-struct s_array_with_mask
-{
-	s_carray<b8, n> active;
-	s_carray<t, n> elements;
-
-	t& operator[](int index)
-	{
-		assert(index >= 0);
-		assert(index < n);
-		return elements[index];
-	}
-};
+static constexpr s_v2 c_half_res = {c_base_res.x * 0.5f, c_base_res.y * 0.5f};
 
 struct s_camera2d
 {
 	s_v2 pos;
+	float zoom;
 
 	s_recti get_tile_bounds();
 	s_v2 world_to_screen(s_v2 v)
@@ -38,16 +19,22 @@ struct s_camera2d
 		s_v2 result = v;
 		result.x -= pos.x;
 		result.y -= pos.y;
+		result *= zoom;
 		return result;
 	}
 
 	s_v2 screen_to_world(s_v2 v)
 	{
 		s_v2 result = v;
+		result.x /= zoom;
+		result.y /= zoom;
 		result.x += pos.x;
 		result.y += pos.y;
 		return result;
 	}
+
+	s_v2 scale(s_v2 v) { return v * zoom; }
+	float scale(float x) { return x * zoom; }
 };
 
 struct s_projectile
@@ -58,32 +45,22 @@ struct s_projectile
 	s_v2 dir;
 };
 
-struct s_player
-{
-	int jumps_left;
-	int shoot_timer;
-	s_v2 prev_pos;
-	s_v2 pos;
-	s_v2 vel;
-};
-
-struct s_editor
-{
-	s8 curr_tile;
-};
-
 struct s_game
 {
 	b8 initialized;
 	b8 follow_player;
+	b8 reset_player;
 	b8 reset_game;
 	e_state state;
+	f64 timer;
 	s_framebuffer* particle_framebuffer;
 	s_framebuffer* text_framebuffer;
 	s_camera3d cam;
 	s_camera2d editor_cam;
 	s_texture sheet;
 	s_texture noise;
+	s_texture save_point_texture;
+	s_carray<s_texture, e_tile_count> tile_texture_arr;
 	s_sarray<s_projectile, c_max_projectiles> projectile_arr;
 	s_rng rng;
 	s_font* font;
@@ -117,23 +94,61 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	game = (s_game*)game_memory;
 	g_input = &platform_data->logic_input;
 	g_mouse = platform_data->mouse;
+	g_r = renderer;
+
+	if(!game->initialized) {
+		game->initialized = true;
+		game->rng.seed = platform_data->get_random_seed();
+		g_r->set_vsync(true);
+		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png");
+		game->save_point_texture = g_r->load_texture(renderer, "examples/speedjam5/save_point.png");
+		game->tile_texture_arr[e_tile_normal] = g_r->load_texture(renderer, "examples/speedjam5/tile_normal.png");
+		game->tile_texture_arr[e_tile_nullify_explosion] = g_r->load_texture(renderer, "examples/speedjam5/tile_nullify_explosion.png");
+		game->tile_texture_arr[e_tile_spike] = g_r->load_texture(renderer, "examples/speedjam5/tile_spike.png");
+		game->tile_texture_arr[e_tile_platform] = g_r->load_texture(renderer, "examples/speedjam5/tile_platform.png");
+		// game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
+		// game->text_framebuffer = g_r->make_framebuffer(renderer, false);
+		// game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/snake/eat_apple.wav", platform_data->frame_arena);
+		game->font = &renderer->fonts[0];
+		platform_data->variables_path = "examples/speedjam5/variables.h";
+		game->cam.pos = v3(0, 0, -5);
+		game->cam.target = v3(0, 0, 1);
+		game->cam.pos.x = c_play_tile_size * (c_tiles_right / 2);
+		game->cam.pos.y = c_play_tile_size * c_tiles_down;
+		game->editor_cam.pos.x = c_editor_tile_size * (c_tiles_right / 2);
+		game->editor_cam.pos.y = c_editor_tile_size * (c_tiles_down - 10);
+		game->editor_cam.zoom = 1;
+		game->editor.curr_tile = e_tile_normal;
+		game->follow_player = true;
+		game->reset_game = true;
+
+		load_map(&game->map, platform_data);
+	}
+
 
 	switch(game->state) {
 		case e_state_play: {
+
+			if(game->reset_game) {
+				game->reset_game = false;
+				game->curr_save_point = 0;
+				game->timer = 0;
+				game->reset_player = true;
+			}
+
+			game->timer += 1.0 / c_updates_per_second;
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player update start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_player* player = &game->player;
 				player->prev_pos = player->pos;
 
-				printf("%f\n", game->player.vel.y);
-
 				float input_vel = 0;
 				if(game->follow_player) {
-					if(is_key_down(g_input, c_key_a) && in_perspective) {
+					if(is_key_down(g_input, c_key_a)) {
 						input_vel -= c_player_speed;
 					}
-					if(is_key_down(g_input, c_key_d) && in_perspective) {
+					if(is_key_down(g_input, c_key_d)) {
 						input_vel += c_player_speed;
 					}
 				}
@@ -163,7 +178,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				// right, left or
 				// left, right or
 				else if(!floats_equal(player->vel.x, 0) && !floats_equal(input_vel, 0) && sign(player->vel.x) != sign(input_vel)) {
-					input_vel *= 0.02f;
+					input_vel *= 0.03f;
 					player->vel.x = player->vel.x + input_vel;
 					input_vel = 0;
 				}
@@ -181,49 +196,113 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 				if(is_key_pressed(g_input, c_key_space)) {
 					if(player->jumps_left > 0) {
-						player->vel.y = -c_jump_strength;
+						if(player->vel.y > 0) {
+							player->vel.y = -c_jump_strength;
+						}
+						else {
+							player->vel.y += -c_jump_strength;
+						}
 						player->jumps_left -= 1;
 					}
 				}
 
-
+				b8 pushed = false;
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player x collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				float x_vel = player->vel.x + input_vel;
 				player->pos.x += x_vel;
-				auto collision_arr = get_tile_collisions(player->pos, c_player_size, c_play_tile_size);
+				auto collision_arr = get_tile_collisions(player->pos, c_player_collision_size, c_play_tile_size);
 				foreach_val(collision_i, collision, collision_arr) {
-					if(x_vel > 0) {
-						player->pos.x = collision.tile_center.x - (c_play_tile_size * 0.5f + c_player_size.x * 0.5f) - c_small;
+					if(collision.tile == e_tile_spike) {
+						game->reset_player = true;
 					}
-					else {
-						player->pos.x = collision.tile_center.x + (c_play_tile_size * 0.5f + c_player_size.x * 0.5f) + c_small;
+					else if(collision.tile == e_tile_platform) { continue; }
+					else if(!pushed) {
+						pushed = true;
+						if(x_vel > 0) {
+							player->pos.x = collision.tile_center.x - (c_play_tile_size * 0.5f + c_player_collision_size.x * 0.5f) - c_small;
+						}
+						else {
+							player->pos.x = collision.tile_center.x + (c_play_tile_size * 0.5f + c_player_collision_size.x * 0.5f) + c_small;
+						}
+						player->vel.x = 0;
 					}
-					player->vel.x = 0;
-
-					// @Hack(tkap, 26/05/2024): shutting up warning
-					if(collision_i >= 0) { break; }
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		player x collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player y collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				player->pos.y += player->vel.y;
 				b8 on_ground = false;
-				collision_arr = get_tile_collisions(player->pos, c_player_size, c_play_tile_size);
+				collision_arr = get_tile_collisions(player->pos, c_player_collision_size, c_play_tile_size);
+				pushed = false;
 				foreach_val(collision_i, collision, collision_arr) {
-					if(player->vel.y > 0) {
-						player->pos.y = collision.tile_center.y - (c_play_tile_size * 0.5f + c_player_size.y * 0.5f) - c_small;
-						player->jumps_left = c_max_jumps;
-						on_ground = true;
+					if(collision.tile == e_tile_spike) {
+						game->reset_player = true;
 					}
-					else {
-						player->pos.y = collision.tile_center.y + (c_play_tile_size * 0.5f + c_player_size.y * 0.5f) + c_small;
+					else if(collision.tile == e_tile_platform) {
+						float player_bottom = player->pos.y + c_player_collision_size.y * 0.5f;
+						float tile_top = collision.tile_center.y - c_play_tile_size * 0.5f;
+						float diff = fabsf(player_bottom - tile_top);
+						float diff_check = 0.1f + player->vel.y;
+						if(!pushed && player->vel.y > 0 && diff <= diff_check) {
+							player->pos.y = collision.tile_center.y - (c_play_tile_size * 0.5f + c_player_collision_size.y * 0.5f) - c_small;
+							player->jumps_left = c_max_jumps;
+							on_ground = true;
+							player->vel.y = 0;
+							pushed = true;
+						}
 					}
-					player->vel.y = 0;
 
-					// @Hack(tkap, 26/05/2024): shutting up warning
-					if(collision_i >= 0) { break; }
+					else if(!pushed) {
+						if(player->vel.y > 0) {
+							player->pos.y = collision.tile_center.y - (c_play_tile_size * 0.5f + c_player_collision_size.y * 0.5f) - c_small;
+							player->jumps_left = c_max_jumps;
+							on_ground = true;
+						}
+						else {
+							player->pos.y = collision.tile_center.y + (c_play_tile_size * 0.5f + c_player_collision_size.y * 0.5f) + c_small;
+						}
+						player->vel.y = 0;
+						pushed = true;
+					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		player y collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		check save point collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				foreach_val(save_point_i, save_point, game->map.save_point_arr) {
+					if(game->curr_save_point == save_point_i) { continue; }
+					s_v2 save_point_pos = index_to_pos(save_point.pos, c_play_tile_size);
+					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, save_point_pos, c_save_point_size);
+					if(collides) {
+						game->curr_save_point = save_point_i;
+					}
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check save point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		check end point collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				{
+					s_v2 end_point_pos = index_to_pos(game->map.end_point.pos, c_play_tile_size);
+					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, end_point_pos, c_end_point_size);
+					if(collides) {
+						game->state = e_state_victory;
+					}
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check end point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+				if(is_key_down(g_input, c_key_r)) {
+					game->reset_player = true;
+				}
+
+				if(game->reset_player) {
+					game->reset_player = false;
+					player->vel = {};
+					if(game->map.save_point_arr.count > 0) {
+						player->pos = index_to_pos(game->map.save_point_arr[game->curr_save_point].pos, c_play_tile_size);
+						player->prev_pos = player->pos;
+					}
+					player->jumps_left = 1;
+					player->shoot_timer = 0;
+				}
 
 				if(on_ground) {
 					player->vel.x *= c_ground_friction;
@@ -241,8 +320,16 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				b8 remove = false;
 
 				auto collision_arr = get_tile_collisions(projectile->pos, c_projectile_collision_size, c_play_tile_size);
-				if(collision_arr.count > 0) {
+				b8 explode = false;
+				foreach_val(collision_i, collision, collision_arr) {
+					if(collision.tile == e_tile_spike) { continue; }
+					else if(collision.tile == e_tile_platform) { continue; }
 					remove = true;
+					if(collision.tile != e_tile_nullify_explosion) {
+						explode = true;
+					}
+				}
+				if(explode) {
 					s_visual_effect ve = {};
 					ve.type = e_visual_effect_projectile_explosion;
 					ve.pos = projectile->pos;
@@ -277,27 +364,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	game = (s_game*)game_memory;
 	g_r = renderer;
 	g_input = &platform_data->render_input;
-	if(!game->initialized) {
-		game->initialized = true;
-		game->rng.seed = platform_data->get_random_seed();
-		g_r->set_vsync(true);
-		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png");
-		// game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
-		// game->text_framebuffer = g_r->make_framebuffer(renderer, false);
-		// game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/snake/eat_apple.wav", platform_data->frame_arena);
-		game->font = &renderer->fonts[0];
-		platform_data->variables_path = "examples/speedjam5/variables.h";
-		game->cam.pos = v3(0, 0, -5);
-		game->cam.target = v3(0, 0, 1);
-		game->cam.pos.x = c_play_tile_size * (c_tiles_right / 2);
-		game->cam.pos.y = c_play_tile_size * c_tiles_down;
-		game->editor_cam.pos.x = c_editor_tile_size * (c_tiles_right / 2);
-		game->editor_cam.pos.y = c_editor_tile_size * (c_tiles_down - 10);
-		game->reset_game = true;
-
-		load_map(&game->map, platform_data);
-
-	}
 
 	live_variable(&platform_data->vars, c_player_speed, 0.0f, 1.0f, true);
 	live_variable(&platform_data->vars, c_ground_friction, 0.0f, 1.0f, true);
@@ -314,17 +380,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	float time = (float)g_r->total_time;
 	unreferenced(time);
 
-	static float timer = 0;
-
-
-	if(is_key_pressed(g_input, c_key_f)) {
-		in_perspective = !in_perspective;
+	if(g_input->wheel_movement > 0) {
+		game->editor_cam.zoom *= 1.1f;
 	}
-	if(in_perspective) {
-		timer = at_most(1.0f, timer + delta * 2);
-	}
-	else {
-		timer = at_least(0.0f, timer - delta * 2);
+
+	else if(g_input->wheel_movement < 0) {
+		game->editor_cam.zoom *= 0.9f;
 	}
 
 	if(is_key_pressed(g_input, c_key_f1)) {
@@ -343,29 +404,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(game->state) {
 		case e_state_play: {
 
-			if(is_key_down(g_input, c_key_r)) {
-				game->reset_game = true;
-			}
-
-			if(game->reset_game) {
-				game->reset_game = false;
-
-				s_player* player = &game->player;
-				*player = {};
-				if(game->map.save_point_arr.count > 0) {
-					player->pos = v2(game->map.save_point_arr[0].pos) * c_play_tile_size;
-				}
+			{
+				s_time_data data = process_time(game->timer);
+				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font);
 			}
 
 			if(!game->follow_player) {
 				constexpr float c_cam_speed = 50;
-				if(is_key_down(g_input, c_key_w) && in_perspective) {
+				if(is_key_down(g_input, c_key_w)) {
 					game->cam.pos.z += 1 * delta * c_cam_speed;
 				}
 				if(is_key_down(g_input, c_key_a)) {
 					game->cam.pos.x -= 1 * delta * c_cam_speed;
 				}
-				if(is_key_down(g_input, c_key_s) && in_perspective) {
+				if(is_key_down(g_input, c_key_s)) {
 					game->cam.pos.z -= 1 * delta * c_cam_speed;
 				}
 				if(is_key_down(g_input, c_key_d)) {
@@ -386,9 +439,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				game->cam.pos.z = -10;
 			}
 			s_m4 view = look_at(game->cam.pos, game->cam.pos + game->cam.target, v3(0, -1, 0));
-			s_m4 perspective = m4_perspective(90, c_base_res.x / c_base_res.y, 0.01f, 10000.0f);
-			s_m4 orthographic = m4_orthographic(-10, 10, -10, 10, -10, 10);
-			s_m4 projection = lerp_m4(orthographic, perspective, timer);
+			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 0.01f, 10000.0f);
 			g_r->view_projection = m4_multiply(projection, view);
 
 			game->ray = get_ray(g_mouse, c_base_res, game->cam, view, projection);
@@ -397,23 +448,41 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw play tiles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			s_recti bounds = get_3d_tile_bounds(game->cam);
 			for(int y = bounds.y0; y <= bounds.y1; y++) {
-			// for(int y = 0; y < c_tiles_down; y++) {
 				for(int x = bounds.x0; x <= bounds.x1; x++) {
-				// for(int x = 0; x < c_tiles_right; x++) {
 					s8 tile = game->map.tile_arr[y][x];
 					if(tile > 0) {
-						draw_cube(g_r, v3((float)x * c_play_tile_size, (float)y * c_play_tile_size, 0.0f), v3(1.0f, 1.0f, 1.0f), make_color(1));
+						if(tile == e_tile_spike) {
+							draw_texture_3d(g_r, v3((float)x * c_play_tile_size, (float)y * c_play_tile_size, 0.0f), v2(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
+						}
+						else {
+							draw_textured_cube(g_r, v3((float)x * c_play_tile_size, (float)y * c_play_tile_size, 0.0f), v3(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
+						}
 					}
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw play tiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw save points start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			foreach_val(save_point_i, save_point, game->map.save_point_arr) {
+				s_v2 pos = v2(save_point.pos) * v2(c_play_tile_size);
+				// draw_rect(g_r, pos, 2, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1, 0, 0), {}, {.origin_offset = c_origin_topleft});
+				draw_texture_3d(g_r, v3(pos, c_player_z), c_save_point_size, make_color(1), game->save_point_texture);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw save points end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw end point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_v2 pos = v2(game->map.end_point.pos) * v2(c_play_tile_size);
+				draw_atlas_3d(g_r, v3(pos, c_player_z), c_end_point_size, make_color(1), game->sheet, v2i(0, 64), v2i(64, 64));
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_player player = game->player;
 				s_v2 pos = lerp(player.prev_pos, player.pos, interp_dt);
 				// draw_cube(g_r, v3(pos.x, pos.y, c_player_z), v3(1.0f, 1.0f, 1.0f), make_color(0.1f, 1.0f, 0.1f));
-				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_size, make_color(1), game->sheet, v2i(0, 0), v2i(64, 64));
+				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(1), game->sheet, v2i(0, 0), v2i(64, 64));
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -434,7 +503,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						duration = 0.25f;
 						int index = clamp(roundfi(ve->timer / 0.25f * 2), 0, 2);
 						s_v2i index_arr[] = {v2i(64, 0), v2i(128, 0), v2i(192, 0)};
-						draw_atlas_3d(g_r, v3(ve->pos, c_player_z), v2(2), make_color(1), game->sheet, index_arr[index], c_sprite_size);
+						draw_atlas_3d(g_r, v3(ve->pos, c_player_z - 0.01f), v2(4), make_color(1), game->sheet, index_arr[index], c_sprite_size);
 					} break;
 					invalid_default_case;
 				}
@@ -453,6 +522,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				u8* data = (u8*)la_get(platform_data->frame_arena, sizeof(game->map) + sizeof(int));
 				u8* cursor = data;
 				cursor = buffer_write(cursor, c_map_version);
+				cursor = buffer_write(cursor, c_end_point_version);
+				cursor = buffer_write(cursor, game->map.end_point);
 				cursor = buffer_write(cursor, c_tile_version);
 				cursor = buffer_write2(cursor, game->map.tile_arr.elements, sizeof(game->map.tile_arr.elements));
 				cursor = buffer_write(cursor, c_save_point_version);
@@ -486,29 +557,24 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			game->editor_cam.pos += dir * delta * cam_speed;
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		move editor camera end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			for(int i = 0; i < 10; i++) {
-				if(is_key_pressed(g_input, c_key_0 + i)) {
-					if(i == 0) {
-						game->editor.curr_tile = 9;
-					}
-					else {
-						game->editor.curr_tile = (s8)(i - 1);
-					}
+			for(int i = 0; i <= 9; i++) {
+				if(is_key_pressed(g_input, c_key_1 + i)) {
+					game->editor.curr_tile = (e_tile)(i + 1);
 				}
 			}
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add tile start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			if(game->editor.curr_tile == 0) {
+			if(game->editor.curr_tile > e_tile_invalid && game->editor.curr_tile < e_tile_count) {
 				if(is_key_down(g_input, c_left_mouse)) {
 					if(is_index_valid(mouse_index)) {
-						game->map.tile_arr[mouse_index.y][mouse_index.x] = 1;
+						game->map.tile_arr[mouse_index.y][mouse_index.x] = game->editor.curr_tile;
 					}
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add tile end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add save point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			if(game->editor.curr_tile == 1) {
+			if(game->editor.curr_tile == e_tile_count) {
 				if(is_key_pressed(g_input, c_left_mouse)) {
 					if(is_index_valid(mouse_index)) {
 						b8 duplicate = false;
@@ -528,11 +594,32 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add save point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			if(is_key_down(g_input, c_right_mouse)) {
-				if(is_index_valid(mouse_index)) {
-					game->map.tile_arr[mouse_index.y][mouse_index.x] = 0;
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add end point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			else if(game->editor.curr_tile == e_tile_count + 1) {
+				if(is_key_pressed(g_input, c_left_mouse)) {
+					if(is_index_valid(mouse_index)) {
+						game->map.end_point.pos = mouse_index;
+					}
 				}
 			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		delete start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				b8 deleted_save_point = false;
+				if(is_key_down(g_input, c_right_mouse)) {
+					foreach_val(save_point_i, save_point, game->map.save_point_arr) {
+						if(mouse_index == save_point.pos) {
+							deleted_save_point = true;
+							game->map.save_point_arr.remove_and_swap(save_point_i--);
+						}
+					}
+					if(!deleted_save_point && is_index_valid(mouse_index)) {
+						game->map.tile_arr[mouse_index.y][mouse_index.x] = e_tile_invalid;
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		delete end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			s_recti bounds = game->editor_cam.get_tile_bounds();
 
@@ -543,7 +630,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					if(tile > 0) {
 						s_v2 pos = v2(x, y) * c_editor_tile_size;
 						pos = game->editor_cam.world_to_screen(pos);
-						draw_rect(g_r, pos, 1, v2(c_editor_tile_size), make_color(1), {}, {.origin_offset = c_origin_topleft});
+						draw_texture(g_r, pos, 1, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1), game->tile_texture_arr[tile], {}, {.origin_offset = c_origin_topleft});
 					}
 				}
 			}
@@ -553,10 +640,30 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			foreach_val(save_point_i, save_point, game->map.save_point_arr) {
 				s_v2 pos = v2(save_point.pos) * v2(c_editor_tile_size);
 				pos = game->editor_cam.world_to_screen(pos);
-				draw_rect(g_r, pos, 2, v2(c_editor_tile_size), make_color(1, 0, 0), {}, {.origin_offset = c_origin_topleft});
+				draw_texture(g_r, pos, 2, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1), game->save_point_texture, {}, {.origin_offset = c_origin_topleft});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw save points end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw end point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_v2 pos = v2(game->map.end_point.pos) * v2(c_editor_tile_size);
+				pos = game->editor_cam.world_to_screen(pos);
+				draw_atlas(g_r, pos, 2, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1), game->sheet, v2i(0, 64), c_sprite_size, {}, {.origin_offset = c_origin_topleft});
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+		} break;
+
+		case e_state_victory: {
+
+			if(is_key_pressed(g_input, c_key_r)) {
+				game->reset_game = true;
+				game->state = e_state_play;
+			}
+
+			s_time_data data = process_time(game->timer);
+			char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+			draw_text(g_r, text, c_half_res, 10, 64, make_color(1), true, game->font);
 		} break;
 
 		invalid_default_case;
@@ -584,6 +691,11 @@ static s_v2i pos_to_index(s_v2 pos, int tile_size)
 	return result;
 }
 
+static s_v2 index_to_pos(s_v2i index, int tile_size)
+{
+	return v2(index) * v2(tile_size);
+}
+
 static b8 is_index_valid(s_v2i index)
 {
 	return index.x >= 0 && index.x < c_tiles_right && index.y >= 0 && index.y < c_tiles_down;
@@ -598,10 +710,14 @@ static b8 index_has_tile(s_v2i index)
 s_recti s_camera2d::get_tile_bounds()
 {
 	s_recti result;
-	result.x0 = floorfi(pos.x / c_editor_tile_size);
-	result.x1 = result.x0 + ceilfi(c_base_res.x / c_editor_tile_size);
-	result.y0 = floorfi(pos.y / c_editor_tile_size);
-	result.y1 = result.y0 + ceilfi(c_base_res.y / c_editor_tile_size);
+	s_v2 topleft = screen_to_world({});
+	s_v2 bottomright = screen_to_world(c_base_res);
+
+	result.x0 = floorfi(topleft.x / c_editor_tile_size);
+	result.x1 = floorfi(bottomright.x / c_editor_tile_size);
+
+	result.y0 = floorfi(topleft.y / c_editor_tile_size);
+	result.y1 = floorfi(bottomright.y / c_editor_tile_size);
 
 	result.x0 = clamp(result.x0, 0, c_tiles_right - 1);
 	result.x1 = clamp(result.x1, 0, c_tiles_right - 1);
@@ -640,6 +756,10 @@ static void load_map(s_map* map, s_platform_data* platform_data)
 		int map_version = buffer_read<int>(&cursor);
 		assert(map_version == 1);
 
+		int end_point_version = buffer_read<int>(&cursor);
+		assert(end_point_version == 1);
+		map->end_point = buffer_read<s_end_point>(&cursor);
+
 		int tile_version = buffer_read<int>(&cursor);
 		assert(tile_version == 1);
 		cursor = buffer_read2(cursor, game->map.tile_arr.elements, sizeof(game->map.tile_arr.elements));
@@ -658,12 +778,17 @@ static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, i
 		for(int x = -1; x <= 1; x++) {
 			s_v2i index = base_index + v2i(x, y);
 			if(index_has_tile(index)) {
+				e_tile tile = game->map.tile_arr[index.y][index.x];
 				s_v2 tile_center = v2(index) * v2(tile_size);
-				b8 collides = rect_collides_rect_center(pos, size, tile_center, v2(tile_size));
+				float temp_tile_size = (float)tile_size;
+				if(tile == e_tile_spike) {
+					temp_tile_size *= 0.8f;
+				}
+				b8 collides = rect_collides_rect_center(pos, size, tile_center, v2(temp_tile_size));
 				if(collides) {
 					s_tile_collision collision = {};
 					collision.tile_center = tile_center;
-					collision.tile = game->map.tile_arr[index.y][index.x];
+					collision.tile = tile;
 					result.add(collision);
 				}
 			}

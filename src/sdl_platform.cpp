@@ -383,6 +383,7 @@ static int sdl_key_to_windows_key(int key) {
 			{.sdl = SDLK_RSHIFT, .win = c_key_right_shift},
 			{.sdl = SDLK_ESCAPE, .win = c_key_escape},
 			{.sdl = SDLK_RETURN, .win = c_key_enter},
+			{.sdl = SDLK_SPACE, .win = c_key_space},
 			{.sdl = SDLK_KP_PLUS, .win = c_key_add},
 			{.sdl = SDLK_KP_MINUS, .win = c_key_subtract},
 			{.sdl = SDLK_BACKSPACE, .win = c_key_backspace},

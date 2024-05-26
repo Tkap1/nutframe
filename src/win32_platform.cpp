@@ -403,6 +403,14 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 			g_platform_data.window_resized = true;
 		} break;
 
+		case WM_MOUSEWHEEL:
+		{
+			int movement = GET_WHEEL_DELTA_WPARAM(wparam);
+			g_platform_data.logic_input.wheel_movement = (float)movement / 120.0f;
+			g_platform_data.render_input.wheel_movement = (float)movement / 120.0f;
+		} break;
+
+
 		case WM_KEYDOWN:
 		case WM_SYSKEYDOWN:
 		case WM_KEYUP:

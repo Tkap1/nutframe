@@ -17,28 +17,29 @@ set debug=1
 if !debug!==0 (
 	set comp=!comp! -O3
 ) else (
-	set comp=!comp! -Dm_debug
-	set comp=!comp! -sSAFE_HEAP=1
-	set comp=!comp! -sASSERTIONS=1
+	@REM set comp=!comp! -Dm_debug
+	set comp=!comp! -O3
+	set comp=!comp! -sSAFE_HEAP=0
+	set comp=!comp! -sASSERTIONS=0
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
 	set comp=!comp! --preload-file ../shaders/fragment.fragment@shaders/fragment.fragment
 	set comp=!comp! --preload-file ../shaders/basic_3d.vertex@shaders/basic_3d.vertex
 	set comp=!comp! --preload-file ../shaders/basic_3d.fragment@shaders/basic_3d.fragment
 	set comp=!comp! --preload-file ../shaders/3d_flat.vertex@shaders/3d_flat.vertex
 	set comp=!comp! --preload-file ../shaders/3d_flat.fragment@shaders/3d_flat.fragment
-	set comp=!comp! --preload-file ../examples/snake/noise.png@examples/snake/noise.png
-	set comp=!comp! --preload-file ../examples/snake/snake_head.png@examples/snake/snake_head.png
-	set comp=!comp! --preload-file ../examples/snake/snake_body.png@examples/snake/snake_body.png
-	set comp=!comp! --preload-file ../examples/snake/snake_tail.png@examples/snake/snake_tail.png
-	set comp=!comp! --preload-file ../examples/snake/apple.png@examples/snake/apple.png
-	set comp=!comp! --preload-file ../examples/snake/noise.png@examples/snake/noise.png
-	set comp=!comp! --preload-file ../examples/snake/eat_apple.wav@examples/snake/eat_apple.wav
+	set comp=!comp! --preload-file ../examples/speedjam5/noise.png@examples/speedjam5/noise.png
+	set comp=!comp! --preload-file ../examples/speedjam5/sheet.png@examples/speedjam5/sheet.png
+	set comp=!comp! --preload-file ../examples/speedjam5/tile_normal.png@examples/speedjam5/tile_normal.png
+	set comp=!comp! --preload-file ../examples/speedjam5/tile_nullify_explosion.png@examples/speedjam5/tile_nullify_explosion.png
+	set comp=!comp! --preload-file ../examples/speedjam5/save_point.png@examples/speedjam5/save_point.png
+	set comp=!comp! --preload-file ../examples/speedjam5/tile_spike.png@examples/speedjam5/tile_spike.png
+	set comp=!comp! --preload-file ../examples/speedjam5/tile_platform.png@examples/speedjam5/tile_platform.png
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
 	set comp=!comp! --preload-file ../assets/checkmark.png@assets/checkmark.png
+	set comp=!comp! --preload-file ../platform_map.map@platform_map.map
 	set comp=!comp! -gsource-map
 	@REM set comp=!comp! -fsanitize=address
 )
-
 
 @REM -sFULL_ES3
 pushd build
