@@ -75,6 +75,7 @@ struct s_game
 	s_sound* save_sound;
 	s_sound* shoot_sound;
 	s_sound* jump_sound;
+	s_sound* win_sound;
 };
 
 static s_input* g_input;
@@ -116,6 +117,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->thud_sound = platform_data->load_sound(platform_data, "examples/speedjam5/thud.wav", platform_data->frame_arena);
 		game->shoot_sound = platform_data->load_sound(platform_data, "examples/speedjam5/shoot.wav", platform_data->frame_arena);
 		game->jump_sound = platform_data->load_sound(platform_data, "examples/speedjam5/jump.wav", platform_data->frame_arena);
+		game->win_sound = platform_data->load_sound(platform_data, "examples/speedjam5/win.wav", platform_data->frame_arena);
 		// game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		// game->text_framebuffer = g_r->make_framebuffer(renderer, false);
 		// game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/snake/eat_apple.wav", platform_data->frame_arena);
@@ -331,6 +333,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, end_point_pos, c_end_point_size);
 					if(collides) {
 						game->state = e_state_victory;
+						platform_data->play_sound(game->win_sound);
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check end point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -539,7 +542,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					index = idle_arr[i];
 				}
 				else if(player->state == 1) {
-					int i = roundfi(fmodf(player->animation_timer / 0.1f, 2));
+					int i = roundfi(fmodf(player->animation_timer / 0.15f, 1));
 					index = run_arr[i];
 				}
 				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), game->sheet, index, v2i(64, 64), {.flip_x = player->flip_x});
