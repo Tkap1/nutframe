@@ -1,5 +1,5 @@
 polish:
 	if save point is the current one, draw it differently
-	add sound on savepoint trigger
 	be able to retrigger the same savepoint, with a cooldown
-	shoot sound
+	background??
+	particles??

@@ -49,9 +49,9 @@ struct s_game
 {
 	b8 initialized;
 	b8 follow_player;
-	b8 reset_player;
 	b8 reset_game;
 	e_state state;
+	int reset_player;
 	f64 timer;
 	s_framebuffer* particle_framebuffer;
 	s_framebuffer* text_framebuffer;
@@ -70,6 +70,11 @@ struct s_game
 	s_editor editor;
 	s_ray ray;
 	s_sarray<s_visual_effect, 128> visual_effect_arr;
+	s_sound* thud_sound;
+	s_sound* explosion_sound;
+	s_sound* save_sound;
+	s_sound* shoot_sound;
+	s_sound* jump_sound;
 };
 
 static s_input* g_input;
@@ -106,6 +111,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->tile_texture_arr[e_tile_nullify_explosion] = g_r->load_texture(renderer, "examples/speedjam5/tile_nullify_explosion.png");
 		game->tile_texture_arr[e_tile_spike] = g_r->load_texture(renderer, "examples/speedjam5/tile_spike.png");
 		game->tile_texture_arr[e_tile_platform] = g_r->load_texture(renderer, "examples/speedjam5/tile_platform.png");
+		game->explosion_sound = platform_data->load_sound(platform_data, "examples/speedjam5/explosion.wav", platform_data->frame_arena);
+		game->save_sound = platform_data->load_sound(platform_data, "examples/speedjam5/save.wav", platform_data->frame_arena);
+		game->thud_sound = platform_data->load_sound(platform_data, "examples/speedjam5/thud.wav", platform_data->frame_arena);
+		game->shoot_sound = platform_data->load_sound(platform_data, "examples/speedjam5/shoot.wav", platform_data->frame_arena);
+		game->jump_sound = platform_data->load_sound(platform_data, "examples/speedjam5/jump.wav", platform_data->frame_arena);
 		// game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		// game->text_framebuffer = g_r->make_framebuffer(renderer, false);
 		// game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/snake/eat_apple.wav", platform_data->frame_arena);
@@ -133,7 +143,27 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				game->reset_game = false;
 				game->curr_save_point = 0;
 				game->timer = 0;
-				game->reset_player = true;
+				game->reset_player = 2;
+			}
+
+			if(game->reset_player > 0) {
+				game->player.flip_x = false;
+				game->player.vel = {};
+				game->player.jumps_left = 1;
+				game->player.shoot_timer = c_shoot_delay;
+				game->projectile_arr.count = 0;
+				if(game->curr_save_point == 0) {
+					game->timer = 0;
+				}
+				if(game->reset_player == 2) {
+					game->timer = 0;
+					game->curr_save_point = 0;
+				}
+				if(game->map.save_point_arr.count > 0) {
+					game->player.pos = index_to_pos(game->map.save_point_arr[game->curr_save_point].pos, c_play_tile_size);
+					game->player.prev_pos = game->player.pos;
+				}
+				game->reset_player = 0;
 			}
 
 			game->timer += 1.0 / c_updates_per_second;
@@ -145,10 +175,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 				float input_vel = 0;
 				if(game->follow_player) {
-					if(is_key_down(g_input, c_key_a)) {
+					if(is_key_down(g_input, c_key_a) || is_key_down(g_input, c_key_left)) {
 						input_vel -= c_player_speed;
 					}
-					if(is_key_down(g_input, c_key_d)) {
+					if(is_key_down(g_input, c_key_d) || is_key_down(g_input, c_key_right)) {
 						input_vel += c_player_speed;
 					}
 				}
@@ -161,11 +191,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					p.pos = player->pos;
 					s_v3 pos = ray_at_z(game->ray, c_player_z);
 					p.dir = v2_normalized(pos.xy - player->pos);
-					game->projectile_arr.add_checked(p);
-				}
-
-				if(is_key_pressed(g_input, c_key_right)) {
-					player->vel.x += 0.25f;
+					if(game->projectile_arr.add_checked(p)) {
+						platform_data->play_sound(game->shoot_sound);
+					}
 				}
 
 				// right, right
@@ -194,8 +222,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					player->vel.y = min(0.17f, player->vel.y + c_gravity);
 				}
 
-				if(is_key_pressed(g_input, c_key_space)) {
+				if(is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_key_up)) {
 					if(player->jumps_left > 0) {
+						platform_data->play_sound(game->jump_sound);
 						if(player->vel.y > 0) {
 							player->vel.y = -c_jump_strength;
 						}
@@ -209,11 +238,22 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				b8 pushed = false;
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player x collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				float x_vel = player->vel.x + input_vel;
+				if(x_vel > 0) {
+					player->flip_x = false;
+					player->state = 1;
+				}
+				else if(x_vel < 0) {
+					player->flip_x = true;
+					player->state = 1;
+				}
+				else {
+					player->state = 0;
+				}
 				player->pos.x += x_vel;
 				auto collision_arr = get_tile_collisions(player->pos, c_player_collision_size, c_play_tile_size);
 				foreach_val(collision_i, collision, collision_arr) {
 					if(collision.tile == e_tile_spike) {
-						game->reset_player = true;
+						game->reset_player = 1;
 					}
 					else if(collision.tile == e_tile_platform) { continue; }
 					else if(!pushed) {
@@ -236,7 +276,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				pushed = false;
 				foreach_val(collision_i, collision, collision_arr) {
 					if(collision.tile == e_tile_spike) {
-						game->reset_player = true;
+						game->reset_player = 1;
 					}
 					else if(collision.tile == e_tile_platform) {
 						float player_bottom = player->pos.y + c_player_collision_size.y * 0.5f;
@@ -247,6 +287,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							player->pos.y = collision.tile_center.y - (c_play_tile_size * 0.5f + c_player_collision_size.y * 0.5f) - c_small;
 							player->jumps_left = c_max_jumps;
 							on_ground = true;
+							if(player->vel.y >= 0.1f) {
+								platform_data->play_sound(game->thud_sound);
+							}
 							player->vel.y = 0;
 							pushed = true;
 						}
@@ -254,6 +297,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 					else if(!pushed) {
 						if(player->vel.y > 0) {
+							if(player->vel.y >= 0.1f) {
+								platform_data->play_sound(game->thud_sound);
+							}
 							player->pos.y = collision.tile_center.y - (c_play_tile_size * 0.5f + c_player_collision_size.y * 0.5f) - c_small;
 							player->jumps_left = c_max_jumps;
 							on_ground = true;
@@ -271,9 +317,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				foreach_val(save_point_i, save_point, game->map.save_point_arr) {
 					if(game->curr_save_point == save_point_i) { continue; }
 					s_v2 save_point_pos = index_to_pos(save_point.pos, c_play_tile_size);
-					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, save_point_pos, c_save_point_size);
+					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, save_point_pos, c_save_point_collision_size);
 					if(collides) {
 						game->curr_save_point = save_point_i;
+						platform_data->play_sound(game->save_sound);
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check save point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -289,19 +336,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check end point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-				if(is_key_down(g_input, c_key_r)) {
-					game->reset_player = true;
-				}
-
-				if(game->reset_player) {
-					game->reset_player = false;
-					player->vel = {};
-					if(game->map.save_point_arr.count > 0) {
-						player->pos = index_to_pos(game->map.save_point_arr[game->curr_save_point].pos, c_play_tile_size);
-						player->prev_pos = player->pos;
+				if(is_key_pressed(g_input, c_key_r) || is_key_pressed(g_input, c_key_enter)) {
+					if(is_key_down(g_input, c_key_left_ctrl)) {
+						game->reset_player = 2;
 					}
-					player->jumps_left = 1;
-					player->shoot_timer = 0;
+					else {
+						game->reset_player = 1;
+					}
 				}
 
 				if(on_ground) {
@@ -338,6 +379,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					float distance = v2_distance(game->player.pos, projectile->pos);
 					float strength = smoothstep(c_far_push_range, c_near_push_range, distance) * c_push_strength;
 					game->player.vel += dir * strength;
+					platform_data->play_sound(game->explosion_sound);
 				}
 
 				projectile->timer += 1;
@@ -404,6 +446,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(game->state) {
 		case e_state_play: {
 
+			#ifdef m_debug
+			if(is_key_pressed(g_input, c_right_mouse)) {
+				game->player.pos = ray_at_z(game->ray, c_player_z).xy;
+				game->player.vel = {};
+			}
+			#endif // m_debug
+
 			{
 				s_time_data data = process_time(game->timer);
 				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
@@ -466,7 +515,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			foreach_val(save_point_i, save_point, game->map.save_point_arr) {
 				s_v2 pos = v2(save_point.pos) * v2(c_play_tile_size);
 				// draw_rect(g_r, pos, 2, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1, 0, 0), {}, {.origin_offset = c_origin_topleft});
-				draw_texture_3d(g_r, v3(pos, c_player_z), c_save_point_size, make_color(1), game->save_point_texture);
+				draw_texture_3d(g_r, v3(pos, c_player_z), c_save_point_visual_size, make_color(1), game->save_point_texture);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw save points end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -479,10 +528,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				s_player player = game->player;
-				s_v2 pos = lerp(player.prev_pos, player.pos, interp_dt);
-				// draw_cube(g_r, v3(pos.x, pos.y, c_player_z), v3(1.0f, 1.0f, 1.0f), make_color(0.1f, 1.0f, 0.1f));
-				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(1), game->sheet, v2i(0, 0), v2i(64, 64));
+				s_player* player = &game->player;
+				player->animation_timer += delta;
+				s_v2 pos = lerp(player->prev_pos, player->pos, interp_dt);
+				s_v2i idle_arr[] = {v2i(64, 64), v2i(128, 64)};
+				s_v2i run_arr[] = {v2i(196, 64), v2i(256, 64)};
+				s_v2i index = {};
+				if(player->state == 0) {
+					int i = roundfi(fmodf(player->animation_timer / 0.5f, 1));
+					index = idle_arr[i];
+				}
+				else if(player->state == 1) {
+					int i = roundfi(fmodf(player->animation_timer / 0.1f, 2));
+					index = run_arr[i];
+				}
+				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), game->sheet, index, v2i(64, 64), {.flip_x = player->flip_x});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -490,7 +550,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			foreach_val(projectile_i, projectile, game->projectile_arr) {
 				s_v2 pos = lerp(projectile.prev_pos, projectile.pos, interp_dt);
 				// draw_cube(g_r, v3(pos.x, pos.y, c_player_z), c_projectile_size, make_color(1.0f, 1.0f, 0.1f));
-				draw_atlas_3d(g_r, v3(pos, c_player_z), c_projectile_visual_size, make_color(1), game->sheet, v2i(256, 0), c_sprite_size, {}, {.rotation = v2_angle(projectile.dir)});
+				draw_atlas_3d(
+					g_r, v3(pos, c_player_z), c_projectile_visual_size, make_color(1), game->sheet, v2i(256, 0), c_sprite_size, {}, {.rotation = v2_angle(projectile.dir)}
+				);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw projectiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

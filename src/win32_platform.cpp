@@ -386,6 +386,13 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 	switch(msg)
 	{
 
+		case WM_ACTIVATE: {
+			for(int i = 0; i < c_max_keys; i++) {
+				g_platform_data.logic_input.keys[i] = {};
+				g_platform_data.render_input.keys[i] = {};
+			}
+		} break;
+
 		case WM_CLOSE:
 		case WM_DESTROY:
 		{
@@ -694,7 +701,7 @@ static b8 init_audio()
 	{
 		s_voice* voice = &voice_arr[voice_i];
 		hr = xaudio2->CreateSourceVoice(&voice->voice, &wave, 0, XAUDIO2_DEFAULT_FREQ_RATIO, voice, NULL, NULL);
-		voice->voice->SetVolume(0.25f);
+		voice->voice->SetVolume(0.1f);
 		if(FAILED(hr)) { return false; }
 	}
 

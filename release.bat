@@ -1,7 +1,5 @@
 @echo off
 
-call build pch
 
-del DigHard.zip
-copy build\DigHard.exe DigHard.exe
-7z a DigHard.zip DigHard.exe assets shaders
+del index.zip
+7z a index.zip index.data index.html index.js index.wasm index.wasm.map

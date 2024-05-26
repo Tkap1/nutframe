@@ -2456,6 +2456,7 @@ enum e_blend_mode
 
 struct s_render_data
 {
+	b8 flip_x;
 	int shader;
 	e_blend_mode blend_mode;
 	s_framebuffer* framebuffer;
@@ -2633,10 +2634,10 @@ struct s_game_renderer
 	s_sarray<s_font, 4> fonts;
 };
 
-#ifdef m_build_dll
-typedef void (t_init_game)(s_platform_data*);
 typedef void (t_update)(s_platform_data*, void*, s_game_renderer*);
 typedef void (t_render)(s_platform_data*, void*, s_game_renderer*, float);
+#ifdef m_build_dll
+typedef void (t_init_game)(s_platform_data*);
 #else // m_build_dll
 void init_game(s_platform_data* platform_data);
 void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer);
@@ -2901,6 +2902,9 @@ static void draw_atlas_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s
 		t.uv_min.x + sprite_size.x / (float)texture.size.x,
 		t.uv_min.y + sprite_size.y / (float)texture.size.y
 	);
+	if(render_data.flip_x) {
+		swap(&t.uv_min.x, &t.uv_max.x);
+	}
 	if(texture.comes_from_framebuffer) {
 		// @Note(tkap, 13/11/2023): If this triggers it means that we do not set texture size for framebuffer textures. Should do that...
 		assert(texture.size.x > 0 && texture.size.y > 0);

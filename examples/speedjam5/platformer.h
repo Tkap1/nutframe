@@ -21,7 +21,8 @@ static constexpr s_v2 c_projectile_visual_size = v2(1.0f);
 static constexpr s_v2 c_projectile_collision_size = v2(0.25f);
 static constexpr s_v2 c_player_visual_size = v2(c_play_tile_size);
 static constexpr s_v2 c_player_collision_size = v2(c_play_tile_size * 0.9f, (float)c_play_tile_size);
-static constexpr s_v2 c_save_point_size = v2(c_play_tile_size);
+static constexpr s_v2 c_save_point_visual_size = v2(c_play_tile_size);
+static constexpr s_v2 c_save_point_collision_size = v2(c_play_tile_size * 1.5f);
 static constexpr s_v2 c_end_point_size = v2(c_play_tile_size);
 
 static constexpr s_v2i c_sprite_size = v2i(64, 64);
@@ -68,6 +69,9 @@ struct s_editor
 
 struct s_player
 {
+	b8 flip_x;
+	float animation_timer;
+	int state;
 	int jumps_left;
 	int shoot_timer;
 	s_v2 prev_pos;

@@ -80,7 +80,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		printf("Failed to initialize SDL audio\n");
 		return 1;
 	}
-	Mix_Volume(-1, floorfi(MIX_MAX_VOLUME * 0.25f));
+	Mix_Volume(-1, floorfi(MIX_MAX_VOLUME * 0.1f));
 
 	#if defined(m_debug) || !defined(_WIN32)
 	if(argc > 1 && strcmp(argv[1], "embed") == 0) {
