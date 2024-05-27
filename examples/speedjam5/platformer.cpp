@@ -35,6 +35,8 @@ struct s_camera2d
 
 	s_v2 scale(s_v2 v) { return v * zoom; }
 	float scale(float x) { return x * zoom; }
+
+	s_m4 get_matrix();
 };
 
 struct s_projectile
@@ -443,6 +445,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	live_variable(&platform_data->vars, c_push_strength, 0.0f, 0.33f, true);
 	live_variable(&platform_data->vars, c_projectile_speed, 0.0f, 5.0f, true);
 
+	s_m4 ortho = m4_orthographic(0, c_base_res.x, c_base_res.y, 0, -1, 1);
+
 	float delta = (float)platform_data->frame_time;
 
 	if(g_input->wheel_movement > 0) {
@@ -467,6 +471,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(game->state) {
 		case e_state_play: {
 
+			start_render_pass(g_r);
+
 			#ifdef m_debug
 			if(is_key_pressed(g_input, c_right_mouse)) {
 				game->player.pos = ray_at_z(game->ray, c_player_z).xy;
@@ -476,13 +482,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				game->curr_save_point = (game->curr_save_point + 1) % game->map.save_point_arr.count;
 				game->reset_player = true;
 			}
-			#endif // m_debug
-
-			{
-				s_time_data data = process_time(game->timer);
-				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font);
+			if(is_key_pressed(g_input, c_key_f3)) {
+				game->player.pos = v2(game->map.end_point.pos) * v2(c_play_tile_size);
 			}
+			#endif // m_debug
 
 			{
 				s_v2 pos = lerp(game->player.prev_pos, game->player.pos, interp_dt);
@@ -493,7 +496,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			s_m4 view = look_at(game->cam.pos, game->cam.pos + game->cam.target, v3(0, -1, 0));
 			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 0.01f, 10000.0f);
-			g_r->view_projection = m4_multiply(projection, view);
+			s_m4 view_projection = m4_multiply(projection, view);
 
 			game->ray = get_ray(g_mouse, c_base_res, game->cam, view, projection);
 
@@ -585,8 +588,22 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		visual effects end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			g_r->end_render_pass(g_r, {.do_clear = true, .do_depth = true, .do_cull = true, .view_projection = view_projection});
+
+
+			{
+				start_render_pass(g_r);
+				s_time_data data = process_time(game->timer);
+				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font);
+				g_r->end_render_pass(g_r, {.view_projection = ortho});
+			}
+
+
 		} break;
 		case e_state_editor: {
+
+			start_render_pass(g_r);
 			s_v2i mouse_index = pos_to_index(game->editor_cam.screen_to_world(g_mouse), c_editor_tile_size);
 
 			if(is_key_pressed(g_input, c_key_s) && is_key_down(g_input, c_key_left_ctrl)) {
@@ -700,8 +717,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s8 tile = game->map.tile_arr[y][x];
 					if(tile > 0) {
 						s_v2 pos = v2(x, y) * c_editor_tile_size;
-						pos = game->editor_cam.world_to_screen(pos);
-						draw_texture(g_r, pos, 1, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1), game->tile_texture_arr[tile], {}, {.origin_offset = c_origin_topleft});
+						draw_texture(g_r, pos, 1, v2(c_editor_tile_size), make_color(1), game->tile_texture_arr[tile], {}, {.origin_offset = c_origin_topleft});
 					}
 				}
 			}
@@ -710,8 +726,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw save points start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			foreach_val(save_point_i, save_point, game->map.save_point_arr) {
 				s_v2 pos = v2(save_point.pos) * v2(c_editor_tile_size);
-				pos = game->editor_cam.world_to_screen(pos);
-				draw_texture(g_r, pos, 2, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1), game->save_point_texture, {}, {.origin_offset = c_origin_topleft});
+				draw_texture(g_r, pos, 2, v2(c_editor_tile_size), make_color(1), game->save_point_texture, {}, {.origin_offset = c_origin_topleft});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw save points end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -719,13 +734,17 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_v2 pos = v2(game->map.end_point.pos) * v2(c_editor_tile_size);
 				pos = game->editor_cam.world_to_screen(pos);
-				draw_atlas(g_r, pos, 2, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1), game->sheet, v2i(0, 64), c_sprite_size, {}, {.origin_offset = c_origin_topleft});
+				draw_atlas(g_r, pos, 2, v2(c_editor_tile_size), make_color(1), game->sheet, v2i(0, 64), c_sprite_size, {}, {.origin_offset = c_origin_topleft});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			g_r->end_render_pass(g_r, {.do_clear = true, .view_projection = m4_multiply(ortho, game->editor_cam.get_matrix())});
 
 		} break;
 
 		case e_state_victory: {
+
+			start_render_pass(g_r);
 
 			if(is_key_pressed(g_input, c_key_r)) {
 				game->reset_game = true;
@@ -765,17 +784,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 			}
+
+			g_r->end_render_pass(g_r, {.do_clear = true, .do_blend = true, .view_projection = ortho});
+
 		} break;
 
 		invalid_default_case;
 	}
-
-	// draw_cube(g_r, v3(0.0f, 0.0f, 0.0f), v3(1.0f, 1.0f, 1.0f), make_color(1));
-	// draw_cube(g_r, v3(1.0f, 1.0f, 0.0f), v3(1.0f, 1.0f, 1.0f), make_color(1));
-	// draw_texture_3d(g_r, v3(2, 0, 0), v3(1), make_color(1), game->apple_texture, {.shader = 2});
-	// // draw_texture(g_r,	v2(200, 200), 1, v2(64), make_color(1), game->apple_texture, {.shader = 1});
-	// // draw_texture(g_r,	v2(400, 200), 1, v2(64), make_color(1), game->apple_texture, {.shader = 0});
-
 }
 
 #ifdef m_build_dll
@@ -896,4 +911,12 @@ static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, i
 		}
 	}
 	return result;
+}
+
+s_m4 s_camera2d::get_matrix()
+{
+	s_m4 m = m4_scale(v3(zoom, zoom, 1));
+	m = m4_multiply(m, m4_translate(v3(-pos.x, -pos.y, 0)));
+
+	return m;
 }

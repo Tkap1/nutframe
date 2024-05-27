@@ -234,6 +234,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	game_renderer->make_framebuffer = make_framebuffer;
 	game_renderer->set_shader_float = set_shader_float;
 	game_renderer->set_shader_v2 = set_shader_v2;
+	game_renderer->end_render_pass = end_render_pass;
 
 	init_gl(&g_platform_renderer, game_renderer, &platform_frame_arena);
 

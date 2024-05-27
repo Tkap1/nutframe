@@ -38,7 +38,7 @@ typedef uint32_t u32;
 typedef uint16_t u16;
 typedef uint8_t u8;
 
-typedef uint8_t b8;
+typedef bool b8;
 typedef uint32_t b32;
 
 typedef double f64;
@@ -379,6 +379,15 @@ struct s_ray_collision
 	float distance;
 	s_v3 normal;
 	s_v3 point;
+};
+
+struct s_render_pass
+{
+	b8 do_clear;
+	b8 do_depth;
+	b8 do_blend;
+	b8 do_cull;
+	s_m4 view_projection;
 };
 
 
@@ -2355,8 +2364,8 @@ static constexpr int c_max_keys = 1024;
 
 static constexpr int c_game_memory = 20 * c_mb;
 
-static constexpr s_v2 c_origin_topleft = {1.0f, -1.0f};
-static constexpr s_v2 c_origin_bottomleft = {1.0f, 1.0f};
+static constexpr s_v2 c_origin_topleft = {1.0f, 1.0f};
+static constexpr s_v2 c_origin_bottomleft = {1.0f, -1.0f};
 static constexpr s_v2 c_origin_center = {0, 0};
 
 static constexpr int c_base_resolution_index = 5;
@@ -2663,15 +2672,15 @@ typedef s_font* (*t_load_font)(s_game_renderer*, const char*, int, s_lin_arena*)
 struct s_game_renderer
 {
 	b8 did_we_alloc;
+	b8 in_render_pass;
 	t_set_vsync set_vsync;
 	t_load_texture load_texture;
 	t_load_font load_font;
 	t_make_framebuffer make_framebuffer;
 	t_set_shader_float set_shader_float;
 	t_set_shader_v2 set_shader_v2;
+	void (*end_render_pass)(s_game_renderer*, s_render_pass);
 	f64 total_time;
-
-	s_m4 view_projection;
 
 	s_texture checkmark_texture;
 
@@ -2885,13 +2894,19 @@ static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_
 		render_data.framebuffer = &game_renderer->framebuffers[0];
 	}
 
+	s_m4 model = m4_translate(v3(pos, 0));
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
+	if(!is_zero(t.rotation)) {
+		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+	}
+	t.model = model;
 	t.layer = layer;
 	t.flags |= e_render_flag_use_texture;
 	t.pos = v3(pos, 0);
 	t.draw_size = size;
 	t.color = color;
-	t.uv_min = v2(0);
-	t.uv_max = v2(1);
+	t.uv_min = v2(0, 1);
+	t.uv_max = v2(1, 0);
 	if(texture.comes_from_framebuffer) {
 		swap(&t.uv_min.y, &t.uv_max.y);
 	}
@@ -3017,9 +3032,18 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 
 		t.pos.xy = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
 
+		s_m4 model = m4_translate(v3(t.pos.xy, 0));
+		model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
+		// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
+		// if(!is_zero(t.rotation)) {
+		// 	model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+		// }
+		t.model = model;
+
 		t.color = color;
 		t.uv_min = glyph.uv_min;
 		t.uv_max = glyph.uv_max;
+		swap(&t.uv_min.y, &t.uv_max.y);
 		t.origin_offset = c_origin_bottomleft;
 
 		bucket_add(
@@ -3991,6 +4015,7 @@ static s_recti do_letter_boxing(int base_width, int base_height, int window_widt
 
 static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer)
 {
+	#if 0
 	gl(glClearColor(0.1f, 0.1f, 0.1f, 0.0f));
 	// gl(glClearDepth(0.0f));
 	gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
@@ -4175,6 +4200,7 @@ static void gl_render(s_platform_renderer* platform_renderer, s_game_renderer* g
 			}
 		}
 	}
+	#endif
 }
 
 static u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
@@ -4649,3 +4675,138 @@ static int to_bit(int a)
 {
 	return 1 << a;
 }
+
+static void start_render_pass(s_game_renderer* game_renderer)
+{
+	assert(!game_renderer->in_render_pass);
+	game_renderer->in_render_pass = true;
+}
+
+#ifndef m_game
+
+static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render_pass = {})
+{
+	assert(game_renderer->in_render_pass);
+	s_platform_renderer* platform_renderer = &g_platform_renderer;
+	game_renderer->in_render_pass = false;
+	if(render_pass.do_depth) {
+		gl(glEnable(GL_DEPTH_TEST));
+	}
+	else {
+		gl(glDisable(GL_DEPTH_TEST));
+	}
+	if(render_pass.do_blend) {
+		gl(glEnable(GL_BLEND));
+		gl(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+	}
+	else {
+		gl(glDisable(GL_BLEND));
+	}
+	if(render_pass.do_cull) {
+		gl(glEnable(GL_CULL_FACE));
+		glCullFace(GL_BACK);
+	}
+	else {
+		gl(glDisable(GL_CULL_FACE));
+	}
+
+	if(game_renderer->did_we_alloc) {
+		int new_index = (game_renderer->arena_index + 1) % 2;
+		assert(game_renderer->arenas[new_index].used == 0);
+		foreach_ptr(framebuffer_i, framebuffer, game_renderer->framebuffers) {
+			for(int shader_i = 0; shader_i < e_shader_count; shader_i++) {
+				for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++) {
+					for(int blend_i = 0; blend_i < e_blend_mode_count; blend_i++) {
+						int offset = get_render_offset(game_renderer, shader_i, texture_i, blend_i);
+						bucket_merge(&framebuffer->transforms[offset], &game_renderer->arenas[new_index]);
+					}
+				}
+			}
+		}
+	}
+
+	if(game_renderer->did_we_alloc) {
+		int old_index = game_renderer->arena_index;
+		int new_index = (game_renderer->arena_index + 1) % 2;
+		game_renderer->arenas[old_index].used = 0;
+		game_renderer->arena_index = new_index;
+		game_renderer->did_we_alloc = false;
+	}
+
+	s_framebuffer* framebuffer = &game_renderer->framebuffers[0];
+	gl(glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->gpu_id));
+	if(render_pass.do_clear) {
+		gl(glClearColor(0.1f, 0.1f, 0.1f, 0.0f));
+		gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+		s_recti rect = do_letter_boxing((int)g_base_res.x, (int)g_base_res.y, g_platform_data.window_width, g_platform_data.window_height);
+		gl(glViewport(rect.x, rect.y, rect.width, rect.height));
+	}
+
+	gl(glBindVertexArray(platform_renderer->default_vao));
+	gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
+
+	for(int shader_i = 0; shader_i < e_shader_count; shader_i++) {
+		gl(glUseProgram(platform_renderer->programs[shader_i]));
+
+		{
+			int location = gl(glGetUniformLocation(platform_renderer->programs[shader_i], "window_size"));
+			s_v2 window_size = v2(g_platform_data.window_width, g_platform_data.window_height);
+			gl(glUniform2fv(location, 1, &window_size.x));
+		}
+		{
+			int location = gl(glGetUniformLocation(platform_renderer->programs[shader_i], "base_res"));
+			gl(glUniform2fv(location, 1, &g_base_res.x));
+		}
+		{
+			int location = gl(glGetUniformLocation(platform_renderer->programs[shader_i], "time"));
+			gl(glUniform1f(location, (float)game_renderer->total_time));
+		}
+		{
+			int location = gl(glGetUniformLocation(platform_renderer->programs[shader_i], "mouse"));
+			gl(glUniform2fv(location, 1, &g_platform_data.mouse.x));
+		}
+
+		{
+			int location = gl(glGetUniformLocation(platform_renderer->programs[shader_i], "view_projection"));
+			gl(glUniformMatrix4fv(location, 1, GL_FALSE, &render_pass.view_projection.elements[0][0]));
+		}
+
+		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++) {
+			gl(glActiveTexture(GL_TEXTURE0));
+			gl(glBindTexture(GL_TEXTURE_2D, game_renderer->textures[texture_i].gpu_id));
+
+			if(game_renderer->textures[texture_i].comes_from_framebuffer) { continue; }
+			int offset = get_render_offset(game_renderer, shader_i, texture_i, 0);
+			int count = framebuffer->transforms[offset].element_count[0];
+
+			if(count > platform_renderer->max_elements) {
+				platform_renderer->max_elements = double_until_greater_or_equal(platform_renderer->max_elements, count);
+				gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * platform_renderer->max_elements, NULL, GL_DYNAMIC_DRAW));
+			}
+
+			if(count <= 0) { continue; }
+
+			int size = sizeof(*framebuffer->transforms[offset].elements[0]);
+
+			gl(glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, framebuffer->transforms[offset].elements[0]));
+
+			int num_vertices = 0;
+			if(shader_i == e_shader_default) {
+				num_vertices = 6;
+			}
+			else if(shader_i == e_shader_basic_3d) {
+				num_vertices = 36;
+			}
+			else if(shader_i == e_shader_3d_flat) {
+				num_vertices = 6;
+			}
+			invalid_else;
+
+			gl(glDrawArraysInstanced(GL_TRIANGLES, 0, num_vertices, count));
+			memset(&framebuffer->transforms[offset].element_count, 0, sizeof(framebuffer->transforms[offset].element_count));
+
+			assert(framebuffer->transforms[offset].bucket_count == 1);
+		}
+	}
+}
+#endif // m_game
