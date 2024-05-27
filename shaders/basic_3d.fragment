@@ -1,7 +1,5 @@
 
 flat in int v_flags;
-flat in int v_layer;
-flat in int v_sublayer;
 flat in int v_effect_id;
 in float v_mix_weight;
 in vec3 v_pos;

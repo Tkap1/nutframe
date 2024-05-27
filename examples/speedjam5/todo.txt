@@ -1,5 +1,4 @@
 polish:
-	background??
 	particles??
 
 why cant we change resolution?? weird things happen

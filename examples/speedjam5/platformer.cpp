@@ -471,6 +471,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(game->state) {
 		case e_state_play: {
 
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				start_render_pass(g_r);
+				draw_rect(g_r, c_half_res, 0, c_base_res, make_color(1), {}, {.effect_id = 5});
+				g_r->end_render_pass(g_r, {.do_clear = true, .dont_write_depth = true, .cam_pos = game->cam.pos, .view_projection = ortho});
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		background end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 			start_render_pass(g_r);
 
 			#ifdef m_debug
@@ -592,28 +601,30 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		visual effects end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			g_r->end_render_pass(g_r, {.do_clear = true, .do_depth = true, .do_cull = true, .view_projection = view_projection});
+			g_r->end_render_pass(g_r, {.do_depth = true, .do_cull = true, .view_projection = view_projection});
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hints start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 
 				start_render_pass(g_r);
 
-				draw_text(g_r, "What if you shot a rocket and\njumped at the same time?", v2(300, 2015), 10, 0.5f, make_color(1), false, game->font);
+				float z = c_player_z;
 
-				draw_text(g_r, "Hold\nShoot!", v2(286, 2003), 10, 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, "What if you shot a rocket and\njumped at the same time?", v3(300, 2015, z), 0.5f, make_color(1), false, game->font);
 
-				draw_text(g_r, "Hold\nShoot!", v2(246, 1943), 10, 0.5f, make_color(1), false, game->font);
-				draw_text(g_r, "It's pogo time!", v2(250, 1943), 10, 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, "Hold\nShoot!", v3(286, 2003, z), 0.5f, make_color(1), false, game->font);
 
-				draw_text(g_r, "You can jump mid-air!", v2(289, 1944), 10, 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, "Hold\nShoot!", v3(246, 1943, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, "It's pogo time!", v3(250, 1943, z), 0.5f, make_color(1), false, game->font);
+
+				draw_text_3d(g_r, "You can jump mid-air!", v3(289, 1944, z), 0.5f, make_color(1), false, game->font);
 
 				char* text = "If only there was\n"
 					"a way to get hit by 2\n"
 					"rockets at the same time...\n\n"
 					"I bet that would send\n"
 					"you very high up";
-				draw_text(g_r, text, v2(223, 1930), 10, 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, text, v3(223, 1930, z), 0.5f, make_color(1), false, game->font);
 
 				g_r->end_render_pass(g_r, {.do_blend = true, .view_projection = view_projection});
 
@@ -636,11 +647,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw coords end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			#endif // m_debug
 
-			g_r->end_render_pass(g_r, {.view_projection = ortho});
-
-			start_render_pass(g_r);
-			draw_rect(g_r, c_half_res, 0, c_base_res, make_color(1), {}, {.effect_id = 5});
-			g_r->end_render_pass(g_r, {.do_depth = true, .view_projection = ortho});
+			g_r->end_render_pass(g_r, {.do_blend = true, .view_projection = ortho});
 
 
 		} break;

@@ -90,6 +90,7 @@ X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
 X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
 X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
 X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
+X(PFNGLUNIFORM3FVPROC, glUniform3fv) \
 X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
 X(PFNGLUSEPROGRAMPROC, glUseProgram) \
 X(PFNGLGETSHADERIVPROC, glGetShaderiv) \
@@ -130,6 +131,7 @@ X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
 X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
 X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
 X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
+X(PFNGLUNIFORM3FVPROC, glUniform3fv) \
 X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation) \
 X(PFNGLUSEPROGRAMPROC, glUseProgram) \
 X(PFNGLGETSHADERIVPROC, glGetShaderiv) \
@@ -387,6 +389,8 @@ struct s_render_pass
 	b8 do_depth;
 	b8 do_blend;
 	b8 do_cull;
+	b8 dont_write_depth;
+	s_v3 cam_pos;
 	s_m4 view_projection;
 };
 
@@ -2433,8 +2437,6 @@ struct s_bucket_array
 struct s_transform
 {
 	int flags;
-	int layer;
-	int sublayer;
 	int effect_id;
 	float mix_weight;
 	float rotation;
@@ -2801,7 +2803,7 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 		render_data.framebuffer = &game_renderer->framebuffers[0];
 	}
 
-	s_m4 model = m4_translate(v3(pos, -99.0f + layer));
+	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
 	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
@@ -2809,7 +2811,6 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 	t.model = model;
 
 	t.pos = v3(pos, 0);
-	t.layer = layer;
 	t.draw_size = size;
 	t.color = color;
 	t.uv_min = v2(0, 0);
@@ -2885,7 +2886,6 @@ static void draw_line(s_game_renderer* game_renderer, s_v2 from, s_v2 to, int la
 
 	t.flags |= e_render_flag_line;
 	t.pos = v3(from, 0);
-	t.layer = layer;
 	t.draw_size = to;
 	t.texture_size.x = thickness;
 	t.color = color;
@@ -2907,7 +2907,6 @@ static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
 	t.model = model;
-	t.layer = layer;
 	t.flags |= e_render_flag_use_texture;
 	t.pos = v3(pos, 0);
 	t.draw_size = size;
@@ -2927,7 +2926,6 @@ static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2
 		render_data.framebuffer = &game_renderer->framebuffers[0];
 	}
 
-	t.layer = layer;
 	t.flags |= e_render_flag_use_texture;
 	t.pos = v3(pos, 0);
 	t.draw_size = size;
@@ -2992,8 +2990,6 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 		render_data.framebuffer = &game_renderer->framebuffers[0];
 	}
 
-	t.layer = layer;
-
 	float scale = font->scale * (font_size / font->size);
 
 	int len = (int)strlen(text);
@@ -3039,7 +3035,83 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 
 		t.pos.xy = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
 
-		s_m4 model = m4_translate(v3(t.pos.xy, 0));
+		s_m4 model = m4_translate(v3(t.pos.xy, -99.0f + layer * 2));
+		model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
+		// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
+		// if(!is_zero(t.rotation)) {
+		// 	model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+		// }
+		t.model = model;
+
+		t.color = color;
+		t.uv_min = glyph.uv_min;
+		t.uv_max = glyph.uv_max;
+		swap(&t.uv_min.y, &t.uv_max.y);
+		t.origin_offset = c_origin_bottomleft;
+
+		bucket_add(
+			&render_data.framebuffer->transforms[get_render_offset(game_renderer, render_data.shader, font->texture.game_id, render_data.blend_mode)], t,
+			&game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc
+		);
+
+		pos.x += glyph.advance_width * scale;
+
+	}
+	return v2(pos.x, in_pos.y);
+}
+
+static s_v2 draw_text_3d(s_game_renderer* game_renderer, const char* text, s_v3 in_pos, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
+{
+	if(!render_data.framebuffer) {
+		render_data.framebuffer = &game_renderer->framebuffers[0];
+	}
+
+	float scale = font->scale * (font_size / font->size);
+
+	int len = (int)strlen(text);
+	assert(len > 0);
+	if(centered) {
+		s_v2 text_size = get_text_size(text, font, font_size);
+		in_pos.x -= text_size.x / 2;
+		in_pos.y -= text_size.y / 2;
+	}
+	s_v2 pos = in_pos.xy;
+	pos.y += font->ascent * scale;
+	for(int char_i = 0; char_i < len; char_i++) {
+		int c = text[char_i];
+		if(c <= 0 || c >= 128) { continue; }
+
+		if(c == '\n' || c == '\r') {
+			pos.x = in_pos.x;
+			pos.y += font_size;
+			continue;
+		}
+
+		s_glyph glyph = font->glyph_arr[c];
+		t.draw_size = v2((glyph.x1 - glyph.x0) * scale, (glyph.y1 - glyph.y0) * scale);
+
+		s_v2 glyph_pos = pos;
+		glyph_pos.x += glyph.x0 * scale;
+		glyph_pos.y += -glyph.y0 * scale;
+
+		// glyph_pos.y += font->ascent * scale;
+		// glyph_pos.y += font_size;
+		t.flags |= e_render_flag_use_texture | e_render_flag_text;
+		t.pos = v3(glyph_pos, 0);
+
+		s_v2 center = t.pos.xy + t.draw_size / 2 * v2(1, -1);
+		s_v2 bottomleft = t.pos.xy;
+
+		// s_v2 topleft = t.pos + t.draw_size * v2(0, -1);
+		// draw_rect(t.pos, 1, t.draw_size, make_color(0.4f, 0,0), {}, {.origin_offset = c_origin_bottomleft});
+		// draw_rect(center, 75, v2(4), make_color(0, 1,0), {});
+		// draw_rect(topleft, 75, v2(4), make_color(0, 0,1), {}, {.origin_offset = c_origin_topleft});
+		// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), {}, {.origin_offset = c_origin_bottomleft});
+		// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), {}, {.origin_offset = c_origin_topleft});
+
+		t.pos.xy = v2_rotate_around(center, in_pos.xy, t.rotation) + (bottomleft - center);
+
+		s_m4 model = m4_translate(v3(t.pos.xy, in_pos.z));
 		model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
 		// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
 		// if(!is_zero(t.rotation)) {
@@ -3910,7 +3982,7 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
 
 	s_attrib_handler handler = {};
-	add_int_attrib(&handler, 4);
+	add_int_attrib(&handler, 2);
 	add_float_attrib(&handler, 1);
 	add_float_attrib(&handler, 1);
 	add_float_attrib(&handler, 2);
@@ -4743,10 +4815,18 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 	s_framebuffer* framebuffer = &game_renderer->framebuffers[0];
 	gl(glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->gpu_id));
 	if(render_pass.do_clear) {
+		glDepthMask(GL_TRUE);
 		gl(glClearColor(0.1f, 0.1f, 0.1f, 0.0f));
 		gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 		s_recti rect = do_letter_boxing((int)g_base_res.x, (int)g_base_res.y, g_platform_data.window_width, g_platform_data.window_height);
 		gl(glViewport(rect.x, rect.y, rect.width, rect.height));
+	}
+
+	if(render_pass.dont_write_depth) {
+		glDepthMask(GL_FALSE);
+	}
+	else {
+		glDepthMask(GL_TRUE);
 	}
 
 	gl(glBindVertexArray(platform_renderer->default_vao));
@@ -4776,6 +4856,13 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 		{
 			int location = gl(glGetUniformLocation(platform_renderer->programs[shader_i], "view_projection"));
 			gl(glUniformMatrix4fv(location, 1, GL_FALSE, &render_pass.view_projection.elements[0][0]));
+		}
+
+		{
+			int location = gl(glGetUniformLocation(platform_renderer->programs[shader_i], "cam_pos"));
+			if(location != -1) {
+				gl(glUniform3fv(location, 1, &render_pass.cam_pos.x));
+			}
 		}
 
 		for(int texture_i = 0; texture_i < game_renderer->textures.count; texture_i++) {

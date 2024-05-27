@@ -1,6 +1,6 @@
 
 
-layout (location = 0) in ivec4 in_stuff;
+layout (location = 0) in ivec2 in_stuff;
 layout (location = 1) in float in_mix_weight;
 layout (location = 2) in float in_rotation;
 layout (location = 3) in vec2 in_origin_offset;
@@ -15,8 +15,6 @@ layout (location = 11) in mat4 in_model;
 
 
 flat out int v_flags;
-flat out int v_layer;
-flat out int v_sublayer;
 flat out int v_effect_id;
 out float v_mix_weight;
 out float v_rotation;
@@ -50,9 +48,7 @@ void main()
 	vec2 vertices[6];
 
 	int in_flags = in_stuff.x;
-	int in_layer = in_stuff.y;
-	int in_sublayer = in_stuff.z;
-	int in_effect_id = in_stuff.w;
+	int in_effect_id = in_stuff.y;
 
 	// @Note(tkap, 25/05/2024): Draw line
 	if((in_flags & 16) != 0) {
@@ -120,8 +116,6 @@ void main()
 	uvs[5] = bottomleft;
 
 	v_flags = in_flags;
-	v_layer = in_layer;
-	v_sublayer = in_sublayer;
 	v_effect_id = in_effect_id;
 	v_mix_weight = in_mix_weight;
 	v_rotation = in_rotation;
@@ -134,13 +128,12 @@ void main()
 	v_color = in_color;
 	v_mix_color = in_mix_color;
 
-	float z = float(-in_layer) / 100.0;
-	z += float(-in_sublayer) / 4.0 / 100.0;
 	v_uv = uvs[gl_VertexID];
 	v_local_uv = local_uv[gl_VertexID];
 
 	if((in_flags & 16) != 0) {
-		gl_Position = vec4(vertices[gl_VertexID], z, 1.0);
+		// @TODO(tkap, 27/05/2024): this z=0 is wrong!
+		gl_Position = vec4(vertices[gl_VertexID], 0.0, 1.0);
 	}
 	else {
 		// vec2 pos = in_pos.xy * (2.0 / base_res) - 1.0;

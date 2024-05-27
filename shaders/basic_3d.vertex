@@ -1,6 +1,6 @@
 
 
-layout (location = 0) in ivec4 in_stuff;
+layout (location = 0) in ivec2 in_stuff;
 layout (location = 1) in float in_mix_weight;
 layout (location = 2) in float in_rotation;
 layout (location = 3) in vec2 in_origin_offset;
@@ -15,8 +15,6 @@ layout (location = 11) in mat4 in_model;
 
 
 flat out int v_flags;
-flat out int v_layer;
-flat out int v_sublayer;
 flat out int v_effect_id;
 out float v_mix_weight;
 out float v_rotation;
@@ -205,9 +203,7 @@ void main()
 {
 
 	int in_flags = in_stuff.x;
-	int in_layer = in_stuff.y;
-	int in_sublayer = in_stuff.z;
-	int in_effect_id = in_stuff.w;
+	int in_effect_id = in_stuff.y;
 
 	float min_uv_x = (in_flags & 2) != 0 ? in_uv_max.x : in_uv_min.x;
 	float max_uv_x = (in_flags & 2) != 0 ? in_uv_min.x : in_uv_max.x;
@@ -237,8 +233,6 @@ void main()
 	uvs[5] = bottomleft;
 
 	v_flags = in_flags;
-	v_layer = in_layer;
-	v_sublayer = in_sublayer;
 	v_effect_id = in_effect_id;
 	v_mix_weight = in_mix_weight;
 	v_rotation = in_rotation;
