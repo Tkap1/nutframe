@@ -71,6 +71,7 @@ struct s_editor
 struct s_player
 {
 	b8 flip_x;
+	b8 released_left_button_since_death;
 	float animation_timer;
 	int state;
 	int jumps_left;

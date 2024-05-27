@@ -48,7 +48,6 @@ struct s_projectile
 struct s_game
 {
 	b8 initialized;
-	b8 follow_player;
 	b8 reset_game;
 	e_state state;
 	int reset_player;
@@ -132,7 +131,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->editor_cam.pos.y = c_editor_tile_size * (c_tiles_down - 10);
 		game->editor_cam.zoom = 1;
 		game->editor.curr_tile = e_tile_normal;
-		game->follow_player = true;
 		game->reset_game = true;
 
 		load_map(&game->map, platform_data);
@@ -176,19 +174,21 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				s_player* player = &game->player;
 				player->prev_pos = player->pos;
 
+				if(!is_key_down(g_input, c_left_mouse)) {
+					player->released_left_button_since_death = true;
+				}
+
 				float input_vel = 0;
-				if(game->follow_player) {
-					if(is_key_down(g_input, c_key_a) || is_key_down(g_input, c_key_left)) {
-						input_vel -= c_player_speed;
-					}
-					if(is_key_down(g_input, c_key_d) || is_key_down(g_input, c_key_right)) {
-						input_vel += c_player_speed;
-					}
+				if(is_key_down(g_input, c_key_a) || is_key_down(g_input, c_key_left)) {
+					input_vel -= c_player_speed;
+				}
+				if(is_key_down(g_input, c_key_d) || is_key_down(g_input, c_key_right)) {
+					input_vel += c_player_speed;
 				}
 				input_vel = clamp(input_vel, -c_max_input_vel, c_max_input_vel);
 
 				player->shoot_timer = at_most(c_shoot_delay, player->shoot_timer + 1);
-				if(player->shoot_timer >= c_shoot_delay && is_key_down(g_input, c_left_mouse)) {
+				if(player->released_left_button_since_death && player->shoot_timer >= c_shoot_delay && is_key_down(g_input, c_left_mouse)) {
 					player->shoot_timer -= c_shoot_delay;
 					s_projectile p = {};
 					p.pos = player->pos;
@@ -225,7 +225,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					player->vel.y = min(0.17f, player->vel.y + c_gravity);
 				}
 
-				if(is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_key_up)) {
+				if(is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_key_up) || is_key_pressed(g_input, c_key_w)) {
 					if(player->jumps_left > 0) {
 						platform_data->play_sound(game->jump_sound);
 						if(player->vel.y > 0) {
@@ -251,12 +251,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				else {
 					player->state = 0;
 				}
+				b8 hit_spike = false;
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player x collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				player->pos.x += x_vel;
 				auto collision_arr = get_tile_collisions(player->pos, c_player_collision_size, c_play_tile_size);
 				foreach_val(collision_i, collision, collision_arr) {
 					if(collision.tile == e_tile_spike) {
-						game->reset_player = 1;
+						hit_spike = true;
 					}
 					else if(collision.tile == e_tile_platform) { continue; }
 					else if(!pushed) {
@@ -279,7 +280,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				pushed = false;
 				foreach_val(collision_i, collision, collision_arr) {
 					if(collision.tile == e_tile_spike) {
-						game->reset_player = 1;
+						hit_spike = true;
 					}
 					else if(collision.tile == e_tile_platform) {
 						float player_bottom = player->pos.y + c_player_collision_size.y * 0.5f;
@@ -351,6 +352,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check end point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+				if(hit_spike) {
+					game->reset_player = 1;
+					if(is_key_down(g_input, c_left_mouse)) {
+						player->released_left_button_since_death = false;
+					}
+				}
 
 
 				if(is_key_pressed(g_input, c_key_r) || is_key_pressed(g_input, c_key_enter)) {
@@ -454,10 +462,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		}
 	}
 
-	if(is_key_pressed(g_input, c_key_f2)) {
-		game->follow_player = !game->follow_player;
-	}
-
 	switch(game->state) {
 		case e_state_play: {
 
@@ -465,6 +469,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			if(is_key_pressed(g_input, c_right_mouse)) {
 				game->player.pos = ray_at_z(game->ray, c_player_z).xy;
 				game->player.vel = {};
+			}
+			if(is_key_pressed(g_input, c_key_f2)) {
+				game->curr_save_point = (game->curr_save_point + 1) % game->map.save_point_arr.count;
+				game->reset_player = true;
 			}
 			#endif // m_debug
 
@@ -474,34 +482,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font);
 			}
 
-			if(!game->follow_player) {
-				constexpr float c_cam_speed = 50;
-				if(is_key_down(g_input, c_key_w)) {
-					game->cam.pos.z += 1 * delta * c_cam_speed;
-				}
-				if(is_key_down(g_input, c_key_a)) {
-					game->cam.pos.x -= 1 * delta * c_cam_speed;
-				}
-				if(is_key_down(g_input, c_key_s)) {
-					game->cam.pos.z -= 1 * delta * c_cam_speed;
-				}
-				if(is_key_down(g_input, c_key_d)) {
-					game->cam.pos.x += 1 * delta * c_cam_speed;
-				}
-				if(is_key_down(g_input, c_key_up)) {
-					game->cam.pos.y -= 1 * delta * c_cam_speed;
-				}
-				if(is_key_down(g_input, c_key_down)) {
-					game->cam.pos.y += 1 * delta * c_cam_speed;
-				}
-			}
-
-			if(game->follow_player) {
+			{
 				s_v2 pos = lerp(game->player.prev_pos, game->player.pos, interp_dt);
 				game->cam.pos.xy = pos;
 				game->cam.pos.y -= 2;
 				game->cam.pos.z = -10;
 			}
+
 			s_m4 view = look_at(game->cam.pos, game->cam.pos + game->cam.target, v3(0, -1, 0));
 			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 0.01f, 10000.0f);
 			g_r->view_projection = m4_multiply(projection, view);

@@ -1,5 +1,3 @@
 polish:
-	if save point is the current one, draw it differently
-	be able to retrigger the same savepoint, with a cooldown
 	background??
 	particles??
