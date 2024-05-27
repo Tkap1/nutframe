@@ -453,6 +453,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		game->editor_cam.zoom *= 0.9f;
 	}
 
+	#ifdef m_debug
 	if(is_key_pressed(g_input, c_key_f1)) {
 		if(game->state == e_state_editor) {
 			game->state = e_state_play;
@@ -461,6 +462,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			game->state = e_state_editor;
 		}
 	}
+	#endif // m_debug
 
 	switch(game->state) {
 		case e_state_play: {
