@@ -2801,6 +2801,13 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 		render_data.framebuffer = &game_renderer->framebuffers[0];
 	}
 
+	s_m4 model = m4_translate(v3(pos, -99.0f + layer));
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
+	if(!is_zero(t.rotation)) {
+		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+	}
+	t.model = model;
+
 	t.pos = v3(pos, 0);
 	t.layer = layer;
 	t.draw_size = size;

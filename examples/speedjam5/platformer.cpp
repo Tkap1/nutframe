@@ -445,7 +445,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	live_variable(&platform_data->vars, c_push_strength, 0.0f, 0.33f, true);
 	live_variable(&platform_data->vars, c_projectile_speed, 0.0f, 5.0f, true);
 
-	s_m4 ortho = m4_orthographic(0, c_base_res.x, c_base_res.y, 0, -1, 1);
+	s_m4 ortho = m4_orthographic(0, c_base_res.x, c_base_res.y, 0, -100, 100);
 
 	float delta = (float)platform_data->frame_time;
 
@@ -485,6 +485,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			if(is_key_pressed(g_input, c_key_f3)) {
 				game->player.pos = v2(game->map.end_point.pos) * v2(c_play_tile_size);
 			}
+			// if(is_key_pressed(g_input, c_key_f4)) {
+			// 	static int r = 0;
+			// 	r = platform_data->cycle_between_available_resolutions(r);
+			// }
 			#endif // m_debug
 
 			{
@@ -495,7 +499,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			s_m4 view = look_at(game->cam.pos, game->cam.pos + game->cam.target, v3(0, -1, 0));
-			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 0.01f, 10000.0f);
+			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 1.0f, 10000.0f);
 			s_m4 view_projection = m4_multiply(projection, view);
 
 			game->ray = get_ray(g_mouse, c_base_res, game->cam, view, projection);
@@ -590,14 +594,53 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			g_r->end_render_pass(g_r, {.do_clear = true, .do_depth = true, .do_cull = true, .view_projection = view_projection});
 
-
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hints start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
+
 				start_render_pass(g_r);
+
+				draw_text(g_r, "What if you shot a rocket and\njumped at the same time?", v2(300, 2015), 10, 0.5f, make_color(1), false, game->font);
+
+				draw_text(g_r, "Hold\nShoot!", v2(286, 2003), 10, 0.5f, make_color(1), false, game->font);
+
+				draw_text(g_r, "Hold\nShoot!", v2(246, 1943), 10, 0.5f, make_color(1), false, game->font);
+				draw_text(g_r, "It's pogo time!", v2(250, 1943), 10, 0.5f, make_color(1), false, game->font);
+
+				draw_text(g_r, "You can jump mid-air!", v2(289, 1944), 10, 0.5f, make_color(1), false, game->font);
+
+				char* text = "If only there was\n"
+					"a way to get hit by 2\n"
+					"rockets at the same time...\n\n"
+					"I bet that would send\n"
+					"you very high up";
+				draw_text(g_r, text, v2(223, 1930), 10, 0.5f, make_color(1), false, game->font);
+
+				g_r->end_render_pass(g_r, {.do_blend = true, .view_projection = view_projection});
+
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hints end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+			start_render_pass(g_r);
+			{
 				s_time_data data = process_time(game->timer);
 				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font);
-				g_r->end_render_pass(g_r, {.view_projection = ortho});
 			}
+
+			#ifdef m_debug
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw coords start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				draw_text(g_r, format_text("x: %0.1f y: %0.1f", game->player.pos.x, game->player.pos.y), v2(0, 32), 10, 32, make_color(1), false, game->font);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw coords end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			#endif // m_debug
+
+			g_r->end_render_pass(g_r, {.view_projection = ortho});
+
+			start_render_pass(g_r);
+			draw_rect(g_r, c_half_res, 0, c_base_res, make_color(1), {}, {.effect_id = 5});
+			g_r->end_render_pass(g_r, {.do_depth = true, .view_projection = ortho});
 
 
 		} break;

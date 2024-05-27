@@ -261,7 +261,7 @@ static void do_one_frame()
 			case SDL_KEYDOWN:
 			case SDL_KEYUP: {
 				int key = sdl_key_to_windows_key(e.key.keysym.sym);
-				b8 is_repeat = e.key.repeat;
+				b8 is_repeat = e.key.repeat ? true : false;
 				if(key == -1) { break; }
 				b8 is_down = e.type == SDL_KEYDOWN;
 				s_stored_input si = {};

@@ -29,6 +29,7 @@ uniform float snake_apple_time;
 
 uniform sampler2D in_texture;
 uniform sampler2D noise;
+uniform vec3 cam_pos;
 
 #define pi 3.1415
 
@@ -173,6 +174,15 @@ void main()
 		}
 		// color.rgb = pow(color.rgb, vec3(2.2));
 		color *= v_color;
+	}
+
+	else if(v_effect_id == 5) {
+		for(int i = 0; i < 3; i += 1) {
+
+		}
+		color.r = 0.1;
+		color.g = 0;
+		color.b = 0;
 	}
 
 	color = pma(color);
