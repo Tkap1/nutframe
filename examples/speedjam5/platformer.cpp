@@ -530,8 +530,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw save points start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			foreach_val(save_point_i, save_point, game->map.save_point_arr) {
 				s_v2 pos = v2(save_point.pos) * v2(c_play_tile_size);
+				s_v4 color = make_color(1.0f, 0.1f, 0.1f);
+				if(game->curr_save_point == save_point_i) {
+					color = make_color(1);
+				}
 				// draw_rect(g_r, pos, 2, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1, 0, 0), {}, {.origin_offset = c_origin_topleft});
-				draw_texture_3d(g_r, v3(pos, c_player_z), c_save_point_visual_size, make_color(1), game->save_point_texture);
+				draw_texture_3d(g_r, v3(pos, c_player_z), c_save_point_visual_size, color, game->save_point_texture);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw save points end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
