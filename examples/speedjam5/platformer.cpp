@@ -80,13 +80,14 @@ struct s_game
 	s_sound* jump_sound;
 	s_sound* win_sound;
 	s_carray<s_sound*, c_max_death_sounds> death_sound_arr;
-	s_sarray<f64, c_max_leaderboard_entries> leaderboard_arr;
+	s_sarray<s_leaderboard_entry, c_max_leaderboard_entries> leaderboard_arr;
 };
 
 static s_input* g_input;
 static s_game* game;
 static s_game_renderer* g_r;
 static s_v2 g_mouse;
+static s_platform_data* g_platform_data;
 
 #ifdef m_build_dll
 extern "C" {
@@ -106,6 +107,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	g_input = &platform_data->logic_input;
 	g_mouse = platform_data->mouse;
 	g_r = renderer;
+	g_platform_data = platform_data;
 
 	if(!game->initialized) {
 		game->initialized = true;
@@ -142,8 +144,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->reset_game = true;
 
 		load_map(&game->map, platform_data);
-	}
 
+		if(platform_data->register_leaderboard_client) {
+			platform_data->register_leaderboard_client();
+		}
+	}
 
 	switch(game->state) {
 		case e_state_play: {
@@ -371,22 +376,27 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				{
 					s_v2 end_point_pos = index_to_pos(game->map.end_point.pos, c_play_tile_size);
 					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, end_point_pos, c_end_point_size);
-					if(collides) {
+					// nocheckin
+					if(collides || is_key_pressed(g_input, c_key_f)) {
 						game->state = e_state_victory;
 						platform_data->play_sound(game->win_sound);
-						if(game->leaderboard_arr.count >= c_max_leaderboard_entries) {
-							f64 slowest_time = -1;
-							int index = 0;
-							foreach_val(time_i, time, game->leaderboard_arr) {
-								if(time > slowest_time) {
-									index = time_i;
-									slowest_time = time;
-								}
-							}
-							game->leaderboard_arr.remove_and_swap(index);
+						if(platform_data->submit_leaderboard_score) {
+							platform_data->submit_leaderboard_score((int)round(game->timer * 1000.0), on_leaderboard_score_submitted);
+							game->leaderboard_arr.count = 0;
 						}
-						game->leaderboard_arr.add(game->timer);
-						game->leaderboard_arr.small_sort();
+						// if(game->leaderboard_arr.count >= c_max_leaderboard_entries) {
+						// 	f64 slowest_time = -1;
+						// 	int index = 0;
+						// 	foreach_val(time_i, time, game->leaderboard_arr) {
+						// 		if(time > slowest_time) {
+						// 			index = time_i;
+						// 			slowest_time = time;
+						// 		}
+						// 	}
+						// 	game->leaderboard_arr.remove_and_swap(index);
+						// }
+						// game->leaderboard_arr.add(game->timer);
+						// game->leaderboard_arr.small_sort();
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check end point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -500,6 +510,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	game = (s_game*)game_memory;
 	g_r = renderer;
 	g_input = &platform_data->render_input;
+	g_platform_data = platform_data;
 
 	live_variable(&platform_data->vars, c_player_speed, 0.0f, 1.0f, true);
 	live_variable(&platform_data->vars, c_ground_friction, 0.0f, 1.0f, true);
@@ -931,37 +942,26 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			{
-				s_time_data data = process_time(game->timer);
+				s_time_data data = process_time((int)round(game->timer * 1000.0) / 1000.0);
 				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 				draw_text(g_r, text, c_half_res * v2(1.0f, 0.2f), 10, 64, make_color(1), true, game->font);
 			}
 
 			s_v2 pos = c_half_res * v2(1.0f, 0.7f);
-			b8 found_current = false;
-			for(int time_i = 0; time_i < at_most(10, game->leaderboard_arr.count); time_i++) {
-				f64 time = game->leaderboard_arr[time_i];
+			for(int entry_i = 0; entry_i < at_most(11, game->leaderboard_arr.count); entry_i++) {
+				s_leaderboard_entry entry = game->leaderboard_arr[entry_i];
+				f64 time = entry.time / 1000.0;
 				s_time_data data = process_time(time);
 				s_v4 color = make_color(0.8f);
-				if(!found_current && floats64_equal(time, game->timer)) {
-					found_current = true;
+				int rank_number = entry_i + 1;
+				if(entry_i == 10 || strcmp(platform_data->leaderboard_public_uid.data, entry.internal_name.data) == 0) {
 					color = rgb(0xD3A861);
+					rank_number = entry.rank;
 				}
-				draw_text(g_r, format_text("%i", time_i + 1), pos - v2(250, 24), 10, 48, color, false, game->font);
+				draw_text(g_r, format_text("%i %s", rank_number, entry.internal_name.data), v2(c_base_res.x * 0.1f, pos.y - 24), 10, 32, color, false, game->font);
 				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-				draw_text(g_r, text, pos, 10, 48, color, true, game->font);
+				draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font);
 				pos.y += 48;
-			}
-			if(!found_current) {
-				foreach_val(time_i, time, game->leaderboard_arr) {
-					if(floats64_equal(time, game->timer)) {
-						s_time_data data = process_time(time);
-						s_v4 color = rgb(0xD3A861);
-						draw_text(g_r, format_text("%i", time_i + 1), pos - v2(250, 24), 10, 48, color, false, game->font);
-						char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-						draw_text(g_r, text, pos, 10, 48, color, true, game->font);
-						break;
-					}
-				}
 			}
 
 			draw_text(g_r, "Press R to restart", c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font);
@@ -1122,4 +1122,77 @@ static void do_particles(int count, s_v3 pos, s_particle_data data)
 		p.color.z *= (1.0f - rng->randf32() * data.color_rand.z);
 		game->particle_arr.add_checked(p);
 	}
+}
+
+static void on_leaderboard_received(s_json* json)
+{
+	game->leaderboard_arr.count = 0;
+	s_json* temp = json_get(json, "items", e_json_array);
+	if(!temp) { goto end; }
+	temp = json_get(json, "items", e_json_array);
+	for(s_json* j = temp->array; j; j = j->next) {
+		if(j->type != e_json_object) { continue; }
+
+		s_leaderboard_entry entry = {};
+		s_json* player = json_get(j->object, "player", e_json_object)->object;
+
+		entry.rank = json_get(j->object, "rank", e_json_integer)->integer;
+
+		char* nice_name = json_get(player, "name", e_json_string)->str;
+		if(nice_name) {
+			entry.nice_name.from_cstr(nice_name);
+		}
+
+		char* internal_name = json_get(player, "public_uid", e_json_string)->str;
+		entry.internal_name.from_cstr(internal_name);
+
+		entry.time = json_get(j->object, "score", e_json_integer)->integer;
+		game->leaderboard_arr.add(entry);
+	}
+	end:;
+
+	g_platform_data->get_our_leaderboard(on_our_leaderboard_received);
+}
+
+static void on_our_leaderboard_received(s_json* json)
+{
+	s_json* j = json->object;
+	if(!j) { return; }
+
+	s_leaderboard_entry new_entry = {};
+	s_json* player = json_get(j, "player", e_json_object)->object;
+
+	new_entry.rank = json_get(j, "rank", e_json_integer)->integer;
+
+	char* nice_name = json_get(player, "name", e_json_string)->str;
+	if(nice_name) {
+		new_entry.nice_name.from_cstr(nice_name);
+	}
+
+	char* internal_name = json_get(player, "public_uid", e_json_string)->str;
+	new_entry.internal_name.from_cstr(internal_name);
+
+	new_entry.time = json_get(j, "score", e_json_integer)->integer;
+
+	b8 is_already_in_top_ten = false;
+	foreach_val(entry_i, entry, game->leaderboard_arr) {
+		if(strcmp(internal_name, entry.internal_name.data) == 0) {
+			is_already_in_top_ten = true;
+			break;
+		}
+	}
+
+	if(!is_already_in_top_ten) {
+		game->leaderboard_arr.add(new_entry);
+	}
+}
+
+static void on_leaderboard_score_submitted()
+{
+	g_platform_data->get_leaderboard(on_leaderboard_received);
+}
+
+static void after_get_leaderboard()
+{
+	g_platform_data->get_leaderboard(on_leaderboard_received);
 }

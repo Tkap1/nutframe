@@ -12,7 +12,7 @@ static constexpr int c_end_point_version = 1;
 static constexpr int c_max_jumps = 1;
 static constexpr int c_max_projectiles = 128;
 static constexpr int c_projectile_duration = 2000;
-static constexpr int c_max_leaderboard_entries = 128;
+static constexpr int c_max_leaderboard_entries = 16;
 static constexpr int c_max_particles = 8192;
 static constexpr int c_max_death_sounds = 3;
 
@@ -49,6 +49,13 @@ enum e_state
 	e_state_victory,
 };
 
+struct s_leaderboard_entry
+{
+	int rank;
+	int time;
+	s_str<32> nice_name;
+	s_str<32> internal_name;
+};
 
 struct s_tile_collision
 {
@@ -143,3 +150,7 @@ static b8 index_has_tile(s_v2i index);
 static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, int tile_size, int tile_blacklist_mask = 0);
 static s_v2 index_to_pos(s_v2i index, int tile_size);
 static void do_particles(int count, s_v3 pos, s_particle_data data);
+static void on_leaderboard_received(s_json* json);
+static void on_our_leaderboard_received(s_json* json);
+static void after_submitted_leaderboard();
+static void on_leaderboard_score_submitted();

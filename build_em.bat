@@ -10,15 +10,17 @@ set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
 set comp=!comp! -I"..\..\libs"
 set comp=!comp! -lSDL2_mixer
 set comp=!comp! -lwebsocket.js
+set comp=!comp! -lidbfs.js
 set comp=!comp! -sSTACK_SIZE=1048576
 set comp=!comp! --shell-file ../shell.html
+set comp=!comp! -sFETCH
 
 set debug=1
 if !debug!==0 (
 	set comp=!comp! -O3
 ) else (
 	@REM set comp=!comp! -Dm_debug
-	set comp=!comp! -O3
+	@REM set comp=!comp! -O3
 	set comp=!comp! -sSAFE_HEAP=0
 	set comp=!comp! -sASSERTIONS=0
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex

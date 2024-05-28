@@ -280,6 +280,43 @@ struct s_recti
 	};
 };
 
+struct s_string_parse
+{
+	b8 success;
+	char* first_char;
+	char* last_char;
+	char* continuation;
+	char* result;
+	int len;
+};
+
+
+enum e_json
+{
+	e_json_object,
+	e_json_integer,
+	e_json_string,
+	e_json_bool,
+	e_json_array,
+	e_json_null,
+};
+
+struct s_json
+{
+	e_json type;
+	char* key;
+	s_json* next;
+
+	union
+	{
+		b8 bool_val;
+		s_json* object;
+		s_json* array;
+		int integer;
+		char* str;
+	};
+};
+
 
 #ifndef m_game
 #ifndef m_debug
@@ -2593,6 +2630,15 @@ struct s_str
 		assert(len < n);
 		data[len] = 0;
 	}
+
+	void from_cstr(char* str)
+	{
+		int in_len = (int)strlen(str);
+		assert(in_len < n);
+		memcpy(data, str, in_len);
+		data[in_len] = 0;
+		len = in_len;
+	}
 };
 
 #ifdef m_debug
@@ -2623,6 +2669,10 @@ struct s_console
 #define add_msg_to_console(...)
 #endif // m_debug
 
+typedef void (*t_submit_leaderboard_score_callback)(void);
+typedef void (*t_get_leaderboard_callback)(s_json*);
+typedef void (*t_get_our_leaderboard_callback)(s_json*);
+
 struct s_platform_data
 {
 	b8 recompiled;
@@ -2643,6 +2693,18 @@ struct s_platform_data
 
 	s_console console;
 	#endif // m_debug
+
+	void (*submit_leaderboard_score)(int, t_submit_leaderboard_score_callback);
+	void (*get_leaderboard)(t_get_leaderboard_callback);
+	void (*get_our_leaderboard)(t_get_our_leaderboard_callback);
+	char* leaderboard_session_token;
+	t_submit_leaderboard_score_callback submit_leaderboard_score_callback;
+	t_get_leaderboard_callback get_leaderboard_callback;
+	t_get_our_leaderboard_callback get_our_leaderboard_callback;
+	void (*register_leaderboard_client)(void);
+	s_str<64> leaderboard_public_uid;
+	s_str<256> leaderboard_player_identifier;
+	int leaderboard_player_id;
 
 	int update_count;
 	int render_count;
@@ -2720,6 +2782,7 @@ void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* 
 #endif
 
 
+// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		function headers start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 static int get_render_offset(s_game_renderer* game_renderer, int shader, int texture, int blend_mode);
 static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count, int in_column = 0);
 static s_v2 get_text_size(const char* text, s_font* font, float font_size);
@@ -2727,7 +2790,11 @@ template <typename t>
 static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc);
 template <typename t>
 static void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena);
-
+static s_json* parse_json(char* str);
+static void print_json(s_json* json);
+static s_json* json_get(s_json* json, char* key_name, e_json in_type);
+static s_string_parse parse_string(char* str, b8 do_alloc);
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		function headers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 
@@ -4008,8 +4075,111 @@ static void on_gl_error(const char* expr, char* file, int line, int error)
 	printf("--------\n");
 }
 
+
+#ifdef __EMSCRIPTEN__
+
+
+static void on_store(void* arg) { printf("stored\n"); }
+static void on_error(void* arg) { printf("error\n"); }
+
+static void success(emscripten_fetch_t *fetch) {
+	((char*)fetch->data)[fetch->numBytes] = 0;
+	// We're done with the fetch, so free it
+	emscripten_fetch_close(fetch);
+}
+
+static void register_leaderboard_client_success(emscripten_fetch_t *fetch) {
+	((char*)fetch->data)[fetch->numBytes] = 0;
+	s_json* json = parse_json((char*)fetch->data);
+	s_json* temp = json_get(json, "session_token", e_json_string);
+	if(temp) {
+		g_platform_data.leaderboard_session_token = temp->str;
+		temp = json_get(json, "public_uid", e_json_string);
+		g_platform_data.leaderboard_public_uid.from_cstr(temp->str);
+		char* player_identifier = json_get(json, "player_identifier", e_json_string)->str;
+		g_platform_data.leaderboard_player_identifier.from_cstr(player_identifier);
+		g_platform_data.leaderboard_player_id = json_get(json, "player_id", e_json_integer)->integer;
+	}
+	emscripten_idb_async_store("leaderboard", "id", (void*)g_platform_data.leaderboard_player_identifier.data, g_platform_data.leaderboard_player_identifier.len, NULL, on_store, on_error);
+	// We're done with the fetch, so free it
+	emscripten_fetch_close(fetch);
+}
+
+
+static void failure(emscripten_fetch_t *fetch) {
+	((char*)fetch->data)[fetch->numBytes] = 0;
+	// We're done with the fetch, so free it
+	emscripten_fetch_close(fetch);
+}
+
+
+
+static void on_leaderboard_id_load_success(void* arg, void* in_data, int data_len)
+{
+
+	char data[1024] = {};
+	memcpy(data, in_data, data_len);
+
+	emscripten_fetch_attr_t attr = {};
+	emscripten_fetch_attr_init(&attr);
+	strcpy(attr.requestMethod, "POST");
+	attr.onsuccess = register_leaderboard_client_success;
+	attr.onerror = failure;
+	attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+
+	const char* body = format_text("{\"game_key\": \"dev_ae7c0ca6ad2047e1890f76fe7836a5e3\", \"player_identifier\": \"%s\", \"game_version\": \"0.0.0.1\", \"development_mode\": true}", (char*)data);
+	attr.requestData = body;
+	attr.requestDataSize = strlen(body);
+	emscripten_fetch(&attr, "https://api.lootlocker.io/game/v2/session/guest");
+
+}
+
+static void on_leaderboard_id_load_error(void* arg)
+{
+	emscripten_fetch_attr_t attr = {};
+	emscripten_fetch_attr_init(&attr);
+	strcpy(attr.requestMethod, "POST");
+	attr.onsuccess = register_leaderboard_client_success;
+	attr.onerror = failure;
+	attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+
+	const char* body = "{\"game_key\": \"dev_ae7c0ca6ad2047e1890f76fe7836a5e3\", \"game_version\": \"0.0.0.1\", \"development_mode\": true}";
+	attr.requestData = body;
+	attr.requestDataSize = strlen(body);
+	emscripten_fetch(&attr, "https://api.lootlocker.io/game/v2/session/guest");
+}
+
+
+static void register_leaderboard_client()
+{
+	if(g_platform_data.leaderboard_session_token) { return; }
+	emscripten_idb_async_load("leaderboard", "id", NULL, on_leaderboard_id_load_success, on_leaderboard_id_load_error);
+}
+
+void on_load(void* arg, void* data, int data_len)
+{
+}
+
+void on_load_error(void* arg)
+{
+}
+
+#endif // __EMSCRIPTEN__
+
 static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* game_renderer, s_lin_arena* arena)
 {
+
+	// // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		http start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	{
+
+		{
+			// char* str = read_file("test.json", arena);
+			// s_json* foo = parse_json(str);
+			// print_json(foo);
+		}
+	}
+	// // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		http end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 	gl(glGenVertexArrays(1, &platform_renderer->default_vao));
 	gl(glBindVertexArray(platform_renderer->default_vao));
 
@@ -4798,6 +4968,100 @@ static void start_render_pass(s_game_renderer* game_renderer)
 
 #ifndef m_game
 
+#ifdef __EMSCRIPTEN__
+
+
+static void submit_leaderboard_success(emscripten_fetch_t *fetch) {
+	// printf("Finished downloading %llu bytes\n", fetch->numBytes);
+	// ((char*)fetch->data)[fetch->numBytes] = 0;
+	// printf("Data: %s\n", fetch->data);
+	// s_json* json = parse_json((char*)fetch->data);
+	// // We're done with the fetch, so free it
+	emscripten_fetch_close(fetch);
+	g_platform_data.submit_leaderboard_score_callback();
+}
+
+
+static void submit_leaderboard_score(int time, t_submit_leaderboard_score_callback submit_leaderboard_score_callback)
+{
+	if(!g_platform_data.leaderboard_session_token) { return; }
+
+	g_platform_data.submit_leaderboard_score_callback = submit_leaderboard_score_callback;
+
+	emscripten_fetch_attr_t attr = {};
+	emscripten_fetch_attr_init(&attr);
+	strcpy(attr.requestMethod, "POST");
+	attr.onsuccess = submit_leaderboard_success;
+	attr.onerror = failure;
+	attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+
+	char* data = format_text("{\"score\": %i}", time);
+	char* headers[] = {"x-session-token", g_platform_data.leaderboard_session_token, NULL};
+	attr.requestHeaders = headers;
+	attr.requestData = data;
+	attr.requestDataSize = strlen(data);
+	char* url = "https://api.lootlocker.io/game/leaderboards/22605/submit";
+	emscripten_fetch(&attr, url);
+}
+
+static void get_leaderboard_success(emscripten_fetch_t *fetch) {
+	((char*)fetch->data)[fetch->numBytes] = 0;
+	s_json* json = parse_json((char*)fetch->data);
+	// We're done with the fetch, so free it
+	emscripten_fetch_close(fetch);
+	g_platform_data.get_leaderboard_callback(json);
+}
+
+static void get_our_leaderboard_success(emscripten_fetch_t *fetch) {
+	((char*)fetch->data)[fetch->numBytes] = 0;
+	s_json* json = parse_json((char*)fetch->data);
+	// We're done with the fetch, so free it
+	emscripten_fetch_close(fetch);
+	g_platform_data.get_our_leaderboard_callback(json);
+}
+
+
+static void get_leaderboard(t_get_leaderboard_callback get_leaderboard_callback)
+{
+	if(!g_platform_data.leaderboard_session_token) { return; }
+
+	{
+		g_platform_data.get_leaderboard_callback = get_leaderboard_callback;
+		emscripten_fetch_attr_t attr = {};
+		emscripten_fetch_attr_init(&attr);
+		strcpy(attr.requestMethod, "GET");
+		attr.onsuccess = get_leaderboard_success;
+		attr.onerror = failure;
+		attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+
+		char* headers[] = {"x-session-token", g_platform_data.leaderboard_session_token, NULL};
+		attr.requestHeaders = headers;
+		char* url = "https://api.lootlocker.io/game/leaderboards/22605/list?count=10";
+		emscripten_fetch(&attr, url);
+	}
+}
+
+static void get_our_leaderboard(t_get_our_leaderboard_callback get_our_leaderboard_callback)
+{
+	if(!g_platform_data.leaderboard_session_token) { return; }
+
+	{
+		g_platform_data.get_our_leaderboard_callback = get_our_leaderboard_callback;
+		emscripten_fetch_attr_t attr = {};
+		emscripten_fetch_attr_init(&attr);
+		strcpy(attr.requestMethod, "GET");
+		attr.onsuccess = get_our_leaderboard_success;
+		attr.onerror = failure;
+		attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+
+		char* headers[] = {"x-session-token", g_platform_data.leaderboard_session_token, NULL};
+		attr.requestHeaders = headers;
+		char* url = format_text("https://api.lootlocker.io/game/leaderboards/22605/member/%i", g_platform_data.leaderboard_player_id);
+		emscripten_fetch(&attr, url);
+	}
+}
+#endif // __EMSCRIPTEN__
+
 static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render_pass = {})
 {
 	assert(game_renderer->in_render_pass);
@@ -4947,4 +5211,203 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 static float sin_range(float min_val, float max_val, float x)
 {
 	return lerp(min_val, max_val, sinf(x) * 0.5f + 0.5f);
+}
+
+static char* skip_whitespace(char* str)
+{
+	while(true) {
+		if(*str == '0') { break; }
+		else if(*str <= ' ') { str += 1; }
+		else { break; }
+	}
+	return str;
+}
+
+static s_string_parse parse_string(char* str, b8 do_alloc)
+{
+	s_string_parse result = {};
+	if(*str != '"') { return {}; }
+	str += 1;
+	result.first_char = str;
+	while(true) {
+		if(*str == '\0') { return {}; }
+		else if(*str == '"' && str[-1] != '\\') {
+			result.success = true;
+			result.last_char = str - 1;
+			result.len = (int)(result.last_char - result.first_char) + 1;
+			result.continuation = str + 1;
+			if(do_alloc && result.last_char >= result.first_char) {
+				result.result = (char*)malloc(result.len + 1);
+				memcpy(result.result, result.first_char, result.len);
+				result.result[result.len] = 0;
+			}
+			break;
+		}
+		else { str += 1; }
+	}
+	return result;
+}
+
+static char* parse_json_key(char** out_str)
+{
+	char* str = *out_str;
+	str = skip_whitespace(str);
+	assert(*str == '"');
+	str += 1;
+	char* start = str;
+	char* key = NULL;
+	while(true) {
+		if(*str == '\0') { assert(false); }
+		else if(*str == '"' && str[-1] != '\\') {
+			u64 len = str - start;
+			key = (char*)malloc(len + 1);
+			memcpy(key, start, len);
+			key[len] = 0;
+			break;
+		}
+		else { str += 1; }
+	}
+	str += 1;
+	str = skip_whitespace(str);
+	assert(*str == ':');
+	str += 1;
+	*out_str = str;
+	return key;
+}
+
+static s_json* parse_json_object(char** out_str)
+{
+	char* str = *out_str;
+	str = skip_whitespace(str);
+	s_json* result = NULL;
+	if(*str == '{') {
+		str += 1;
+		result = (s_json*)calloc(1, sizeof(*result));
+		result->type = e_json_object;
+		s_json** curr = &result->object;
+		while(true) {
+			str = skip_whitespace(str);
+			if(*str == '}') { break; }
+			char* key = parse_json_key(&str);
+			s_json* child = parse_json_object(&str);
+			assert(child);
+			child->key = key;
+			*curr = child;
+			curr = &child->next;
+			str = skip_whitespace(str);
+			if(*str != ',') { break; }
+			str += 1;
+		}
+		str += 1;
+	}
+	else if(strncmp(str, "true", 4) == 0) {
+		result = (s_json*)calloc(1, sizeof(*result));
+		result->type = e_json_bool;
+		result->bool_val = true;
+		str += 4;
+	}
+	else if(strncmp(str, "false", 5) == 0) {
+		result = (s_json*)calloc(1, sizeof(*result));
+		result->type = e_json_bool;
+		result->bool_val = false;
+		str += 5;
+	}
+	else if(strncmp(str, "null", 4) == 0) {
+		result = (s_json*)calloc(1, sizeof(*result));
+		result->type = e_json_null;
+		str += 4;
+	}
+	else if(*str == '"') {
+		s_string_parse parse = parse_string(str, true);
+		assert(parse.success);
+		str = parse.continuation;
+		result = (s_json*)calloc(1, sizeof(*result));
+		result->type = e_json_string;
+		result->str = parse.result;
+	}
+	else if(is_number(*str)) {
+		result = (s_json*)calloc(1, sizeof(*result));
+		result->type = e_json_integer;
+		result->integer = atoi(str);
+		while(is_number(*str)) {
+			str += 1;
+		}
+	}
+	else if('[') {
+		result = (s_json*)calloc(1, sizeof(*result));
+		result->type = e_json_array;
+		str += 1;
+		s_json** curr = &result->array;
+		while(true) {
+			str = skip_whitespace(str);
+			if(*str == ']') { break; }
+			s_json* child = parse_json_object(&str);
+			assert(child);
+			*curr = child;
+			curr = &child->next;
+			str = skip_whitespace(str);
+			if(*str != ',') { break; }
+			str += 1;
+		}
+
+		assert(*str == ']');
+		str += 1;
+	}
+	*out_str = str;
+	return result;
+}
+
+static s_json* parse_json(char* str)
+{
+	return parse_json_object(&str);
+}
+
+static void print_json(s_json* json)
+{
+	assert(json);
+	for(s_json* j = json; j; j = j->next) {
+		if(j->key) {
+			printf("%s: ", j->key);
+		}
+		switch(j->type) {
+			case e_json_bool: {
+				printf("%s\n", j->bool_val ? "true" : "false");
+			} break;
+			case e_json_integer: {
+				printf("%i\n", j->integer);
+			} break;
+			case e_json_string: {
+				printf("\"%s\"\n", j->str);
+			} break;
+			case e_json_object: {
+				printf("{\n");
+				print_json(j->object);
+				printf("}\n");
+			} break;
+			case e_json_array: {
+				printf("[\n");
+				print_json(j->array);
+				printf("]\n");
+			} break;
+			case e_json_null: {
+				printf("null\n");
+			} break;
+			invalid_default_case;
+		}
+	}
+}
+
+static s_json* json_get(s_json* json, char* key_name, e_json in_type)
+{
+	for(s_json* j = json; j; j = j->next) {
+		if(!j->key) {
+			if(j->object) {
+				return json_get(j->object, key_name, in_type);
+			}
+		}
+		if(j->type == in_type && strcmp(j->key, key_name) == 0) {
+			return j;
+		}
+	}
+	return NULL;
 }

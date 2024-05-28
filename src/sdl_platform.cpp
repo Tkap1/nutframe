@@ -13,8 +13,9 @@
 #include "SDL_mixer.h"
 
 #ifdef __EMSCRIPTEN__
-#include "emscripten.h"
-#include "emscripten/html5.h"
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#include <emscripten/fetch.h>
 #endif // __EMSCRIPTEN__
 
 #pragma clang diagnostic push
@@ -102,6 +103,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_platform_data.ui_checkbox = ui_checkbox;
 	g_platform_data.set_window_size = set_window_size;
 	g_platform_data.set_base_resolution = set_base_resolution;
+
+	#ifdef __EMSCRIPTEN__
+	g_platform_data.submit_leaderboard_score = submit_leaderboard_score;
+	g_platform_data.get_leaderboard = get_leaderboard;
+	g_platform_data.get_our_leaderboard = get_our_leaderboard;
+	g_platform_data.register_leaderboard_client = register_leaderboard_client;
+	#endif // __EMSCRIPTEN__
 
 
 	g_window = SDL_CreateWindow(
