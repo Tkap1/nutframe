@@ -15,6 +15,7 @@ static constexpr int c_projectile_duration = 2000;
 static constexpr int c_max_leaderboard_entries = 16;
 static constexpr int c_max_particles = 8192;
 static constexpr int c_max_death_sounds = 3;
+static constexpr int c_max_player_name = 16;
 
 static constexpr float c_player_z = 0.0f;
 static constexpr float c_gravity = 0.001f;
@@ -44,6 +45,8 @@ enum e_tile : s8
 
 enum e_state
 {
+	e_state_wait,
+	e_state_enter_name,
 	e_state_play,
 	e_state_editor,
 	e_state_victory,
@@ -154,3 +157,5 @@ static void on_leaderboard_received(s_json* json);
 static void on_our_leaderboard_received(s_json* json);
 static void after_submitted_leaderboard();
 static void on_leaderboard_score_submitted();
+static void on_load_leaderboard_client_success();
+static void on_load_leaderboard_client_fail();

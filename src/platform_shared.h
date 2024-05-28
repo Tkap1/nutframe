@@ -2672,6 +2672,8 @@ struct s_console
 typedef void (*t_submit_leaderboard_score_callback)(void);
 typedef void (*t_get_leaderboard_callback)(s_json*);
 typedef void (*t_get_our_leaderboard_callback)(s_json*);
+typedef void (*t_on_load_leaderboard_client_success)(void);
+typedef void (*t_on_load_leaderboard_client_fail)(void);
 
 struct s_platform_data
 {
@@ -2697,12 +2699,16 @@ struct s_platform_data
 	void (*submit_leaderboard_score)(int, t_submit_leaderboard_score_callback);
 	void (*get_leaderboard)(t_get_leaderboard_callback);
 	void (*get_our_leaderboard)(t_get_our_leaderboard_callback);
+	void (*load_leaderboard_client)(t_on_load_leaderboard_client_success, t_on_load_leaderboard_client_fail);
+	void (*load_leaderboard_client_success_callback)(void);
+	void (*load_leaderboard_client_fail_callback)(void);
 	char* leaderboard_session_token;
 	t_submit_leaderboard_score_callback submit_leaderboard_score_callback;
 	t_get_leaderboard_callback get_leaderboard_callback;
 	t_get_our_leaderboard_callback get_our_leaderboard_callback;
 	void (*register_leaderboard_client)(void);
 	s_str<64> leaderboard_public_uid;
+	s_str<32> leaderboard_nice_name;
 	s_str<256> leaderboard_player_identifier;
 	int leaderboard_player_id;
 
@@ -4099,20 +4105,16 @@ static void register_leaderboard_client_success(emscripten_fetch_t *fetch) {
 		char* player_identifier = json_get(json, "player_identifier", e_json_string)->str;
 		g_platform_data.leaderboard_player_identifier.from_cstr(player_identifier);
 		g_platform_data.leaderboard_player_id = json_get(json, "player_id", e_json_integer)->integer;
+		s_json* nice_name = json_get(json, "name", e_json_string);
+		if(nice_name) {
+			g_platform_data.leaderboard_nice_name.from_cstr(nice_name->str);
+			printf("got name: %s\n", nice_name->str);
+		}
 	}
 	emscripten_idb_async_store("leaderboard", "id", (void*)g_platform_data.leaderboard_player_identifier.data, g_platform_data.leaderboard_player_identifier.len, NULL, on_store, on_error);
 	// We're done with the fetch, so free it
 	emscripten_fetch_close(fetch);
 }
-
-
-static void failure(emscripten_fetch_t *fetch) {
-	((char*)fetch->data)[fetch->numBytes] = 0;
-	// We're done with the fetch, so free it
-	emscripten_fetch_close(fetch);
-}
-
-
 
 static void on_leaderboard_id_load_success(void* arg, void* in_data, int data_len)
 {
@@ -4132,21 +4134,39 @@ static void on_leaderboard_id_load_success(void* arg, void* in_data, int data_le
 	attr.requestDataSize = strlen(body);
 	emscripten_fetch(&attr, "https://api.lootlocker.io/game/v2/session/guest");
 
+	g_platform_data.on_load_leaderboard_client_success();
+
 }
 
 static void on_leaderboard_id_load_error(void* arg)
 {
-	emscripten_fetch_attr_t attr = {};
-	emscripten_fetch_attr_init(&attr);
-	strcpy(attr.requestMethod, "POST");
-	attr.onsuccess = register_leaderboard_client_success;
-	attr.onerror = failure;
-	attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+	g_platform_data.load_leaderboard_client_fail_callback();
+	// emscripten_fetch_attr_t attr = {};
+	// emscripten_fetch_attr_init(&attr);
+	// strcpy(attr.requestMethod, "POST");
+	// attr.onsuccess = register_leaderboard_client_success;
+	// attr.onerror = failure;
+	// attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
 
-	const char* body = "{\"game_key\": \"dev_ae7c0ca6ad2047e1890f76fe7836a5e3\", \"game_version\": \"0.0.0.1\", \"development_mode\": true}";
-	attr.requestData = body;
-	attr.requestDataSize = strlen(body);
-	emscripten_fetch(&attr, "https://api.lootlocker.io/game/v2/session/guest");
+	// const char* body = "{\"game_key\": \"dev_ae7c0ca6ad2047e1890f76fe7836a5e3\", \"game_version\": \"0.0.0.1\", \"development_mode\": true}";
+	// attr.requestData = body;
+	// attr.requestDataSize = strlen(body);
+	// emscripten_fetch(&attr, "https://api.lootlocker.io/game/v2/session/guest");
+}
+
+
+static void load_leaderboard_client(t_on_load_leaderboard_client_success on_success, t_on_load_leaderboard_client_fail on_fail)
+{
+	g_platform_data.load_leaderboard_client_success_callback = on_success;
+	g_platform_data.load_leaderboard_client_fail_callback = on_fail;
+	emscripten_idb_async_load("leaderboard", "id", NULL, on_leaderboard_id_load_success, on_leaderboard_id_load_error);
+}
+
+
+static void failure(emscripten_fetch_t *fetch) {
+	((char*)fetch->data)[fetch->numBytes] = 0;
+	// We're done with the fetch, so free it
+	emscripten_fetch_close(fetch);
 }
 
 
