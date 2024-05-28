@@ -53,7 +53,6 @@ struct s_game
 	b8 reset_game;
 	e_state state;
 	int reset_player;
-	s_str<c_max_player_name> player_name_input;
 	f64 timer;
 	float render_time;
 	s_framebuffer* particle_framebuffer;
@@ -146,12 +145,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		load_map(&game->map, platform_data);
 
-		if(platform_data->load_leaderboard_client) {
-			game->state = e_state_wait;
-			platform_data->load_leaderboard_client(on_load_leaderboard_client_success, on_load_leaderboard_client_fail);
-		}
-		else {
-			game->state = e_state_play;
+		if(platform_data->register_leaderboard_client) {
+			platform_data->register_leaderboard_client();
 		}
 	}
 
@@ -975,24 +970,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		} break;
 
-		case e_state_wait: {
-
-		} break;
-
-		case e_state_enter_name: {
-			foreach_val(c_i, c, g_input->char_events) {
-				if(c == '\b' && game->player_input_name.len > 0) {
-					game->player_input_name.len -= 1;
-					game->player_input_name.data[game->player_input_name.len] = 0;
-				}
-				else if(is_alpha_numeric(c) || c == '_' && game->player_input_name.len < c_max_player_name - 1) {
-					game->player_input_name.data[game->player_input_name.len] = c;
-					game->player_input_name.len += 1;
-					game->player_input_name.data[game->player_input_name.len] = 0;
-				}
-			}
-		} break;
-
 		invalid_default_case;
 	}
 }
@@ -1218,15 +1195,4 @@ static void on_leaderboard_score_submitted()
 static void after_get_leaderboard()
 {
 	g_platform_data->get_leaderboard(on_leaderboard_received);
-}
-
-static void on_load_leaderboard_client_success()
-{
-
-}
-
-static void on_load_leaderboard_client_fail()
-{
-	printf("no data!\n");
-	game->state = e_state_enter_name;
 }
