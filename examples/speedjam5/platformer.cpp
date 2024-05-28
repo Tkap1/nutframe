@@ -54,6 +54,7 @@ struct s_game
 	e_state state;
 	int reset_player;
 	f64 timer;
+	float render_time;
 	s_framebuffer* particle_framebuffer;
 	s_framebuffer* text_framebuffer;
 	s_camera3d cam;
@@ -63,6 +64,7 @@ struct s_game
 	s_texture save_point_texture;
 	s_carray<s_texture, e_tile_count> tile_texture_arr;
 	s_sarray<s_projectile, c_max_projectiles> projectile_arr;
+	s_sarray<s_particle, c_max_particles> particle_arr;
 	s_rng rng;
 	s_font* font;
 	s_player player;
@@ -77,6 +79,7 @@ struct s_game
 	s_sound* shoot_sound;
 	s_sound* jump_sound;
 	s_sound* win_sound;
+	s_carray<s_sound*, c_max_death_sounds> death_sound_arr;
 	s_sarray<f64, c_max_leaderboard_entries> leaderboard_arr;
 };
 
@@ -120,6 +123,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->shoot_sound = platform_data->load_sound(platform_data, "examples/speedjam5/shoot.wav", platform_data->frame_arena);
 		game->jump_sound = platform_data->load_sound(platform_data, "examples/speedjam5/jump.wav", platform_data->frame_arena);
 		game->win_sound = platform_data->load_sound(platform_data, "examples/speedjam5/win.wav", platform_data->frame_arena);
+		game->death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/speedjam5/death1.wav", platform_data->frame_arena);
+		game->death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/speedjam5/death2.wav", platform_data->frame_arena);
+		game->death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/speedjam5/death3.wav", platform_data->frame_arena);
 		// game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		// game->text_framebuffer = g_r->make_framebuffer(renderer, false);
 		// game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/snake/eat_apple.wav", platform_data->frame_arena);
@@ -253,13 +259,27 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				else {
 					player->state = 0;
 				}
+
+				if(fabsf(x_vel) + fabsf(game->player.vel.y) > 0.2f) {
+					do_particles(1, v3(game->player.pos, c_particle_z), {
+						.shrink = 0.0f,
+						.duration = 1.0f,
+						.speed = 0.0f,
+						.speed_rand = 0.0f,
+						.radius = 0.15f,
+						.color = v3(1.0f, 0.5f, 0.5f),
+					});
+				}
+
 				b8 hit_spike = false;
+				s_v2 killer_spike_pos;
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player x collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				player->pos.x += x_vel;
 				auto collision_arr = get_tile_collisions(player->pos, c_player_collision_size, c_play_tile_size);
 				foreach_val(collision_i, collision, collision_arr) {
 					if(collision.tile == e_tile_spike) {
 						hit_spike = true;
+						killer_spike_pos = collision.tile_center;
 					}
 					else if(collision.tile == e_tile_platform) { continue; }
 					else if(!pushed) {
@@ -283,6 +303,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				foreach_val(collision_i, collision, collision_arr) {
 					if(collision.tile == e_tile_spike) {
 						hit_spike = true;
+						killer_spike_pos = collision.tile_center;
 					}
 					else if(collision.tile == e_tile_platform) {
 						float player_bottom = player->pos.y + c_player_collision_size.y * 0.5f;
@@ -327,6 +348,21 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					if(collides) {
 						game->curr_save_point = save_point_i;
 						platform_data->play_sound(game->save_sound);
+
+						do_particles(200, v3(save_point_pos, c_particle_z), {
+							.shrink = 0.5f,
+							.slowdown = 2.0f,
+							.duration = 2.0f,
+							.duration_rand = 1,
+							.speed = 40.0f,
+							.speed_rand = 0.0f,
+							.angle_rand = 1,
+							.radius = 0.1f,
+							.radius_rand = 0,
+							.color = v3(0.2f, 0.8f, 0.2f),
+							.color_rand = v3(1, 0.2f, 1),
+						});
+
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check save point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -360,6 +396,23 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					if(is_key_down(g_input, c_left_mouse)) {
 						player->released_left_button_since_death = false;
 					}
+
+					platform_data->play_sound(game->death_sound_arr[game->rng.rand_range_ie(0, c_max_death_sounds)]);
+
+					do_particles(200, v3(killer_spike_pos, c_particle_z), {
+						.shrink = 1.0f,
+						.slowdown = 0.0f,
+						.duration = 1.0f,
+						.duration_rand = 1,
+						.speed = 10.0f,
+						.speed_rand = 0.0f,
+						.angle_rand = 1,
+						.radius = 0.1f,
+						.radius_rand = 1,
+						.color = v3(1.0f, 0.1f, 0.1f),
+						.color_rand = v3(0.2f, 1.0f, 1.0f),
+					});
+
 				}
 
 
@@ -407,6 +460,20 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					float strength = smoothstep(c_far_push_range, c_near_push_range, distance) * c_push_strength;
 					game->player.vel += dir * strength;
 					platform_data->play_sound(game->explosion_sound);
+
+					do_particles(500, v3(projectile->pos, c_particle_z), {
+						.shrink = 1.0f,
+						.slowdown = 2.0f,
+						.duration = 1.0f,
+						.duration_rand = 1,
+						.speed = 4.0f,
+						.speed_rand = 0.0f,
+						.angle_rand = 1,
+						.radius = 0.3f,
+						.radius_rand = 0,
+						.color = v3(0.8f, 0.2f, 0.2f),
+						.color_rand = v3(0.2f, 1.0f, 1.0f),
+					});
 				}
 
 				projectile->timer += 1;
@@ -448,6 +515,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	s_m4 ortho = m4_orthographic(0, c_base_res.x, c_base_res.y, 0, -100, 100);
 
 	float delta = (float)platform_data->frame_time;
+	game->render_time += delta;
 
 	if(g_input->wheel_movement > 0) {
 		game->editor_cam.zoom *= 1.1f;
@@ -470,7 +538,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	switch(game->state) {
 		case e_state_play: {
-
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -547,7 +614,23 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw end point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_v2 pos = v2(game->map.end_point.pos) * v2(c_play_tile_size);
-				draw_atlas_3d(g_r, v3(pos, c_player_z), c_end_point_size, make_color(1), game->sheet, v2i(0, 64), v2i(64, 64));
+				// draw_atlas_3d(g_r, v3(pos, c_player_z), c_end_point_size, make_color(1), game->sheet, v2i(0, 64), v2i(64, 64));
+
+				do_particles(1, v3(pos, c_particle_z), {
+					.shrink = 1.0f,
+					.slowdown = 0.0f,
+					.duration = 1.0f,
+					.duration_rand = 0,
+					.speed = 5.0f,
+					.speed_rand = 1.0f,
+					.angle_rand = 1,
+					.radius = 0.4f,
+					.radius_rand = 0.0f,
+					.color = v3(0.3f, 0.1f, 0.1f),
+					.color_rand = v3(0.0f),
+				});
+
+
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -590,7 +673,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						duration = 0.25f;
 						int index = clamp(roundfi(ve->timer / 0.25f * 2), 0, 2);
 						s_v2i index_arr[] = {v2i(64, 0), v2i(128, 0), v2i(192, 0)};
-						draw_atlas_3d(g_r, v3(ve->pos, c_player_z - 0.01f), v2(4), make_color(1), game->sheet, index_arr[index], c_sprite_size);
+						draw_atlas_3d(g_r, v3(ve->pos, c_player_z - 0.001f), v2(4), make_color(1), game->sheet, index_arr[index], c_sprite_size);
 					} break;
 					invalid_default_case;
 				}
@@ -602,6 +685,52 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		visual effects end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			g_r->end_render_pass(g_r, {.do_depth = true, .do_cull = true, .view_projection = view_projection});
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				start_render_pass(g_r);
+
+				if(is_key_down(g_input, c_left_mouse)) {
+				// if(is_key_pressed(g_input, c_right_mouse)) {
+					// do_particles(10, v3(game->player.pos, c_particle_z), {
+					// 	.shrink = 0.5f,
+					// 	.slowdown = 1.0f,
+					// 	.duration = 2.5f,
+					// 	.duration_rand = 1,
+					// 	.speed = 0.5f,
+					// 	.speed_rand = 1,
+					// 	.angle_rand = 1,
+					// 	.radius = 0.1f,
+					// 	.radius_rand = 0,
+					// 	.color = v3(0.25f),
+					// 	.color_rand = v3(1, 1, 0),
+					// });
+				}
+
+				foreach_ptr(particle_i, p, game->particle_arr) {
+					s_v4 color;
+					color.x = p->color.x;
+					color.y = p->color.y;
+					color.z = p->color.z;
+					color.w = 1.0f;
+					float percent_done = at_most(1.0f, p->timer / p->duration);
+					float speed = p->speed * (1.0f - percent_done * p->slowdown);
+					speed = at_least(0.0f, speed);
+					p->pos += p->dir * speed * (float)platform_data->frame_time;
+					color.w *= 1.0f - (percent_done * p->fade);
+					color.w = at_least(0.0f, color.w);
+					float radius = p->radius * (1.0f - percent_done * p->shrink);
+					radius = at_least(0.0f, radius);
+					draw_rect_3d(g_r, p->pos, v2(radius * 2.0f), color, {}, {.flags = e_render_flag_circle});
+					p->timer += (float)platform_data->frame_time;
+					if(percent_done >= 1) {
+						game->particle_arr.remove_and_swap(particle_i--);
+					}
+				}
+
+				g_r->end_render_pass(g_r, {.do_depth = true, .dont_write_depth = true, .blend_mode = e_blend_mode_additive, .cam_pos = game->cam.pos, .view_projection = view_projection});
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hints start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -626,7 +755,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					"you very high up";
 				draw_text_3d(g_r, text, v3(223, 1930, z), 0.5f, make_color(1), false, game->font);
 
-				g_r->end_render_pass(g_r, {.do_blend = true, .view_projection = view_projection});
+				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = view_projection});
 
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hints end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -647,7 +776,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw coords end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			#endif // m_debug
 
-			g_r->end_render_pass(g_r, {.do_blend = true, .view_projection = ortho});
+			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho});
 
 
 		} break;
@@ -835,7 +964,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 
-			g_r->end_render_pass(g_r, {.do_clear = true, .do_blend = true, .view_projection = ortho});
+			draw_text(g_r, "Press R to restart", c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font);
+
+			g_r->end_render_pass(g_r, {.do_clear = true, .blend_mode = e_blend_mode_normal, .view_projection = ortho});
 
 		} break;
 
@@ -969,4 +1100,26 @@ s_m4 s_camera2d::get_matrix()
 	m = m4_multiply(m, m4_translate(v3(-pos.x, -pos.y, 0)));
 
 	return m;
+}
+
+static void do_particles(int count, s_v3 pos, s_particle_data data)
+{
+	s_rng* rng = &game->rng;
+	for(int particle_i = 0; particle_i < count; particle_i++) {
+		s_particle p = {};
+		p.pos = pos;
+		p.fade = data.fade;
+		p.shrink = data.shrink;
+		p.duration = data.duration * (1.0f - rng->randf32() * data.duration_rand);
+		// p.dir.xy = v2_from_angle(data.angle + tau * rng->randf32() * data.angle_rand);
+		p.dir = v3_normalized(v3(rng->randf32_11(), rng->randf32_11(), rng->randf32_11()));
+		p.speed = data.speed * (1.0f - rng->randf32() * data.speed_rand);
+		p.radius = data.radius * (1.0f - rng->randf32() * data.radius_rand);
+		p.slowdown = data.slowdown;
+		p.color = data.color;
+		p.color.x *= (1.0f - rng->randf32() * data.color_rand.x);
+		p.color.y *= (1.0f - rng->randf32() * data.color_rand.y);
+		p.color.z *= (1.0f - rng->randf32() * data.color_rand.z);
+		game->particle_arr.add_checked(p);
+	}
 }

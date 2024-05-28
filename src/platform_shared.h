@@ -317,6 +317,11 @@ struct s_rng
 		return randf() * 2 - 1;
 	}
 
+	float randf32_11()
+	{
+		return randf32() * 2 - 1;
+	}
+
 	u64 randu64()
 	{
 		return (u64)(randf() * (f64)c_max_u64);
@@ -383,13 +388,22 @@ struct s_ray_collision
 	s_v3 point;
 };
 
+enum e_blend_mode
+{
+	e_blend_mode_disable,
+	e_blend_mode_normal,
+	e_blend_mode_additive,
+	e_blend_mode_count,
+};
+
+
 struct s_render_pass
 {
 	b8 do_clear;
 	b8 do_depth;
-	b8 do_blend;
 	b8 do_cull;
 	b8 dont_write_depth;
+	e_blend_mode blend_mode;
 	s_v3 cam_pos;
 	s_m4 view_projection;
 };
@@ -1925,6 +1939,13 @@ static void operator+=(s_v2& left, s_v2 right)
 	left.y += right.y;
 }
 
+static void operator+=(s_v3& left, s_v3 right)
+{
+	left.x += right.x;
+	left.y += right.y;
+	left.z += right.z;
+}
+
 static void operator+=(s_v2i& left, s_v2i right)
 {
 	left.x += right.x;
@@ -2508,13 +2529,6 @@ struct s_input
 	s_carray<s_key, c_max_keys> keys;
 };
 
-enum e_blend_mode
-{
-	e_blend_mode_normal,
-	e_blend_mode_additive,
-	e_blend_mode_count,
-};
-
 struct s_render_data
 {
 	b8 flip_x;
@@ -2811,6 +2825,27 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 	t.model = model;
 
 	t.pos = v3(pos, 0);
+	t.draw_size = size;
+	t.color = color;
+	t.uv_min = v2(0, 0);
+	t.uv_max = v2(1, 1);
+	t.mix_color = v41f(1);
+	bucket_add(&render_data.framebuffer->transforms[get_render_offset(game_renderer, render_data.shader, 0, render_data.blend_mode)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+}
+
+static void draw_rect_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_render_data render_data = {}, s_transform t = {})
+{
+	if(!render_data.framebuffer) {
+		render_data.framebuffer = &game_renderer->framebuffers[0];
+	}
+
+	s_m4 model = m4_translate(pos);
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
+	if(!is_zero(t.rotation)) {
+		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+	}
+	t.model = model;
+
 	t.draw_size = size;
 	t.color = color;
 	t.uv_min = v2(0, 0);
@@ -4774,9 +4809,13 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 	else {
 		gl(glDisable(GL_DEPTH_TEST));
 	}
-	if(render_pass.do_blend) {
+	if(render_pass.blend_mode == e_blend_mode_normal) {
 		gl(glEnable(GL_BLEND));
 		gl(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+	}
+	else if(render_pass.blend_mode == e_blend_mode_additive) {
+		gl(glEnable(GL_BLEND));
+		gl(glBlendFunc(GL_ONE, GL_ONE));
 	}
 	else {
 		gl(glDisable(GL_BLEND));
@@ -4904,3 +4943,8 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 	}
 }
 #endif // m_game
+
+static float sin_range(float min_val, float max_val, float x)
+{
+	return lerp(min_val, max_val, sinf(x) * 0.5f + 0.5f);
+}

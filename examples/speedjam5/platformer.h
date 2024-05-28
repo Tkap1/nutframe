@@ -13,10 +13,13 @@ static constexpr int c_max_jumps = 1;
 static constexpr int c_max_projectiles = 128;
 static constexpr int c_projectile_duration = 2000;
 static constexpr int c_max_leaderboard_entries = 128;
+static constexpr int c_max_particles = 8192;
+static constexpr int c_max_death_sounds = 3;
 
 static constexpr float c_player_z = 0.0f;
 static constexpr float c_gravity = 0.001f;
 static constexpr float c_small = epsilon;
+static constexpr float c_particle_z = c_player_z - 0.01f;
 
 static constexpr s_v2 c_projectile_visual_size = v2(1.0f);
 static constexpr s_v2 c_projectile_collision_size = v2(0.25f);
@@ -93,6 +96,37 @@ struct s_save_point
 	s_v2i pos;
 };
 
+struct s_particle
+{
+	float fade;
+	float shrink;
+	float slowdown;
+	s_v3 pos;
+	s_v3 dir;
+	float radius;
+	float speed;
+	float timer;
+	float duration;
+	s_v3 color;
+};
+
+struct s_particle_data
+{
+	float shrink = 1;
+	float fade = 1;
+	float slowdown;
+	float duration;
+	float duration_rand;
+	float speed;
+	float speed_rand;
+	float angle;
+	float angle_rand;
+	float radius;
+	float radius_rand;
+	s_v3 color = {.x = 0.1f, .y = 0.1f, .z = 0.1f};
+	s_v3 color_rand;
+};
+
 struct s_map
 {
 	s_end_point end_point;
@@ -108,3 +142,4 @@ static void load_map(s_map* map, s_platform_data* platform_data);
 static b8 index_has_tile(s_v2i index);
 static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, int tile_size, int tile_blacklist_mask = 0);
 static s_v2 index_to_pos(s_v2i index, int tile_size);
+static void do_particles(int count, s_v3 pos, s_particle_data data);
