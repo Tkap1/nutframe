@@ -376,8 +376,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				{
 					s_v2 end_point_pos = index_to_pos(game->map.end_point.pos, c_play_tile_size);
 					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, end_point_pos, c_end_point_size);
-					// nocheckin
-					if(collides || is_key_pressed(g_input, c_key_f)) {
+					if(collides) {
 						game->state = e_state_victory;
 						platform_data->play_sound(game->win_sound);
 						if(platform_data->submit_leaderboard_score) {
