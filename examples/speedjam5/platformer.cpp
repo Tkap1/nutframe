@@ -81,6 +81,7 @@ struct s_game
 	s_sound* win_sound;
 	s_carray<s_sound*, c_max_death_sounds> death_sound_arr;
 	s_sarray<s_leaderboard_entry, c_max_leaderboard_entries> leaderboard_arr;
+	s_framebuffer* trail_fbo;
 };
 
 static s_input* g_input;
@@ -142,6 +143,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->editor_cam.zoom = 1;
 		game->editor.curr_tile = e_tile_normal;
 		game->reset_game = true;
+
+		game->trail_fbo = g_r->make_framebuffer(g_r, {});
 
 		load_map(&game->map, platform_data);
 
@@ -265,7 +268,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					player->state = 0;
 				}
 
-				if(fabsf(x_vel) + fabsf(game->player.vel.y) > 0.2f) {
+				if(fabsf(x_vel) + fabsf(game->player.vel.y) > 0.01f) {
 					do_particles(1, v3(game->player.pos, c_particle_z), {
 						.shrink = 0.0f,
 						.duration = 1.0f,
@@ -549,11 +552,24 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(game->state) {
 		case e_state_play: {
 
+			{
+				s_v2 pos = lerp(game->player.prev_pos, game->player.pos, interp_dt);
+				game->cam.pos.xy = pos;
+				game->cam.pos.y -= 2;
+				game->cam.pos.z = -10;
+			}
+
+			s_m4 view = look_at(game->cam.pos, game->cam.pos + game->cam.target, v3(0, -1, 0));
+			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 1.0f, 10000.0f);
+			s_m4 view_projection = m4_multiply(projection, view);
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				start_render_pass(g_r);
 				draw_rect(g_r, c_half_res, 0, c_base_res, make_color(1), {}, {.effect_id = 5});
-				g_r->end_render_pass(g_r, {.do_clear = true, .dont_write_depth = true, .cam_pos = game->cam.pos, .view_projection = ortho});
+				g_r->end_render_pass(
+					g_r, {.do_clear = true, .dont_write_depth = true, .cam_pos = game->cam.pos, .view_projection = ortho}
+				);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		background end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -576,17 +592,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// 	r = platform_data->cycle_between_available_resolutions(r);
 			// }
 			#endif // m_debug
-
-			{
-				s_v2 pos = lerp(game->player.prev_pos, game->player.pos, interp_dt);
-				game->cam.pos.xy = pos;
-				game->cam.pos.y -= 2;
-				game->cam.pos.z = -10;
-			}
-
-			s_m4 view = look_at(game->cam.pos, game->cam.pos + game->cam.target, v3(0, -1, 0));
-			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 1.0f, 10000.0f);
-			s_m4 view_projection = m4_multiply(projection, view);
 
 			game->ray = get_ray(g_mouse, c_base_res, game->cam, view, projection);
 
@@ -769,7 +774,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hints end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 
 			start_render_pass(g_r);
 			{

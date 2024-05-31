@@ -214,6 +214,19 @@ void main()
 		}
 	}
 
+	// @Note(tkap, 31/05/2024): Light
+	else if(v_effect_id == 6) {
+		float d = distance(v_local_uv, vec2(0.5));
+		float max_d = 0.75;
+		// d /= 64;
+		// d = d * d;
+		// d = 1.0 / d;
+		d = smoothstep(max_d * 0.2, max_d * 0.1, d);
+		color.r = v_color.r * d;
+		color.g = v_color.g * d;
+		color.b = v_color.b * d;
+	}
+
 	color = pma(color);
 
 	if(color.a <= 0.0) { discard; }
