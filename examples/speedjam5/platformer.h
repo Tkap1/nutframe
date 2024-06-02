@@ -5,6 +5,7 @@ static constexpr int c_editor_tile_size = 32;
 static constexpr int c_play_tile_size = 1;
 static constexpr int c_updates_per_second = 240;
 static constexpr int c_max_save_points = 64;
+static constexpr int c_max_jump_refreshers = 256;
 static constexpr int c_map_version = 1;
 static constexpr int c_tile_version = 1;
 static constexpr int c_save_point_version = 1;
@@ -27,6 +28,8 @@ static constexpr s_v2 c_player_visual_size = v2(c_play_tile_size);
 static constexpr s_v2 c_player_collision_size = v2(c_play_tile_size * 0.9f, (float)c_play_tile_size);
 static constexpr s_v2 c_save_point_visual_size = v2(c_play_tile_size);
 static constexpr s_v2 c_save_point_collision_size = v2(c_play_tile_size * 1.5f);
+static constexpr s_v2 c_jump_refresher_visual_size = v2(c_play_tile_size);
+static constexpr s_v2 c_jump_refresher_collision_size = v2(c_play_tile_size);
 static constexpr s_v2 c_end_point_size = v2(c_play_tile_size);
 
 static constexpr s_v2i c_sprite_size = v2i(64, 64);
@@ -61,6 +64,22 @@ struct s_tile_collision
 {
 	e_tile tile;
 	s_v2 tile_center;
+};
+
+struct s_jump_refresher
+{
+	b8 in_cooldown;
+	int timer;
+	s_v2i pos;
+};
+
+struct s_trail
+{
+	b8 flip_x;
+	float time;
+	s_v2i sprite_index;
+	// s_texture texture;
+	s_v2 pos;
 };
 
 enum e_visual_effect
@@ -139,6 +158,86 @@ struct s_map
 	s_end_point end_point;
 	s_carray2<e_tile, c_tiles_down, c_tiles_right> tile_arr;
 	s_sarray<s_save_point, c_max_save_points> save_point_arr;
+	s_sarray<s_jump_refresher, c_max_jump_refreshers> jump_refresher_arr;
+};
+
+
+struct s_camera2d
+{
+	s_v2 pos;
+	float zoom;
+
+	s_recti get_tile_bounds();
+	s_v2 world_to_screen(s_v2 v)
+	{
+		s_v2 result = v;
+		result.x -= pos.x;
+		result.y -= pos.y;
+		result *= zoom;
+		return result;
+	}
+
+	s_v2 screen_to_world(s_v2 v)
+	{
+		s_v2 result = v;
+		result.x /= zoom;
+		result.y /= zoom;
+		result.x += pos.x;
+		result.y += pos.y;
+		return result;
+	}
+
+	s_v2 scale(s_v2 v) { return v * zoom; }
+	float scale(float x) { return x * zoom; }
+
+	s_m4 get_matrix();
+};
+
+struct s_projectile
+{
+	int timer;
+	s_v2 prev_pos;
+	s_v2 pos;
+	s_v2 dir;
+};
+
+struct s_game
+{
+	b8 initialized;
+	b8 reset_game;
+	e_state state;
+	int reset_player;
+	f64 timer;
+	float render_time;
+	s_framebuffer* particle_framebuffer;
+	s_framebuffer* text_framebuffer;
+	s_camera3d cam;
+	s_camera2d editor_cam;
+	s_texture sheet;
+	s_texture noise;
+	s_texture save_point_texture;
+	s_carray<s_texture, 6> player_run_texture_arr;
+	s_carray<s_texture, 9> player_idle_texture_arr;
+	s_carray<s_texture, e_tile_count> tile_texture_arr;
+	s_sarray<s_projectile, c_max_projectiles> projectile_arr;
+	s_sarray<s_particle, c_max_particles> particle_arr;
+	s_rng rng;
+	s_font* font;
+	s_player player;
+	s_map map;
+	int curr_save_point;
+	s_editor editor;
+	s_ray ray;
+	s_sarray<s_visual_effect, 128> visual_effect_arr;
+	s_sound* thud_sound;
+	s_sound* explosion_sound;
+	s_sound* save_sound;
+	s_sound* shoot_sound;
+	s_sound* jump_sound;
+	s_sound* win_sound;
+	s_carray<s_sound*, c_max_death_sounds> death_sound_arr;
+	s_sarray<s_leaderboard_entry, c_max_leaderboard_entries> leaderboard_arr;
+	s_sarray<s_trail, 4096> trail_arr;
 };
 
 
@@ -154,3 +253,6 @@ static void on_leaderboard_received(s_json* json);
 static void on_our_leaderboard_received(s_json* json);
 static void after_submitted_leaderboard();
 static void on_leaderboard_score_submitted();
+static s_m4 get_camera_view(s_camera3d cam);
+static s_v2i get_player_sprite_index(s_player player);
+// static s_texture get_player_sprite_index(s_player player);

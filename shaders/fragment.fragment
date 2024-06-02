@@ -85,14 +85,15 @@ vec3 circle(vec2 pos, vec2 uv, float radius)
 void main()
 {
 	vec4 color;
+	vec4 texture_color;
 
 	if((v_flags & 1) != 0) {
-		vec4 c = texture(in_texture, v_uv);
+		texture_color = texture(in_texture, v_uv);
 		if((v_flags & 8) != 0) {
-			color = vec4(1.0, 1.0, 1.0, c.r) * v_color;
+			color = vec4(1.0, 1.0, 1.0, texture_color.r) * v_color;
 		}
 		else {
-			color = c * v_color;
+			color = texture_color * v_color;
 		}
 		color.rgb = mix(color.rgb, v_mix_color.rgb, v_mix_weight);
 	}
@@ -228,7 +229,6 @@ void main()
 	}
 
 	color = pma(color);
-
 	if(color.a <= 0.0) { discard; }
 
 	out_color = color;

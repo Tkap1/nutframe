@@ -1971,6 +1971,13 @@ static void operator+=(s_v3& left, s_v3 right)
 	left.z += right.z;
 }
 
+static void operator-=(s_v3& left, s_v3 right)
+{
+	left.x -= right.x;
+	left.y -= right.y;
+	left.z -= right.z;
+}
+
 static void operator+=(s_v2i& left, s_v2i right)
 {
 	left.x += right.x;
@@ -2766,7 +2773,7 @@ struct s_game_renderer
 	s_carray<s_lin_arena, 2> transform_arenas;
 	int arena_index;
 	s_carray<s_lin_arena, 2> arenas;
-	s_sarray<s_texture, 16> textures;
+	s_sarray<s_texture, 32> textures;
 	s_sarray<s_framebuffer, 4> framebuffers;
 	s_sarray<s_font, 4> fonts;
 };
@@ -2958,6 +2965,9 @@ static void draw_texture_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size,
 	t.color = color;
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
+	if(render_data.flip_x) {
+		swap(&t.uv_min.x, &t.uv_max.x);
+	}
 	t.mix_color = v41f(1);
 	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, texture.game_id)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
 }
@@ -3021,6 +3031,13 @@ static void draw_framebuffer(s_game_renderer* game_renderer, s_v2 pos, int layer
 static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_v2i sprite_pos, s_v2i sprite_size, s_render_data render_data = {}, s_transform t = {})
 {
 
+	s_m4 model = m4_translate(v3(pos, 0));
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
+	if(!is_zero(t.rotation)) {
+		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+	}
+	t.model = model;
+
 	t.flags |= e_render_flag_use_texture;
 	t.pos = v3(pos, 0);
 	t.draw_size = size;
@@ -3033,6 +3050,7 @@ static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2
 		t.uv_min.x + sprite_size.x / (float)texture.size.x,
 		t.uv_min.y + sprite_size.y / (float)texture.size.y
 	);
+	swap(&t.uv_min.y, &t.uv_max.y);
 
 	// @Note(tkap, 31/05/2024): Let's use draw_framebuffer for now
 	assert(!texture.comes_from_framebuffer);
@@ -5406,4 +5424,18 @@ static s_json* json_get(s_json* json, char* key_name, e_json in_type)
 		}
 	}
 	return NULL;
+}
+
+struct s_percent_data
+{
+	float percent;
+	float percent_inv;
+};
+
+static s_percent_data get_percent_data(float time, float duration)
+{
+	s_percent_data result = {};
+	result.percent = time / duration;
+	result.percent_inv = 1.0f - result.percent;
+	return result;
 }

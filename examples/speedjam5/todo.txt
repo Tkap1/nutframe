@@ -1,4 +1,15 @@
-polish:
-	particles??
 
 why cant we change resolution?? weird things happen
+
+a pickup that lowers gravity until you touch the ground again after jumping/shooting
+
+destructible blocks
+a map where that ends when you collect all the shit
+rocket should be drawn above player
+ghost of your best run
+options menu with some things:
+	quick restart (r is now the same as ctrl r)
+	sounds?
+
+rockets fired leaderboard, lowest wins
+reset all pickups on player reset

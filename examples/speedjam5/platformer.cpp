@@ -8,82 +8,6 @@
 static constexpr s_v2 c_base_res = {800, 800};
 static constexpr s_v2 c_half_res = {c_base_res.x * 0.5f, c_base_res.y * 0.5f};
 
-struct s_camera2d
-{
-	s_v2 pos;
-	float zoom;
-
-	s_recti get_tile_bounds();
-	s_v2 world_to_screen(s_v2 v)
-	{
-		s_v2 result = v;
-		result.x -= pos.x;
-		result.y -= pos.y;
-		result *= zoom;
-		return result;
-	}
-
-	s_v2 screen_to_world(s_v2 v)
-	{
-		s_v2 result = v;
-		result.x /= zoom;
-		result.y /= zoom;
-		result.x += pos.x;
-		result.y += pos.y;
-		return result;
-	}
-
-	s_v2 scale(s_v2 v) { return v * zoom; }
-	float scale(float x) { return x * zoom; }
-
-	s_m4 get_matrix();
-};
-
-struct s_projectile
-{
-	int timer;
-	s_v2 prev_pos;
-	s_v2 pos;
-	s_v2 dir;
-};
-
-struct s_game
-{
-	b8 initialized;
-	b8 reset_game;
-	e_state state;
-	int reset_player;
-	f64 timer;
-	float render_time;
-	s_framebuffer* particle_framebuffer;
-	s_framebuffer* text_framebuffer;
-	s_camera3d cam;
-	s_camera2d editor_cam;
-	s_texture sheet;
-	s_texture noise;
-	s_texture save_point_texture;
-	s_carray<s_texture, e_tile_count> tile_texture_arr;
-	s_sarray<s_projectile, c_max_projectiles> projectile_arr;
-	s_sarray<s_particle, c_max_particles> particle_arr;
-	s_rng rng;
-	s_font* font;
-	s_player player;
-	s_map map;
-	int curr_save_point;
-	s_editor editor;
-	s_ray ray;
-	s_sarray<s_visual_effect, 128> visual_effect_arr;
-	s_sound* thud_sound;
-	s_sound* explosion_sound;
-	s_sound* save_sound;
-	s_sound* shoot_sound;
-	s_sound* jump_sound;
-	s_sound* win_sound;
-	s_carray<s_sound*, c_max_death_sounds> death_sound_arr;
-	s_sarray<s_leaderboard_entry, c_max_leaderboard_entries> leaderboard_arr;
-	s_framebuffer* trail_fbo;
-};
-
 static s_input* g_input;
 static s_game* game;
 static s_game_renderer* g_r;
@@ -129,6 +53,14 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/speedjam5/death1.wav", platform_data->frame_arena);
 		game->death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/speedjam5/death2.wav", platform_data->frame_arena);
 		game->death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/speedjam5/death3.wav", platform_data->frame_arena);
+
+		for(int i = 0; i < game->player_run_texture_arr.max_elements(); i++) {
+			game->player_run_texture_arr[i] = g_r->load_texture(renderer, format_text("examples/speedjam5/tkap_man%i.png", i + 1));
+		}
+
+		for(int i = 0; i < game->player_idle_texture_arr.max_elements(); i++) {
+			game->player_idle_texture_arr[i] = g_r->load_texture(renderer, format_text("examples/speedjam5/tkap_idle%i.png", i + 1));
+		}
 		// game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
 		// game->text_framebuffer = g_r->make_framebuffer(renderer, false);
 		// game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/snake/eat_apple.wav", platform_data->frame_arena);
@@ -143,8 +75,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->editor_cam.zoom = 1;
 		game->editor.curr_tile = e_tile_normal;
 		game->reset_game = true;
-
-		game->trail_fbo = g_r->make_framebuffer(g_r, {});
 
 		load_map(&game->map, platform_data);
 
@@ -268,15 +198,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					player->state = 0;
 				}
 
-				if(fabsf(x_vel) + fabsf(game->player.vel.y) > 0.01f) {
-					do_particles(1, v3(game->player.pos, c_particle_z), {
-						.shrink = 0.0f,
-						.duration = 1.0f,
-						.speed = 0.0f,
-						.speed_rand = 0.0f,
-						.radius = 0.15f,
-						.color = v3(1.0f, 0.5f, 0.5f),
-					});
+				s_v2 pos_before_moving = game->player.pos;
+				b8 do_trail = false;
+				if(fabsf(x_vel) + fabsf(game->player.vel.y) > 0.2f) {
+					do_trail = true;
 				}
 
 				b8 hit_spike = false;
@@ -347,6 +272,49 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		player y collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+				if(do_trail) {
+					float distance = v2_distance(pos_before_moving, game->player.pos);
+					float max_movement = v2_length(c_player_visual_size) * 0.01f;
+					int steps = ceilfi(distance / max_movement);
+					for(int i = 0; i < steps; i++) {
+						float p = (i + 1) / (float)steps;
+						s_v2 pos = lerp(pos_before_moving, game->player.pos, p);
+						s_trail trail = {};
+						trail.pos = pos;
+						trail.sprite_index = get_player_sprite_index(*player);
+						// trail.texture = get_player_sprite_index(*player);
+						trail.flip_x = player->flip_x;
+						game->trail_arr.add(trail);
+					}
+				}
+
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		check jump refresher collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				foreach_ptr(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
+					if(jump_refresher->in_cooldown) { continue; }
+					s_v2 jump_refresher_pos = index_to_pos(jump_refresher->pos, c_play_tile_size);
+					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, jump_refresher_pos, c_jump_refresher_collision_size);
+					if(collides) {
+						player->jumps_left = 1;
+						platform_data->play_sound(game->save_sound);
+						do_particles(200, v3(jump_refresher_pos, c_particle_z), {
+							.shrink = 0.5f,
+							.slowdown = 2.0f,
+							.duration = 2.0f,
+							.duration_rand = 1,
+							.speed = 40.0f,
+							.speed_rand = 0.0f,
+							.angle_rand = 1,
+							.radius = 0.1f,
+							.radius_rand = 0,
+							.color = v3(0.2f, 0.8f, 0.2f),
+							.color_rand = v3(1, 0.2f, 1),
+						});
+						jump_refresher->in_cooldown = true;
+						jump_refresher->timer = 0;
+					}
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check jump refresher collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		check save point collision start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				foreach_val(save_point_i, save_point, game->map.save_point_arr) {
@@ -424,9 +392,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						.color = v3(1.0f, 0.1f, 0.1f),
 						.color_rand = v3(0.2f, 1.0f, 1.0f),
 					});
-
 				}
-
 
 				if(is_key_pressed(g_input, c_key_r) || is_key_pressed(g_input, c_key_enter)) {
 					if(is_key_down(g_input, c_key_left_ctrl)) {
@@ -499,6 +465,16 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		update projectiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		update jump refreshers start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			foreach_ptr(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
+				if(!jump_refresher->in_cooldown) { continue; }
+				jump_refresher->timer += 1;
+				if(jump_refresher->timer >= 300) {
+					jump_refresher->in_cooldown = false;
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		update jump refreshers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 		} break;
 	}
 }
@@ -559,7 +535,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				game->cam.pos.z = -10;
 			}
 
-			s_m4 view = look_at(game->cam.pos, game->cam.pos + game->cam.target, v3(0, -1, 0));
+			s_m4 view = get_camera_view(game->cam);
 			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 1.0f, 10000.0f);
 			s_m4 view_projection = m4_multiply(projection, view);
 
@@ -614,6 +590,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw play tiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw jump refreshers start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			foreach_val(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
+				if(jump_refresher.in_cooldown) { continue; }
+				s_v2 pos = v2(jump_refresher.pos) * v2(c_play_tile_size);
+				draw_atlas_3d(g_r, v3(pos, c_player_z), c_jump_refresher_visual_size, make_color(1), game->sheet, v2i(64, 128), c_sprite_size);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw jump refreshers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw save points start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			foreach_val(save_point_i, save_point, game->map.save_point_arr) {
 				s_v2 pos = v2(save_point.pos) * v2(c_play_tile_size);
@@ -654,18 +638,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_player* player = &game->player;
 				player->animation_timer += delta;
 				s_v2 pos = lerp(player->prev_pos, player->pos, interp_dt);
-				s_v2i idle_arr[] = {v2i(64, 64), v2i(128, 64)};
-				s_v2i run_arr[] = {v2i(196, 64), v2i(256, 64)};
-				s_v2i index = {};
-				if(player->state == 0) {
-					int i = roundfi(fmodf(player->animation_timer / 0.5f, 1));
-					index = idle_arr[i];
-				}
-				else if(player->state == 1) {
-					int i = roundfi(fmodf(player->animation_timer / 0.15f, 1));
-					index = run_arr[i];
-				}
+				s_v2i index = get_player_sprite_index(*player);
 				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), game->sheet, index, v2i(64, 64), {.flip_x = player->flip_x});
+				// s_texture texture = get_player_sprite_index(*player);
+				// draw_texture_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), texture, {.flip_x = player->flip_x});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -700,6 +676,28 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		visual effects end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			g_r->end_render_pass(g_r, {.do_depth = true, .do_cull = true, .view_projection = view_projection});
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		trail start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				start_render_pass(g_r);
+				foreach_ptr(trail_i, trail, game->trail_arr) {
+					constexpr float duration = 0.25f;
+					s_percent_data p = get_percent_data(trail->time, duration);
+					s_v4 color = make_color(0.9f);
+					color.w = p.percent_inv * 0.2f;
+					draw_atlas_3d(g_r, v3(trail->pos, c_player_z), c_player_visual_size, color, game->sheet, trail->sprite_index, v2i(64, 64), {.flip_x = trail->flip_x});
+					// draw_texture_3d(g_r, v3(trail->pos, c_player_z), c_player_visual_size, make_color(0.9f), trail->texture, {.flip_x = trail->flip_x});
+					trail->time += delta;
+					if(trail->time >= duration) {
+						game->trail_arr.remove_and_swap(trail_i--);
+					}
+				}
+				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = view_projection});
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		trail end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -854,8 +852,30 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add tile end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add save point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add jump refresher start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(game->editor.curr_tile == e_tile_count) {
+				if(is_key_pressed(g_input, c_left_mouse)) {
+					if(is_index_valid(mouse_index)) {
+						b8 duplicate = false;
+						foreach_val(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
+							if(jump_refresher.pos == mouse_index) {
+								duplicate = true;
+								break;
+							}
+						}
+						if(!duplicate) {
+							s_jump_refresher jr = {};
+							jr.pos = mouse_index;
+							game->map.jump_refresher_arr.add_checked(jr);
+						}
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add jump refresher end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add save point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			if(game->editor.curr_tile == e_tile_count + 1) {
 				if(is_key_pressed(g_input, c_left_mouse)) {
 					if(is_index_valid(mouse_index)) {
 						b8 duplicate = false;
@@ -876,7 +896,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add save point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add end point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			else if(game->editor.curr_tile == e_tile_count + 1) {
+			else if(game->editor.curr_tile == e_tile_count + 2) {
 				if(is_key_pressed(g_input, c_left_mouse)) {
 					if(is_index_valid(mouse_index)) {
 						game->map.end_point.pos = mouse_index;
@@ -915,6 +935,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw tiles 2d end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw jump refreshers start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			foreach_val(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
+				s_v2 pos = v2(jump_refresher.pos) * v2(c_editor_tile_size);
+				draw_atlas(g_r, pos, 2, v2(c_editor_tile_size), make_color(1), game->sheet, v2i(64, 128), c_sprite_size, {}, {.origin_offset = c_origin_topleft});
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw jump refreshers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw save points start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			foreach_val(save_point_i, save_point, game->map.save_point_arr) {
@@ -1199,3 +1226,39 @@ static void after_get_leaderboard()
 {
 	g_platform_data->get_leaderboard(on_leaderboard_received);
 }
+
+static s_m4 get_camera_view(s_camera3d cam)
+{
+	return look_at(cam.pos, cam.pos + cam.target, v3(0, -1, 0));
+}
+
+static s_v2i get_player_sprite_index(s_player player)
+{
+	s_v2i idle_arr[] = {v2i(64, 64), v2i(128, 64)};
+	s_v2i run_arr[] = {v2i(196, 64), v2i(256, 64)};
+	s_v2i index = {};
+	if(player.state == 0) {
+		int i = roundfi(fmodf(player.animation_timer / 0.5f, 1));
+		index = idle_arr[i];
+	}
+	else if(player.state == 1) {
+		int i = roundfi(fmodf(player.animation_timer / 0.15f, 1));
+		index = run_arr[i];
+	}
+	return index;
+}
+
+// static s_texture get_player_sprite_index(s_player player)
+// {
+// 	s_texture result;
+// 	s_v2i index = {};
+// 	if(player.state == 0) {
+// 		int i = roundfi(fmodf(player.animation_timer / 0.2f, 8));
+// 		result = game->player_idle_texture_arr[i];
+// 	}
+// 	else if(player.state == 1) {
+// 		int i = roundfi(fmodf(player.animation_timer / 0.05f, 5));
+// 		result = game->player_run_texture_arr[i];
+// 	}
+// 	return result;
+// }
