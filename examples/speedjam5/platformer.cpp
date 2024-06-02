@@ -297,16 +297,16 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						platform_data->play_sound(game->save_sound);
 						do_particles(200, v3(jump_refresher_pos, c_particle_z), {
 							.shrink = 0.5f,
-							.slowdown = 2.0f,
-							.duration = 2.0f,
+							.slowdown = 0.0f,
+							.duration = 0.5f,
 							.duration_rand = 1,
-							.speed = 40.0f,
+							.speed = 10.0f,
 							.speed_rand = 0.0f,
 							.angle_rand = 1,
 							.radius = 0.1f,
 							.radius_rand = 0,
-							.color = v3(0.2f, 0.8f, 0.2f),
-							.color_rand = v3(1, 0.2f, 1),
+							.color = v3(0.2f, 0.2f, 0.8f),
+							.color_rand = v3(0.2f, 0.2f, 0.2f),
 						});
 						jump_refresher->in_cooldown = true;
 						jump_refresher->timer = 0;
@@ -678,7 +678,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_v2 pos = lerp(projectile.prev_pos, projectile.pos, interp_dt);
 				// draw_cube(g_r, v3(pos.x, pos.y, c_player_z), c_projectile_size, make_color(1.0f, 1.0f, 0.1f));
 				draw_atlas_3d(
-					g_r, v3(pos, c_player_z), c_projectile_visual_size, make_color(1), game->sheet, v2i(256, 0), c_sprite_size, {}, {.rotation = v2_angle(projectile.dir)}
+					g_r, v3(pos, c_player_z - c_small), c_projectile_visual_size, make_color(1), game->sheet, v2i(256, 0), c_sprite_size, {}, {.rotation = v2_angle(projectile.dir)}
 				);
 
 				if(game->dev_menu.show_hitboxes) {
