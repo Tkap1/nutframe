@@ -2702,9 +2702,9 @@ struct s_platform_data
 	s_console console;
 	#endif // m_debug
 
-	void (*submit_leaderboard_score)(int, t_submit_leaderboard_score_callback);
-	void (*get_leaderboard)(t_get_leaderboard_callback);
-	void (*get_our_leaderboard)(t_get_our_leaderboard_callback);
+	void (*submit_leaderboard_score)(int, int, t_submit_leaderboard_score_callback);
+	void (*get_leaderboard)(int, t_get_leaderboard_callback);
+	void (*get_our_leaderboard)(int, t_get_our_leaderboard_callback);
 	char* leaderboard_session_token;
 	t_submit_leaderboard_score_callback submit_leaderboard_score_callback;
 	t_get_leaderboard_callback get_leaderboard_callback;
@@ -4999,7 +4999,7 @@ static void submit_leaderboard_success(emscripten_fetch_t *fetch) {
 }
 
 
-static void submit_leaderboard_score(int time, t_submit_leaderboard_score_callback submit_leaderboard_score_callback)
+static void submit_leaderboard_score(int time, int leaderboard_id, t_submit_leaderboard_score_callback submit_leaderboard_score_callback)
 {
 	if(!g_platform_data.leaderboard_session_token) { return; }
 
@@ -5017,7 +5017,7 @@ static void submit_leaderboard_score(int time, t_submit_leaderboard_score_callba
 	attr.requestHeaders = headers;
 	attr.requestData = data;
 	attr.requestDataSize = strlen(data);
-	char* url = "https://api.lootlocker.io/game/leaderboards/22605/submit";
+	char* url = format_text("https://api.lootlocker.io/game/leaderboards/%i/submit", leaderboard_id);
 	emscripten_fetch(&attr, url);
 }
 
@@ -5038,7 +5038,7 @@ static void get_our_leaderboard_success(emscripten_fetch_t *fetch) {
 }
 
 
-static void get_leaderboard(t_get_leaderboard_callback get_leaderboard_callback)
+static void get_leaderboard(int leaderboard_id, t_get_leaderboard_callback get_leaderboard_callback)
 {
 	if(!g_platform_data.leaderboard_session_token) { return; }
 
@@ -5053,12 +5053,12 @@ static void get_leaderboard(t_get_leaderboard_callback get_leaderboard_callback)
 
 		char* headers[] = {"x-session-token", g_platform_data.leaderboard_session_token, NULL};
 		attr.requestHeaders = headers;
-		char* url = "https://api.lootlocker.io/game/leaderboards/22605/list?count=10";
+		char* url = format_text("https://api.lootlocker.io/game/leaderboards/%i/list?count=10", leaderboard_id);
 		emscripten_fetch(&attr, url);
 	}
 }
 
-static void get_our_leaderboard(t_get_our_leaderboard_callback get_our_leaderboard_callback)
+static void get_our_leaderboard(int leaderboard_id, t_get_our_leaderboard_callback get_our_leaderboard_callback)
 {
 	if(!g_platform_data.leaderboard_session_token) { return; }
 
@@ -5073,7 +5073,7 @@ static void get_our_leaderboard(t_get_our_leaderboard_callback get_our_leaderboa
 
 		char* headers[] = {"x-session-token", g_platform_data.leaderboard_session_token, NULL};
 		attr.requestHeaders = headers;
-		char* url = format_text("https://api.lootlocker.io/game/leaderboards/22605/member/%i", g_platform_data.leaderboard_player_id);
+		char* url = format_text("https://api.lootlocker.io/game/leaderboards/%i/member/%i", leaderboard_id, g_platform_data.leaderboard_player_id);
 		emscripten_fetch(&attr, url);
 	}
 }

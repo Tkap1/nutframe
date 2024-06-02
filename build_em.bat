@@ -39,6 +39,7 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
 	set comp=!comp! --preload-file ../assets/checkmark.png@assets/checkmark.png
 	set comp=!comp! --preload-file ../platform_map.map@platform_map.map
+	set comp=!comp! --preload-file ../map2.map@map2.map
 	set comp=!comp! -gsource-map
 	@REM set comp=!comp! -fsanitize=address
 )

@@ -9,7 +9,7 @@ rocket should be drawn above player
 ghost of your best run
 options menu with some things:
 	quick restart (r is now the same as ctrl r)
-	sounds?
+	sounds options
 
 rockets fired leaderboard, lowest wins
 reset all pickups on player reset

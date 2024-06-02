@@ -49,6 +49,7 @@ enum e_tile : s8
 
 enum e_state
 {
+	e_state_map_select,
 	e_state_play,
 	e_state_editor,
 	e_state_victory,
@@ -246,18 +247,31 @@ struct s_dev_menu
 	b8 show_hitboxes;
 };
 
+struct s_map_data
+{
+	char* name;
+	char* path;
+	int leaderboard_id;
+};
+
+constexpr s_map_data c_map_data[] = {
+	{.name = "Easy", .path = "platform_map.map", .leaderboard_id = 22605},
+	{.name = "Hard", .path = "map2.map", .leaderboard_id = 22731},
+	{.name = "Use this to make your own map", .path = "map3.map", .leaderboard_id = 0},
+};
+
 struct s_game
 {
 	b8 initialized;
 	b8 reset_game;
 	e_state state;
 	int reset_player;
+	int curr_map;
+	int map_selected;
 
 	s_ui ui;
 
-	#ifdef m_debug
 	s_dev_menu dev_menu;
-	#endif // m_debug
 
 	f64 timer;
 	float render_time;
@@ -296,7 +310,7 @@ struct s_game
 static s_v2i pos_to_index(s_v2 pos, int tile_size);
 static b8 is_index_valid(s_v2i index);
 static s_recti get_3d_tile_bounds(s_camera3d cam);
-static void load_map(s_map* map, s_platform_data* platform_data);
+static void load_map(s_map* map, int index, s_platform_data* platform_data);
 static b8 index_has_tile(s_v2i index);
 static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, int tile_size, int tile_blacklist_mask = 0);
 static s_v2 index_to_pos(s_v2i index, int tile_size);
@@ -311,3 +325,4 @@ static void ui_start(int selected);
 static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr);
 static int ui_end();
 static void do_ui(s_m4 ortho);
+static b8 ui_button(char* id_str, s_v2 pos);

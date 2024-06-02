@@ -71,8 +71,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->editor.curr_tile = e_tile_normal;
 		game->reset_game = true;
 
-		load_map(&game->map, platform_data);
-
 		if(platform_data->register_leaderboard_client) {
 			platform_data->register_leaderboard_client();
 		}
@@ -106,6 +104,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					game->player.prev_pos = game->player.pos;
 				}
 				game->reset_player = 0;
+
+				foreach_ptr(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
+					jump_refresher->timer = 0;
+					jump_refresher->in_cooldown = false;
+				}
 			}
 
 			game->timer += 1.0 / c_updates_per_second;
@@ -346,7 +349,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						game->state = e_state_victory;
 						platform_data->play_sound(game->win_sound);
 						if(platform_data->submit_leaderboard_score) {
-							platform_data->submit_leaderboard_score((int)round(game->timer * 1000.0), on_leaderboard_score_submitted);
+							platform_data->submit_leaderboard_score(
+								(int)round(game->timer * 1000.0), c_map_data[game->curr_map].leaderboard_id, on_leaderboard_score_submitted
+							);
 							game->leaderboard_arr.count = 0;
 						}
 						// if(game->leaderboard_arr.count >= c_max_leaderboard_entries) {
@@ -522,6 +527,25 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	#endif // m_debug
 
 	switch(game->state) {
+
+		case e_state_map_select: {
+			start_render_pass(g_r);
+			ui_start(game->map_selected);
+			s_v2 pos = v2(c_half_res.x - 110, c_half_res.y);
+			constexpr float font_size = 48;
+			for(int map_i = 0; map_i < array_count(c_map_data); map_i++) {
+				s_map_data md = c_map_data[map_i];
+				if(ui_button(md.name, pos)) {
+					game->curr_map = map_i;
+					load_map(&game->map, map_i, platform_data);
+					game->state = e_state_play;
+				}
+				pos.y += font_size * 1.1f;
+			}
+			game->map_selected = ui_end();
+			g_r->end_render_pass(g_r, {.do_clear = true, .blend_mode = e_blend_mode_normal, .view_projection = ortho});
+		} break;
+
 		case e_state_play: {
 
 			{
@@ -754,7 +778,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hints start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
+			if(game->curr_map == 0) {
 
 				start_render_pass(g_r);
 
@@ -800,6 +824,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 
 		} break;
+
 		case e_state_editor: {
 
 			start_render_pass(g_r);
@@ -821,11 +846,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				cursor = buffer_write2(cursor, game->map.tile_arr.elements, sizeof(game->map.tile_arr.elements));
 				cursor = buffer_write2(cursor, game->map.save_point_arr.elements, sizeof(game->map.save_point_arr.elements));
 				cursor = buffer_write2(cursor, game->map.jump_refresher_arr.elements, sizeof(game->map.jump_refresher_arr.elements));
-				platform_data->write_file("platform_map.map", data, (u64)(cursor - data));
+				platform_data->write_file(c_map_data[game->curr_map].path, data, (u64)(cursor - data));
 			}
 
 			if(is_key_pressed(g_input, c_key_l) && is_key_down(g_input, c_key_left_ctrl)) {
-				load_map(&game->map, platform_data);
+				load_map(&game->map, game->curr_map, platform_data);
 			}
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		move editor camera start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -1117,9 +1142,10 @@ static s_recti get_3d_tile_bounds(s_camera3d cam)
 	return result;
 }
 
-static void load_map(s_map* map, s_platform_data* platform_data)
+static void load_map(s_map* map, int index, s_platform_data* platform_data)
 {
-	u8* data = (u8*)platform_data->read_file("platform_map.map", platform_data->frame_arena, NULL);
+	map->end_point.pos = v2i(99, 99);
+	u8* data = (u8*)platform_data->read_file(c_map_data[index].path, platform_data->frame_arena, NULL);
 	u8* cursor = data;
 	if(data) {
 
@@ -1226,7 +1252,7 @@ static void on_leaderboard_received(s_json* json)
 	}
 	end:;
 
-	g_platform_data->get_our_leaderboard(on_our_leaderboard_received);
+	g_platform_data->get_our_leaderboard(c_map_data[game->curr_map].leaderboard_id, on_our_leaderboard_received);
 }
 
 static void on_our_leaderboard_received(s_json* json)
@@ -1264,12 +1290,7 @@ static void on_our_leaderboard_received(s_json* json)
 
 static void on_leaderboard_score_submitted()
 {
-	g_platform_data->get_leaderboard(on_leaderboard_received);
-}
-
-static void after_get_leaderboard()
-{
-	g_platform_data->get_leaderboard(on_leaderboard_received);
+	g_platform_data->get_leaderboard(c_map_data[game->curr_map].leaderboard_id, on_leaderboard_received);
 }
 
 static s_m4 get_camera_view(s_camera3d cam)
@@ -1306,7 +1327,6 @@ static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr)
 {
 	s_ui_data* data = &g_ui->data_stack.get_last();
 	u32 id = hash(id_str);
-	// b8 selected = id == g_ui->selected_stack.get_last();
 
 	s_v2 size = v2(320, 48);
 	s_ui_element_data* element_data = g_ui->element_data.get(id);
@@ -1316,7 +1336,9 @@ static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr)
 		element_data = g_ui->element_data.set(id, temp_data);
 	}
 
-	if(mouse_collides_rect_topleft(g_mouse, pos, size)) {
+	b8 hovered = mouse_collides_rect_topleft(g_mouse, pos, size);
+
+	if(hovered) {
 		data->selected = data->element_count;
 	}
 	b8 selected = data->element_count == data->selected;
@@ -1334,7 +1356,7 @@ static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr)
 		color = make_color(0.1f, 0.5f, 0.1f);
 	}
 
-	if(selected && is_key_pressed(g_input, c_left_mouse)) {
+	if(hovered && is_key_pressed(g_input, c_left_mouse)) {
 		*ptr = !(*ptr);
 	}
 	if(selected && is_key_pressed(g_input, c_key_enter)) {
@@ -1351,6 +1373,55 @@ static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr)
 	text_pos.x += 4;
 	draw_text(g_r, id_str, text_pos, 1, font_size, make_color(1), false, game->font);
 	data->element_count += 1;
+}
+
+static b8 ui_button(char* id_str, s_v2 pos)
+{
+	b8 result = false;
+	s_ui_data* data = &g_ui->data_stack.get_last();
+	u32 id = hash(id_str);
+
+	s_v2 size = v2(320, 48);
+	s_ui_element_data* element_data = g_ui->element_data.get(id);
+	if(!element_data) {
+		s_ui_element_data temp_data = {};
+		temp_data.size = size;
+		element_data = g_ui->element_data.set(id, temp_data);
+	}
+
+	b8 hovered = mouse_collides_rect_topleft(g_mouse, pos, size);
+
+	if(hovered) {
+		data->selected = data->element_count;
+	}
+	b8 selected = data->element_count == data->selected;
+	if(selected) {
+		element_data->size.x = lerp_snap(element_data->size.x, size.x * 1.2f, g_delta * 10, 0.1f);
+	}
+	else {
+		element_data->size.x = lerp_snap(element_data->size.x, size.x, g_delta * 10, 0.1f);
+	}
+	s_v4 color = make_color(0.5f, 0.1f, 0.1f);
+
+	if(hovered && is_key_pressed(g_input, c_left_mouse)) {
+		result = true;
+	}
+	if(selected && is_key_pressed(g_input, c_key_enter)) {
+		result = true;
+	}
+
+	if(selected) {
+		color = brighter(color, 1.5f);
+	}
+	draw_rect(g_r, pos, 0, element_data->size, color, {}, {.origin_offset = c_origin_topleft});
+
+	float font_size = size.y * 0.9f;
+	s_v2 text_pos = center_text_on_rect(pos, element_data->size, font_size, false, true);
+	text_pos.x += 4;
+	draw_text(g_r, id_str, text_pos, 1, font_size, make_color(1), false, game->font);
+	data->element_count += 1;
+
+	return result;
 }
 
 static int ui_end()
