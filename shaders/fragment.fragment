@@ -228,6 +228,11 @@ void main()
 		color.b = v_color.b * d;
 	}
 
+	else if(v_effect_id == 8) {
+		float d = distance(vec2(0.5), v_local_uv);
+		if(d <= 0.4) { discard; }
+	}
+
 	color = pma(color);
 	if(color.a <= 0.0) { discard; }
 

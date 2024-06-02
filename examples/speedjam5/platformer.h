@@ -21,10 +21,11 @@ static constexpr float c_player_z = 0.0f;
 static constexpr float c_gravity = 0.001f;
 static constexpr float c_small = epsilon;
 static constexpr float c_particle_z = c_player_z - 0.01f;
+static constexpr float c_spike_collision_size_multiplier = 0.8f;
 
 static constexpr s_v2 c_projectile_visual_size = v2(1.0f);
 static constexpr s_v2 c_projectile_collision_size = v2(0.25f);
-static constexpr s_v2 c_player_visual_size = v2(c_play_tile_size);
+static constexpr s_v2 c_player_visual_size = v2(c_play_tile_size * 1.3f);
 static constexpr s_v2 c_player_collision_size = v2(c_play_tile_size * 0.9f, (float)c_play_tile_size);
 static constexpr s_v2 c_save_point_visual_size = v2(c_play_tile_size);
 static constexpr s_v2 c_save_point_collision_size = v2(c_play_tile_size * 1.5f);
@@ -60,6 +61,13 @@ struct s_leaderboard_entry
 	s_str<32> internal_name;
 };
 
+struct s_draw_data
+{
+	s_v2i index;
+	s_v2i sprite_size;
+	s_texture texture;
+};
+
 struct s_tile_collision
 {
 	e_tile tile;
@@ -77,8 +85,7 @@ struct s_trail
 {
 	b8 flip_x;
 	float time;
-	s_v2i sprite_index;
-	// s_texture texture;
+	s_draw_data draw_data;
 	s_v2 pos;
 };
 
@@ -201,12 +208,43 @@ struct s_projectile
 	s_v2 dir;
 };
 
+struct s_ui_data
+{
+	int element_count;
+	int selected;
+};
+
+struct s_ui_element_data
+{
+	s_v2 size;
+};
+
+struct s_ui
+{
+	s_hashmap<u32, s_ui_element_data, 1024> element_data;
+	s_sarray<s_ui_data, 16> data_stack;
+};
+
+struct s_dev_menu
+{
+	b8 active;
+	int selected_ui;
+	b8 show_hitboxes;
+};
+
 struct s_game
 {
 	b8 initialized;
 	b8 reset_game;
 	e_state state;
 	int reset_player;
+
+	s_ui ui;
+
+	#ifdef m_debug
+	s_dev_menu dev_menu;
+	#endif // m_debug
+
 	f64 timer;
 	float render_time;
 	s_framebuffer* particle_framebuffer;
@@ -216,8 +254,8 @@ struct s_game
 	s_texture sheet;
 	s_texture noise;
 	s_texture save_point_texture;
-	s_carray<s_texture, 6> player_run_texture_arr;
-	s_carray<s_texture, 9> player_idle_texture_arr;
+	s_texture player_idle_texture;
+	s_texture player_run_texture;
 	s_carray<s_texture, e_tile_count> tile_texture_arr;
 	s_sarray<s_projectile, c_max_projectiles> projectile_arr;
 	s_sarray<s_particle, c_max_particles> particle_arr;
@@ -254,5 +292,8 @@ static void on_our_leaderboard_received(s_json* json);
 static void after_submitted_leaderboard();
 static void on_leaderboard_score_submitted();
 static s_m4 get_camera_view(s_camera3d cam);
-static s_v2i get_player_sprite_index(s_player player);
-// static s_texture get_player_sprite_index(s_player player);
+static s_draw_data get_player_draw_data(s_player player);
+static void ui_start(int selected);
+static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr);
+static int ui_end();
+static void do_ui(s_m4 ortho);

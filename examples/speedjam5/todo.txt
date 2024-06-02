@@ -13,3 +13,8 @@ options menu with some things:
 
 rockets fired leaderboard, lowest wins
 reset all pickups on player reset
+practice mode
+
+jump animation
+go up animation
+fall animation

@@ -13,6 +13,8 @@ static s_game* game;
 static s_game_renderer* g_r;
 static s_v2 g_mouse;
 static s_platform_data* g_platform_data;
+static s_ui* g_ui;
+static float g_delta = 0;
 
 #ifdef m_build_dll
 extern "C" {
@@ -33,6 +35,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	g_mouse = platform_data->mouse;
 	g_r = renderer;
 	g_platform_data = platform_data;
+	g_ui = &game->ui;
 
 	if(!game->initialized) {
 		game->initialized = true;
@@ -53,17 +56,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/speedjam5/death1.wav", platform_data->frame_arena);
 		game->death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/speedjam5/death2.wav", platform_data->frame_arena);
 		game->death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/speedjam5/death3.wav", platform_data->frame_arena);
+		game->player_run_texture = g_r->load_texture(renderer, "examples/speedjam5/player_run.png");
+		game->player_idle_texture = g_r->load_texture(renderer, "examples/speedjam5/player_idle.png");
 
-		for(int i = 0; i < game->player_run_texture_arr.max_elements(); i++) {
-			game->player_run_texture_arr[i] = g_r->load_texture(renderer, format_text("examples/speedjam5/tkap_man%i.png", i + 1));
-		}
-
-		for(int i = 0; i < game->player_idle_texture_arr.max_elements(); i++) {
-			game->player_idle_texture_arr[i] = g_r->load_texture(renderer, format_text("examples/speedjam5/tkap_idle%i.png", i + 1));
-		}
-		// game->particle_framebuffer = g_r->make_framebuffer(renderer, false);
-		// game->text_framebuffer = g_r->make_framebuffer(renderer, false);
-		// game->eat_apple_sound = platform_data->load_sound(platform_data, "examples/snake/eat_apple.wav", platform_data->frame_arena);
 		game->font = &renderer->fonts[0];
 		platform_data->variables_path = "examples/speedjam5/variables.h";
 		game->cam.pos = v3(0, 0, -5);
@@ -282,7 +277,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						s_v2 pos = lerp(pos_before_moving, game->player.pos, p);
 						s_trail trail = {};
 						trail.pos = pos;
-						trail.sprite_index = get_player_sprite_index(*player);
+						trail.draw_data = get_player_draw_data(*player);
 						// trail.texture = get_player_sprite_index(*player);
 						trail.flip_x = player->flip_x;
 						game->trail_arr.add(trail);
@@ -489,6 +484,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_r = renderer;
 	g_input = &platform_data->render_input;
 	g_platform_data = platform_data;
+	g_ui = &game->ui;
 
 	live_variable(&platform_data->vars, c_player_speed, 0.0f, 1.0f, true);
 	live_variable(&platform_data->vars, c_ground_friction, 0.0f, 1.0f, true);
@@ -503,8 +499,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	s_m4 ortho = m4_orthographic(0, c_base_res.x, c_base_res.y, 0, -100, 100);
 
-	float delta = (float)platform_data->frame_time;
-	game->render_time += delta;
+	g_delta = (float)platform_data->frame_time;
+	game->render_time += g_delta;
 
 	if(g_input->wheel_movement > 0) {
 		game->editor_cam.zoom *= 1.1f;
@@ -581,6 +577,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						s_v3 pos = v3((float)x * c_play_tile_size, (float)y * c_play_tile_size, 0.0f);
 						if(tile == e_tile_spike) {
 							draw_texture_3d(g_r, pos, v2(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
+
+							if(game->dev_menu.show_hitboxes) {
+								draw_rect_3d(g_r, pos - v3(0.0f, 0.0f, c_small), v2(c_play_tile_size * c_spike_collision_size_multiplier), make_color(1), {}, {.effect_id = 8});
+							}
 						}
 						else {
 							draw_textured_cube(g_r, pos, v3(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
@@ -636,12 +636,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_player* player = &game->player;
-				player->animation_timer += delta;
+				player->animation_timer += g_delta;
 				s_v2 pos = lerp(player->prev_pos, player->pos, interp_dt);
-				s_v2i index = get_player_sprite_index(*player);
-				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), game->sheet, index, v2i(64, 64), {.flip_x = player->flip_x});
+				s_draw_data draw_data = get_player_draw_data(*player);
+				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), draw_data.texture, draw_data.index, draw_data.sprite_size, {.flip_x = player->flip_x});
 				// s_texture texture = get_player_sprite_index(*player);
 				// draw_texture_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), texture, {.flip_x = player->flip_x});
+
+				if(game->dev_menu.show_hitboxes) {
+					draw_rect_3d(g_r, v3(pos, c_player_z - c_small), c_player_collision_size, make_color(1), {}, {.effect_id = 8});
+				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -652,12 +656,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_atlas_3d(
 					g_r, v3(pos, c_player_z), c_projectile_visual_size, make_color(1), game->sheet, v2i(256, 0), c_sprite_size, {}, {.rotation = v2_angle(projectile.dir)}
 				);
+
+				if(game->dev_menu.show_hitboxes) {
+					draw_rect_3d(g_r, v3(pos, c_player_z - c_small), c_projectile_collision_size, make_color(1), {}, {.effect_id = 8});
+				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw projectiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		visual effects start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			foreach_ptr(ve_i, ve, game->visual_effect_arr) {
-				ve->timer += delta;
+				ve->timer += g_delta;
 				float duration = 0;
 				switch(ve->type) {
 					case e_visual_effect_projectile_explosion: {
@@ -685,9 +693,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_percent_data p = get_percent_data(trail->time, duration);
 					s_v4 color = make_color(0.9f);
 					color.w = p.percent_inv * 0.2f;
-					draw_atlas_3d(g_r, v3(trail->pos, c_player_z), c_player_visual_size, color, game->sheet, trail->sprite_index, v2i(64, 64), {.flip_x = trail->flip_x});
+					draw_atlas_3d(g_r, v3(trail->pos, c_player_z), c_player_visual_size, color, trail->draw_data.texture, trail->draw_data.index, trail->draw_data.sprite_size, {.flip_x = trail->flip_x});
 					// draw_texture_3d(g_r, v3(trail->pos, c_player_z), c_player_visual_size, make_color(0.9f), trail->texture, {.flip_x = trail->flip_x});
-					trail->time += delta;
+					trail->time += g_delta;
 					if(trail->time >= duration) {
 						game->trail_arr.remove_and_swap(trail_i--);
 					}
@@ -833,7 +841,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				dir.x += 1;
 			}
 			dir = v2_normalized(dir);
-			game->editor_cam.pos += dir * delta * cam_speed;
+			game->editor_cam.pos += dir * g_delta * cam_speed;
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		move editor camera end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			for(int i = 0; i <= 9; i++) {
@@ -1002,11 +1010,34 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		invalid_default_case;
 	}
+
+	#ifdef m_debug
+	if(is_key_pressed(g_input, c_key_f5)) {
+		game->dev_menu.active = !game->dev_menu.active;
+	}
+	#endif // m_debug
+
+	do_ui(ortho);
 }
 
 #ifdef m_build_dll
 }
 #endif // m_build_dll
+
+static void do_ui(s_m4 ortho)
+{
+	start_render_pass(g_r);
+	if(game->dev_menu.active) {
+		ui_start(game->dev_menu.selected_ui);
+		ui_bool_button("Show hitboxes", v2(4, 4), &game->dev_menu.show_hitboxes);
+		ui_bool_button("test", v2(4, 64), &game->dev_menu.show_hitboxes);
+		game->dev_menu.selected_ui = ui_end();
+	}
+
+	g_r->end_render_pass(
+		g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho}
+	);
+}
 
 
 static s_v2i pos_to_index(s_v2 pos, int tile_size)
@@ -1109,7 +1140,7 @@ static s_sarray<s_tile_collision, 16> get_tile_collisions(s_v2 pos, s_v2 size, i
 				s_v2 tile_center = v2(index) * v2(tile_size);
 				float temp_tile_size = (float)tile_size;
 				if(tile == e_tile_spike) {
-					temp_tile_size *= 0.8f;
+					temp_tile_size *= c_spike_collision_size_multiplier;
 				}
 				b8 collides = rect_collides_rect_center(pos, size, tile_center, v2(temp_tile_size));
 				if(collides) {
@@ -1232,33 +1263,92 @@ static s_m4 get_camera_view(s_camera3d cam)
 	return look_at(cam.pos, cam.pos + cam.target, v3(0, -1, 0));
 }
 
-static s_v2i get_player_sprite_index(s_player player)
+static s_draw_data get_player_draw_data(s_player player)
 {
-	s_v2i idle_arr[] = {v2i(64, 64), v2i(128, 64)};
-	s_v2i run_arr[] = {v2i(196, 64), v2i(256, 64)};
-	s_v2i index = {};
+	s_draw_data data = {};
+	data.sprite_size = v2i(300);
+
 	if(player.state == 0) {
-		int i = roundfi(fmodf(player.animation_timer / 0.5f, 1));
-		index = idle_arr[i];
+		data.texture = game->player_idle_texture;
+		int i = roundfi(fmodf(player.animation_timer / 0.15f, 8));
+		data.index = v2i(300 * i, 0);
 	}
 	else if(player.state == 1) {
-		int i = roundfi(fmodf(player.animation_timer / 0.15f, 1));
-		index = run_arr[i];
+		data.texture = game->player_run_texture;
+		int i = roundfi(fmodf(player.animation_timer / 0.05f, 5));
+		data.index = v2i(300 * i, 0);
 	}
-	return index;
+	return data;
 }
 
-// static s_texture get_player_sprite_index(s_player player)
-// {
-// 	s_texture result;
-// 	s_v2i index = {};
-// 	if(player.state == 0) {
-// 		int i = roundfi(fmodf(player.animation_timer / 0.2f, 8));
-// 		result = game->player_idle_texture_arr[i];
-// 	}
-// 	else if(player.state == 1) {
-// 		int i = roundfi(fmodf(player.animation_timer / 0.05f, 5));
-// 		result = game->player_run_texture_arr[i];
-// 	}
-// 	return result;
-// }
+static void ui_start(int selected)
+{
+	s_ui_data data = {};
+	data.selected = selected;
+	g_ui->data_stack.add(data);
+}
+
+static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr)
+{
+	s_ui_data* data = &g_ui->data_stack.get_last();
+	u32 id = hash(id_str);
+	// b8 selected = id == g_ui->selected_stack.get_last();
+
+	s_v2 size = v2(320, 48);
+	s_ui_element_data* element_data = g_ui->element_data.get(id);
+	if(!element_data) {
+		s_ui_element_data temp_data = {};
+		temp_data.size = size;
+		element_data = g_ui->element_data.set(id, temp_data);
+	}
+
+	if(mouse_collides_rect_topleft(g_mouse, pos, size)) {
+		data->selected = data->element_count;
+	}
+	b8 selected = data->element_count == data->selected;
+	if(selected) {
+		element_data->size.x = lerp_snap(element_data->size.x, size.x * 1.2f, g_delta * 10, 0.1f);
+	}
+	else {
+		element_data->size.x = lerp_snap(element_data->size.x, size.x, g_delta * 10, 0.1f);
+	}
+	s_v4 color;
+	if(!*ptr) {
+		color = make_color(0.5f, 0.1f, 0.1f);
+	}
+	else {
+		color = make_color(0.1f, 0.5f, 0.1f);
+	}
+
+	if(selected && is_key_pressed(g_input, c_left_mouse)) {
+		*ptr = !(*ptr);
+	}
+	if(selected && is_key_pressed(g_input, c_key_enter)) {
+		*ptr = !(*ptr);
+	}
+
+	if(selected) {
+		color = brighter(color, 1.5f);
+	}
+	draw_rect(g_r, pos, 0, element_data->size, color, {}, {.origin_offset = c_origin_topleft});
+
+	float font_size = size.y * 0.9f;
+	s_v2 text_pos = center_text_on_rect(pos, element_data->size, font_size, false, true);
+	text_pos.x += 4;
+	draw_text(g_r, id_str, text_pos, 1, font_size, make_color(1), false, game->font);
+	data->element_count += 1;
+}
+
+static int ui_end()
+{
+	s_ui_data data = g_ui->data_stack.pop();
+
+	if(is_key_pressed(g_input, c_key_up)) {
+		data.selected = circular_index(data.selected - 1, data.element_count);
+	}
+	if(is_key_pressed(g_input, c_key_down)) {
+		data.selected = circular_index(data.selected + 1, data.element_count);
+	}
+
+	return data.selected;
+}

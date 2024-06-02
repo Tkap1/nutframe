@@ -520,7 +520,7 @@ struct s_sarray
 		elements[index1] = temp;
 	}
 
-	constexpr T get_last()
+	constexpr T& get_last()
 	{
 		assert(count > 0);
 		return elements[count - 1];
@@ -734,6 +734,12 @@ static u32 hash(const char* text)
 		hash = ((hash << 5) + hash) + c;
 	}
 	return hash;
+}
+
+[[nodiscard]]
+static u32 hash(u32 value)
+{
+	return value;
 }
 
 [[nodiscard]]
@@ -2157,8 +2163,7 @@ static s_v2 lerp_snap(s_v2 a, s_v2 b, float t)
 {
 	s_v2 result;
 	float dist = v2_distance(a, b);
-	if(dist < 1.0f)
-	{
+	if(dist < 1.0f) {
 		t = 1;
 	}
 	result.x = lerp(a.x, b.x, t);
@@ -5437,5 +5442,100 @@ static s_percent_data get_percent_data(float time, float duration)
 	s_percent_data result = {};
 	result.percent = time / duration;
 	result.percent_inv = 1.0f - result.percent;
+	return result;
+}
+
+template <typename t>
+struct s_maybe
+{
+	b8 valid;
+	t value;
+};
+
+template <typename t>
+static s_maybe<t> maybe(t value)
+{
+	return {.valid = true, .value = value};
+}
+
+template <typename t>
+static s_maybe<t> maybe()
+{
+	return {};
+}
+
+template <typename key_type, typename value_type, int n>
+struct s_hashmap
+{
+	s_carray<b8, n> used;
+	s_carray<key_type, n> keys;
+	s_carray<value_type, n> values;
+
+	value_type* set(key_type key, value_type value);
+	value_type* get(key_type key);
+	b8 remove(key_type key);
+};
+
+template <typename key_type, typename value_type, int n>
+value_type* s_hashmap<key_type, value_type, n>::set(key_type key, value_type value)
+{
+	u32 base = hash(key);
+	int best_index = -1;
+	for(int i = 0; i < n; i++) {
+		int index = (base + i) % n;
+		if(used[index] && keys[index] == key) {
+			best_index = index;
+			break;
+		}
+		else if(best_index < 0 && !used[index]) {
+			best_index = index;
+		}
+	}
+	assert(best_index >= 0);
+	used[best_index] = true;
+	keys[best_index] = key;
+	values[best_index] = value;
+	return &values[best_index];
+}
+
+template <typename key_type, typename value_type, int n>
+value_type* s_hashmap<key_type, value_type, n>::get(key_type key)
+{
+	u32 base = hash(key);
+	for(int i = 0; i < n; i++) {
+		int index = (base + i) % n;
+		if(used[index] && keys[index] == key) {
+			return &values[index];
+		}
+	}
+	return NULL;
+}
+
+// @Note(tkap, 01/05/2024): Returns true if we found and removed it
+template <typename key_type, typename value_type, int n>
+b8 s_hashmap<key_type, value_type, n>::remove(key_type key)
+{
+	u32 base = hash(key);
+	for(int i = 0; i < n; i++) {
+		int index = (base + i) % n;
+		if(used[index] && keys[index] == key) {
+			used[index] = false;
+			return true;
+		}
+	}
+	return false;
+}
+
+static s_v2 center_text_on_rect(s_v2 rect_pos, s_v2 rect_size, float font_size, b8 center_x, b8 center_y)
+{
+	assert(center_x || center_y);
+	s_v2 result = rect_pos;
+	if(center_x) {
+		result.x += rect_size.x * 0.5f;
+	}
+	if(center_y) {
+		result.y += rect_size.y * 0.5f;
+		result.y -= font_size * 0.5f;
+	}
 	return result;
 }
