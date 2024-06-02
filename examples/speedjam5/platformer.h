@@ -10,6 +10,7 @@ static constexpr int c_map_version = 1;
 static constexpr int c_tile_version = 1;
 static constexpr int c_save_point_version = 1;
 static constexpr int c_end_point_version = 1;
+static constexpr int c_jump_refresher_version = 1;
 static constexpr int c_max_jumps = 1;
 static constexpr int c_max_projectiles = 128;
 static constexpr int c_projectile_duration = 2000;
@@ -159,6 +160,19 @@ struct s_particle_data
 	s_v3 color = {.x = 0.1f, .y = 0.1f, .z = 0.1f};
 	s_v3 color_rand;
 };
+
+#pragma pack(push, 1)
+struct s_map_header
+{
+	int map_version;
+	int end_point_version;
+	int tile_version;
+	int save_point_version;
+	int jump_refresher_version;
+	int save_point_count;
+	int jump_refresher_count;
+};
+#pragma pack(pop)
 
 struct s_map
 {

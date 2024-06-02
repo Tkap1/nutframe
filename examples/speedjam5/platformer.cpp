@@ -711,7 +711,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				start_render_pass(g_r);
 
-				if(is_key_down(g_input, c_left_mouse)) {
+				// if(is_key_down(g_input, c_left_mouse)) {
 				// if(is_key_pressed(g_input, c_right_mouse)) {
 					// do_particles(10, v3(game->player.pos, c_particle_z), {
 					// 	.shrink = 0.5f,
@@ -726,7 +726,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					// 	.color = v3(0.25f),
 					// 	.color_rand = v3(1, 1, 0),
 					// });
-				}
+				// }
 
 				foreach_ptr(particle_i, p, game->particle_arr) {
 					s_v4 color;
@@ -808,13 +808,19 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			if(is_key_pressed(g_input, c_key_s) && is_key_down(g_input, c_key_left_ctrl)) {
 				u8* data = (u8*)la_get(platform_data->frame_arena, sizeof(game->map) + sizeof(int));
 				u8* cursor = data;
-				cursor = buffer_write(cursor, c_map_version);
-				cursor = buffer_write(cursor, c_end_point_version);
+				s_map_header header = {};
+				header.map_version = c_map_version;
+				header.end_point_version = c_end_point_version;
+				header.tile_version = c_tile_version;
+				header.save_point_version = c_save_point_version;
+				header.jump_refresher_version = c_jump_refresher_version;
+				header.save_point_count = game->map.save_point_arr.count;
+				header.jump_refresher_count = game->map.jump_refresher_arr.count;
+				cursor = buffer_write(cursor, header);
 				cursor = buffer_write(cursor, game->map.end_point);
-				cursor = buffer_write(cursor, c_tile_version);
 				cursor = buffer_write2(cursor, game->map.tile_arr.elements, sizeof(game->map.tile_arr.elements));
-				cursor = buffer_write(cursor, c_save_point_version);
-				cursor = buffer_write2(cursor, &game->map.save_point_arr, sizeof(game->map.save_point_arr));
+				cursor = buffer_write2(cursor, game->map.save_point_arr.elements, sizeof(game->map.save_point_arr.elements));
+				cursor = buffer_write2(cursor, game->map.jump_refresher_arr.elements, sizeof(game->map.jump_refresher_arr.elements));
 				platform_data->write_file("platform_map.map", data, (u64)(cursor - data));
 			}
 
@@ -915,15 +921,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		delete start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				b8 deleted_save_point = false;
+				b8 deleted_non_tile = false;
 				if(is_key_down(g_input, c_right_mouse)) {
 					foreach_val(save_point_i, save_point, game->map.save_point_arr) {
 						if(mouse_index == save_point.pos) {
-							deleted_save_point = true;
+							deleted_non_tile = true;
 							game->map.save_point_arr.remove_and_swap(save_point_i--);
 						}
 					}
-					if(!deleted_save_point && is_index_valid(mouse_index)) {
+					foreach_val(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
+						if(mouse_index == jump_refresher.pos) {
+							deleted_non_tile = true;
+							game->map.jump_refresher_arr.remove_and_swap(jump_refresher_i--);
+						}
+					}
+					if(!deleted_non_tile && is_index_valid(mouse_index)) {
 						game->map.tile_arr[mouse_index.y][mouse_index.x] = e_tile_invalid;
 					}
 				}
@@ -1110,20 +1122,22 @@ static void load_map(s_map* map, s_platform_data* platform_data)
 	u8* data = (u8*)platform_data->read_file("platform_map.map", platform_data->frame_arena, NULL);
 	u8* cursor = data;
 	if(data) {
-		int map_version = buffer_read<int>(&cursor);
-		assert(map_version == 1);
 
-		int end_point_version = buffer_read<int>(&cursor);
-		assert(end_point_version == 1);
+		s_map_header header = buffer_read<s_map_header>(&cursor);
+
+		assert(header.map_version == 1);
+		assert(header.end_point_version == 1);
+		assert(header.tile_version == 1);
+		assert(header.save_point_version == 1);
+		assert(header.jump_refresher_version == 1);
+
+		game->map.save_point_arr.count = header.save_point_count;
+		game->map.jump_refresher_arr.count = header.jump_refresher_count;
+
 		map->end_point = buffer_read<s_end_point>(&cursor);
-
-		int tile_version = buffer_read<int>(&cursor);
-		assert(tile_version == 1);
 		cursor = buffer_read2(cursor, game->map.tile_arr.elements, sizeof(game->map.tile_arr.elements));
-
-		int save_point_version = buffer_read<int>(&cursor);
-		assert(save_point_version == 1);
-		cursor = buffer_read2(cursor, &game->map.save_point_arr, sizeof(game->map.save_point_arr));
+		cursor = buffer_read2(cursor, game->map.save_point_arr.elements, sizeof(game->map.save_point_arr.elements));
+		cursor = buffer_read2(cursor, game->map.jump_refresher_arr.elements, sizeof(game->map.jump_refresher_arr.elements));
 	}
 }
 
