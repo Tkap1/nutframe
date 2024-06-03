@@ -317,6 +317,12 @@ struct s_json
 	};
 };
 
+enum e_input_modifier
+{
+	e_input_modifier_none = 0,
+	e_input_modifier_ctrl = 1 << 1,
+};
+
 
 #ifndef m_game
 #ifndef m_debug
@@ -2569,9 +2575,18 @@ struct s_key
 	int count;
 };
 
+struct s_key_event
+{
+	int modifiers;
+	int key;
+};
+
 struct s_input
 {
 	float wheel_movement;
+
+	// @TODO(tkap, 03/06/2024): set this!
+	s_sarray<s_key_event, 128> key_events;
 	s_sarray<char, 128> char_events;
 	s_carray<s_key, c_max_keys> keys;
 };
@@ -4029,6 +4044,7 @@ static void do_game_layer(
 			g_platform_data.logic_input.keys[i].count = 0;
 		}
 		g_platform_data.logic_input.char_events.count = 0;
+		g_platform_data.logic_input.key_events.count = 0;
 
 		#ifdef m_debug
 		g_platform_data.loaded_a_state = false;
@@ -4049,6 +4065,7 @@ static void do_game_layer(
 		g_platform_data.render_input.keys[i].count = 0;
 	}
 	g_platform_data.render_input.char_events.count = 0;
+	g_platform_data.render_input.key_events.count = 0;
 
 	if(g_do_embed) {
 		write_embed_file();

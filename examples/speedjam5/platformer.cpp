@@ -1005,6 +1005,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			g_r->end_render_pass(g_r, {.do_clear = true, .view_projection = m4_multiply(ortho, game->editor_cam.get_matrix())});
 
+			{
+				start_render_pass(g_r);
+
+				if(is_key_pressed(g_input, c_key_c)) {
+					game->editor_cam.pos = game->player.pos * c_editor_tile_size - c_base_res * 0.5f;
+				}
+
+				constexpr float font_size = 24;
+				s_v2 pos = v2(4, 4);
+				draw_text(g_r, format_text("x: %i y: %i", mouse_index.x, mouse_index.y), pos, 10, font_size, make_color(1), false, game->font);
+				pos.y += font_size;
+				draw_text(g_r, "Press C to move camera to player", pos, 10, font_size, make_color(1), false, game->font);
+				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho});
+			}
+
 		} break;
 
 		case e_state_victory: {
