@@ -257,7 +257,7 @@ struct s_map_data
 constexpr s_map_data c_map_data[] = {
 	{.name = "Easy", .path = "platform_map.map", .leaderboard_id = 22605},
 	{.name = "Hard", .path = "map2.map", .leaderboard_id = 22731},
-	{.name = "AQtun", .path = "aqtun.map", .leaderboard_id = 0},
+	{.name = "AQtun", .path = "aqtun.map", .leaderboard_id = 22741},
 	{.name = "Use this to make your own map", .path = "example.map", .leaderboard_id = 0},
 };
 
