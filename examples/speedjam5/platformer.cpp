@@ -830,6 +830,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			start_render_pass(g_r);
 			s_v2i mouse_index = pos_to_index(game->editor_cam.screen_to_world(g_mouse), c_editor_tile_size);
 
+			if(is_key_pressed(g_input, c_key_f2) && is_key_down(g_input, c_key_left_shift) && is_key_down(g_input, c_key_left_ctrl)) {
+				game->map.save_point_arr.count = 0;
+				game->map.jump_refresher_arr.count = 0;
+				game->map.tile_arr.clear();
+			}
+
 			if(is_key_pressed(g_input, c_key_s) && is_key_down(g_input, c_key_left_ctrl)) {
 				u8* data = (u8*)la_get(platform_data->frame_arena, sizeof(game->map) + sizeof(int));
 				u8* cursor = data;
@@ -855,7 +861,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		move editor camera start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			s_v2 dir = {};
-			float cam_speed = 1024;
+			float cam_speed = 1024 / game->editor_cam.zoom;
 			if(is_key_down(g_input, c_key_space)) {
 				cam_speed *= 3;
 			}

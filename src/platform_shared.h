@@ -689,6 +689,11 @@ struct s_carray2
 		assert(index < n1);
 		return elements[index];
 	}
+
+	void clear()
+	{
+		memset(elements, 0, sizeof(elements));
+	}
 };
 
 struct s_texture
@@ -3651,12 +3656,13 @@ static void write_embed_file()
 		fseek(file, 0, SEEK_END);
 		u64 file_size = ftell(file);
 		fseek(file, 0, SEEK_SET);
-		u8* data = (u8*)malloc(file_size);
+		u8* data = (u8*)malloc(file_size + 1);
 		fread(data, 1, file_size, file);
+		data[file_size] = 0;
 		u8* cursor = data;
 
-		builder->add_line("static constexpr u8 embed%i[%u] = {", embed_i, file_size);
-		for(u64 i = 0; i < file_size; i++) {
+		builder->add_line("static constexpr u8 embed%i[%u] = {", embed_i, file_size + 1);
+		for(u64 i = 0; i < file_size + 1; i++) {
 			builder->add("%u,", *cursor);
 			cursor++;
 		}

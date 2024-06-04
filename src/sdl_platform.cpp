@@ -243,7 +243,7 @@ static void do_one_frame()
 {
 	f64 seconds = get_seconds();
 	f64 time_passed = seconds - g_start_of_frame_seconds;
-	time_passed = at_most(1, time_passed);
+	time_passed = at_most(1.0, time_passed);
 	g_platform_data.frame_time = time_passed;
 	g_game_renderer->total_time += time_passed;
 	g_start_of_frame_seconds = seconds;

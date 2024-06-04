@@ -14,6 +14,7 @@ set comp=!comp! -lidbfs.js
 set comp=!comp! -sSTACK_SIZE=1048576
 set comp=!comp! --shell-file ../shell.html
 set comp=!comp! -sFETCH
+set comp=!comp! -Dm_emscripten
 
 set debug=1
 if !debug!==0 (
@@ -41,6 +42,8 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../platform_map.map@platform_map.map
 	set comp=!comp! --preload-file ../map2.map@map2.map
 	set comp=!comp! --preload-file ../aqtun.map@aqtun.map
+	set comp=!comp! --preload-file ../zanarias.map@zanarias.map
+	set comp=!comp! --preload-file ../azenris.map@azenris.map
 	set comp=!comp! -gsource-map
 	@REM set comp=!comp! -fsanitize=address
 )
