@@ -1,4 +1,6 @@
 
+#define m_multisample 0
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -5133,6 +5135,12 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 	else {
 		gl(glDisable(GL_CULL_FACE));
 	}
+
+	#if m_multisample
+	glEnable(GL_MULTISAMPLE);
+	#else
+	glDisable(GL_MULTISAMPLE);
+	#endif
 
 	if(game_renderer->did_we_alloc) {
 		int new_index = (game_renderer->arena_index + 1) % 2;

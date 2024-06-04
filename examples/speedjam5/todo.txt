@@ -22,4 +22,5 @@ fall animation
 we have a bug where bugs are not shown until way too close. happens on the left edge of the map at least
 
 tile that doesnt give you jumps back
+spikes that go up once you step on them
 

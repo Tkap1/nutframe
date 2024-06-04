@@ -556,7 +556,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			s_m4 view = get_camera_view(game->cam);
-			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 1.0f, 10000.0f);
+			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 1.0f, 1000.0f);
 			s_m4 view_projection = m4_multiply(projection, view);
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
