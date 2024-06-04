@@ -20,7 +20,7 @@ static constexpr int c_max_death_sounds = 3;
 
 static constexpr float c_player_z = 0.0f;
 static constexpr float c_gravity = 0.001f;
-static constexpr float c_small = 0.001f;
+static constexpr float c_small = 0.0001f;
 static constexpr float c_particle_z = c_player_z - 0.01f;
 static constexpr float c_spike_collision_size_multiplier = 0.8f;
 
@@ -258,6 +258,7 @@ constexpr s_map_data c_map_data[] = {
 	{.name = "Easy", .path = "platform_map.map", .leaderboard_id = 22605},
 	{.name = "Hard", .path = "map2.map", .leaderboard_id = 22731},
 	{.name = "AQtun", .path = "aqtun.map", .leaderboard_id = 22741},
+	{.name = "Zanarias", .path = "zanarias.map", .leaderboard_id = 0},
 	{.name = "Use this to make your own map", .path = "example.map", .leaderboard_id = 0},
 };
 
