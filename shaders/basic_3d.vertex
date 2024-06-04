@@ -26,7 +26,7 @@ out vec2 v_uv_min;
 out vec2 v_uv_max;
 out vec4 v_color;
 out vec4 v_mix_color;
-out vec3 v_normal;
+flat out vec3 v_normal;
 
 out vec2 v_local_uv;
 out vec2 v_uv;
@@ -45,157 +45,65 @@ mat2 rot(float angle)
 
 const float size = 0.5;
 
-// Cube vertices (36 vec3)
-const vec3 vertices[36] = vec3[](
-	// Front face
-	vec3(-size, -size,  size), vec3( size, -size,  size), vec3( size,  size,  size),
-	vec3( size,  size,  size), vec3(-size,  size,  size), vec3(-size, -size,  size),
-	// Back face
-	vec3(-size, -size, -size), vec3( size,  size, -size), vec3( size, -size, -size),
-	vec3( size,  size, -size), vec3(-size, -size, -size), vec3(-size,  size, -size),
-	// Top face
-	vec3(-size,  size, -size), vec3( size,  size,  size), vec3( size,  size, -size),
-	vec3( size,  size,  size), vec3(-size,  size, -size), vec3(-size,  size,  size),
-	// Bottom face
-	vec3(-size, -size, -size), vec3( size, -size, -size), vec3( size, -size,  size),
-	vec3( size, -size,  size), vec3(-size, -size,  size), vec3(-size, -size, -size),
-	// Right face
-	vec3( size, -size, -size), vec3( size,  size,  size), vec3( size, -size,  size),
-	vec3( size,  size,  size), vec3( size, -size, -size), vec3( size,  size, -size),
-	// Left face
-	vec3(-size, -size, -size), vec3(-size, -size,  size), vec3(-size,  size,  size),
-	vec3(-size,  size,  size), vec3(-size,  size, -size), vec3(-size, -size, -size)
+const vec3 vertices[24] = vec3[](
+	// front
+	vec3(-size, size,  -size), vec3(size, size,  -size),
+	vec3(size,  -size,  -size), vec3(-size,  -size,  -size),
+
+	// back
+	vec3(size, size,  size), vec3(-size, size,  size),
+	vec3(-size,  -size,  size), vec3(size,  -size,  size),
+
+	// top
+	vec3(-size, size,  size), vec3(size, size,  size),
+	vec3(size,  size,  -size), vec3(-size,  size,  -size),
+
+	// bottom
+	vec3(-size, -size,  -size), vec3(size, -size,  -size),
+	vec3(size,  -size,  size), vec3(-size,  -size,  size),
+
+	// left
+	vec3(-size, size,  size), vec3(-size, size,  -size),
+	vec3(-size,  -size,  -size), vec3(-size,  -size,  size),
+
+	// right
+	vec3(size, size,  -size), vec3(size, size,  size),
+	vec3(size,  -size,  size), vec3(size,  -size,  -size)
 );
 
-// Cube UV coordinates (36 vec2)
-const vec2 local_uv[36] = vec2[](
-	// Front face
-	vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0),
-	vec2(1.0, 1.0), vec2(0.0, 1.0), vec2(0.0, 0.0),
-	// Back face
-	vec2(0.0, 0.0), vec2(1.0, 1.0), vec2(1.0, 0.0),
-	vec2(1.0, 1.0), vec2(0.0, 0.0), vec2(0.0, 1.0),
-	// Top face
-	vec2(0.0, 1.0), vec2(1.0, 0.0), vec2(1.0, 1.0),
-	vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 0.0),
-	// Bottom face
-	vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(1.0, 1.0),
-	vec2(1.0, 1.0), vec2(0.0, 1.0), vec2(0.0, 0.0),
-	// Right face
-	vec2(0.0, 0.0), vec2(1.0, 1.0), vec2(1.0, 0.0),
-	vec2(1.0, 1.0), vec2(0.0, 0.0), vec2(0.0, 1.0),
-	// Left face
-	vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0),
-	vec2(1.0, 1.0), vec2(1.0, 0.0), vec2(0.0, 0.0)
+const vec2 local_uv[24] = vec2[](
+	// front
+	vec2(0.0, 0.0), vec2(1.0, 0.0),
+	vec2(1.0, 1.0), vec2(0.0, 1.0),
+
+	// back
+	vec2(0.0, 0.0), vec2(1.0, 0.0),
+	vec2(1.0, 1.0), vec2(0.0, 1.0),
+
+	// top
+	vec2(0.0, 0.0), vec2(1.0, 0.0),
+	vec2(1.0, 1.0), vec2(0.0, 1.0),
+
+	// bottom
+	vec2(0.0, 0.0), vec2(1.0, 0.0),
+	vec2(1.0, 1.0), vec2(0.0, 1.0),
+
+	// left
+	vec2(0.0, 0.0), vec2(1.0, 0.0),
+	vec2(1.0, 1.0), vec2(0.0, 1.0),
+
+	// right
+	vec2(0.0, 0.0), vec2(1.0, 0.0),
+	vec2(1.0, 1.0), vec2(0.0, 1.0)
 );
-
-// const vec3 vertices[36] = vec3[36](
-// 	// Front face
-// 	vec3(-size, -size,  size), // bottom-left
-// 	vec3( size, -size,  size), // bottom-right
-// 	vec3( size,  size,  size), // top-right
-// 	vec3( size,  size,  size), // top-right
-// 	vec3(-size,  size,  size), // top-left
-// 	vec3(-size, -size,  size), // bottom-left
-
-// 	// Back face
-// 	vec3(-size, -size, -size), // bottom-left
-// 	vec3(-size,  size, -size), // top-left
-// 	vec3( size,  size, -size), // top-right
-// 	vec3( size,  size, -size), // top-right
-// 	vec3( size, -size, -size), // bottom-right
-// 	vec3(-size, -size, -size), // bottom-left
-
-// 	// Top face
-// 	vec3(-size,  size, -size), // front-bottom-left
-// 	vec3(-size,  size,  size), // front-top-left
-// 	vec3( size,  size,  size), // front-top-right
-// 	vec3( size,  size,  size), // front-top-right
-// 	vec3( size,  size, -size), // front-bottom-right
-// 	vec3(-size,  size, -size), // front-bottom-left
-
-// 	// Bottom face
-// 	vec3(-size, -size, -size), // back-bottom-left
-// 	vec3( size, -size, -size), // back-bottom-right
-// 	vec3( size, -size,  size), // back-top-right
-// 	vec3( size, -size,  size), // back-top-right
-// 	vec3(-size, -size,  size), // back-top-left
-// 	vec3(-size, -size, -size), // back-bottom-left
-
-// 	// Right face
-// 	vec3( size, -size, -size), // back-bottom-right
-// 	vec3( size,  size, -size), // back-top-right
-// 	vec3( size,  size,  size), // front-top-right
-// 	vec3( size,  size,  size), // front-top-right
-// 	vec3( size, -size,  size), // front-bottom-right
-// 	vec3( size, -size, -size), // back-bottom-right
-
-// 	// Left face
-// 	vec3(-size, -size, -size), // back-bottom-left
-// 	vec3(-size, -size,  size), // front-bottom-left
-// 	vec3(-size,  size,  size), // front-top-left
-// 	vec3(-size,  size,  size), // front-top-left
-// 	vec3(-size,  size, -size), // back-top-left
-// 	vec3(-size, -size, -size)  // back-bottom-left
-// );
-
-// const vec2 local_uv[36] = vec2[36](
-// 	// Front face
-// 	vec2(0, 0), // bottom-left
-// 	vec2(1, 0), // bottom-right
-// 	vec2(1, 1), // top-right
-// 	vec2(0, 0), // top-right
-// 	vec2(1, 1), // top-left
-// 	vec2(0, 1), // bottom-left
-
-// 	// Back face
-// 	vec2(-size, -size), // bottom-left
-// 	vec2(-size, size), // top-left
-// 	vec2( size, size), // top-right
-// 	vec2( size, size), // top-right
-// 	vec2( size, -size), // bottom-right
-// 	vec2(-size, -size), // bottom-left
-
-// 	// Top face
-// 	vec2(-size, size), // front-bottom-left
-// 	vec2(-size, size), // front-top-left
-// 	vec2( size, size), // front-top-right
-// 	vec2( size, size), // front-top-right
-// 	vec2( size, size), // front-bottom-right
-// 	vec2(-size, size), // front-bottom-left
-
-// 	// Bottom face
-// 	vec2(-size, -size), // back-bottom-left
-// 	vec2( size, -size), // back-bottom-right
-// 	vec2( size), // back-top-right
-// 	vec2( size), // back-top-right
-// 	vec2(-size), // back-top-left
-// 	vec2(-size, -size), // back-bottom-left
-
-// 	// Right face
-// 	vec2( size, -size), // back-bottom-right
-// 	vec2( size, size), // back-top-right
-// 	vec2( size, size), // front-top-right
-// 	vec2( size, size), // front-top-right
-// 	vec2( size), // front-bottom-right
-// 	vec2( size, -size), // back-bottom-right
-
-// 	// Left face
-// 	vec2(-size, -size), // back-bottom-left
-// 	vec2(-size), // front-bottom-left
-// 	vec2(-size, size), // front-top-left
-// 	vec2(-size, size), // front-top-left
-// 	vec2(-size, size), // back-top-left
-// 	vec2(-size, -size)  // back-bottom-left
-// );
 
 const vec3 normals[6] = vec3[6](
 	vec3(0.0, 0.0, -1.0),
 	vec3(0.0, 0.0, 1.0),
 	vec3(0.0, 1.0, 0.0),
 	vec3(0.0, -1.0, 0.0),
-	vec3(1.0, 0.0, 0.0),
-	vec3(-1.0, 0.0, 0.0)
+	vec3(-1.0, 0.0, 0.0),
+	vec3(1.0, 0.0, 0.0)
 );
 
 
@@ -251,7 +159,8 @@ void main()
 	// v_local_uv = uv;
 	v_uv = local_uv[gl_VertexID];
 	v_local_uv = local_uv[gl_VertexID];
-	v_normal = normals[gl_VertexID / 6];
+	int face_index = gl_VertexID / 6;
+	v_normal = normals[face_index];
 
 	gl_Position = view_projection * in_model * vec4(vertex, 1.0);
 }

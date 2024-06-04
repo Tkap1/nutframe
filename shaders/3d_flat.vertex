@@ -43,20 +43,16 @@ mat2 rot(float angle)
 
 
 const float size = 0.5;
-const vec3 vertices[6] = vec3[6](
+const vec3 vertices[4] = vec3[4](
 	vec3(-size, size, 0.0),
 	vec3(size, size, 0.0),
-	vec3(size,  -size, 0.0),
-	vec3(-size,  size, 0.0),
 	vec3(size,  -size, 0.0),
 	vec3(-size, -size, 0.0)
 );
 
-const vec2 local_uvs[6] = vec2[6](
+const vec2 local_uvs[4] = vec2[4](
 	vec2(0, 0),
 	vec2(1, 0),
-	vec2(1, 1),
-	vec2(0, 0),
 	vec2(1, 1),
 	vec2(0, 1)
 );
@@ -67,13 +63,11 @@ void main()
 	int in_flags = in_stuff.x;
 	int in_effect_id = in_stuff.y;
 
-	vec2 local_uv[6];
+	vec2 local_uv[4];
 	local_uv[0] = vec2(0, 0);
 	local_uv[1] = vec2(1, 0);
 	local_uv[2] = vec2(1, 1);
-	local_uv[3] = vec2(0, 0);
-	local_uv[4] = vec2(1, 1);
-	local_uv[5] = vec2(0, 1);
+	local_uv[3] = vec2(0, 1);
 
 	float min_uv_x = (in_flags & 2) != 0 ? in_uv_max.x : in_uv_min.x;
 	float max_uv_x = (in_flags & 2) != 0 ? in_uv_min.x : in_uv_max.x;
@@ -94,13 +88,11 @@ void main()
 		in_uv_min.y
 	);
 
-	vec2 uvs[6];
+	vec2 uvs[4];
 	uvs[0] = topleft;
 	uvs[1] = topright;
 	uvs[2] = bottomright;
-	uvs[3] = topleft;
-	uvs[4] = bottomright;
-	uvs[5] = bottomleft;
+	uvs[3] = bottomleft;
 
 	v_flags = in_flags;
 	v_effect_id = in_effect_id;

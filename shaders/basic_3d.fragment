@@ -10,7 +10,7 @@ in vec2 v_uv_min;
 in vec2 v_uv_max;
 in vec4 v_color;
 in vec4 v_mix_color;
-in vec3 v_normal;
+flat in vec3 v_normal;
 
 in vec2 v_uv;
 in vec2 v_local_uv;
@@ -102,7 +102,7 @@ void main()
 		color.a *= smoothstep(0.49, 0.45, d);
 	}
 
-	vec3 light_dir = normalize(vec3(-1, 1, -2));
+	vec3 light_dir = normalize(vec3(1, -1, 2));
 	float d = dot(-light_dir, v_normal);
 	d = max(0.0, d);
 	d = pow(d * 0.5 + 0.5, 2.0);
@@ -112,6 +112,9 @@ void main()
 	color.rgb = diffuse;
 	// color.rgb += 0.1 * ambient_light_color * texture_color.rgb * v_color.rgb;
 	// color.rgb += 0.25 * vec3(0.1568627450980392, 0.21176470588235294, 0.8431372549019608) * (1.0 - d) * texture_color.rgb * v_color.rgb;
+
+	// color.rgb = v_normal * 0.5 + 0.5;
+	// color.a = 1;
 
 	color = pma(color);
 

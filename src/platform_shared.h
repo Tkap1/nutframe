@@ -90,6 +90,7 @@ X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
 X(PFNGLCOMPILESHADERPROC, glCompileShader) \
 X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
 X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
+X(PFNGLDRAWELEMENTSINSTANCEDPROC, glDrawElementsInstanced) \
 X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
 X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
 X(PFNGLUNIFORM3FVPROC, glUniform3fv) \
@@ -131,6 +132,7 @@ X(PFNGLLINKPROGRAMPROC, glLinkProgram) \
 X(PFNGLCOMPILESHADERPROC, glCompileShader) \
 X(PFNGLVERTEXATTRIBDIVISORPROC, glVertexAttribDivisor) \
 X(PFNGLDRAWARRAYSINSTANCEDPROC, glDrawArraysInstanced) \
+X(PFNGLDRAWELEMENTSINSTANCEDPROC, glDrawElementsInstanced) \
 X(PFNGLUNIFORM1FVPROC, glUniform1fv) \
 X(PFNGLUNIFORM2FVPROC, glUniform2fv) \
 X(PFNGLUNIFORM3FVPROC, glUniform3fv) \
@@ -1598,6 +1600,8 @@ struct s_platform_renderer
 	int max_elements;
 	u32 default_vao;
 	u32 default_vbo;
+	u32 index_buffer_2d;
+	u32 index_buffer_3d;
 	s_carray<u32, e_shader_count> programs;
 };
 static s_platform_renderer g_platform_renderer = {};
@@ -4215,6 +4219,51 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	gl(glGenBuffers(1, &platform_renderer->default_vbo));
 	gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
 
+	gl(glGenBuffers(1, &platform_renderer->index_buffer_2d));
+	gl(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, platform_renderer->index_buffer_2d));
+
+	{
+		u32 index_arr[6] = {
+			0, 1, 2,
+			0, 2, 3
+		};
+		gl(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index_arr), index_arr, GL_STATIC_DRAW));
+	}
+
+	gl(glGenBuffers(1, &platform_renderer->index_buffer_3d));
+	gl(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, platform_renderer->index_buffer_3d));
+
+	{
+		u32 index_arr[36] = {
+			// Front face
+			0, 1, 2,
+			0, 2, 3,
+
+			// Back face
+			4, 5, 6,
+			4, 6, 7,
+
+			// top face
+			8, 9, 10,
+			8, 10, 11,
+
+			// bottom face
+			12, 13, 14,
+			12, 14, 15,
+
+			// left face
+			16, 17, 18,
+			16, 18, 19,
+
+			// right face
+			20, 21, 22,
+			20, 22, 23,
+		};
+		gl(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(index_arr), index_arr, GL_STATIC_DRAW));
+	}
+
+
+
 	s_attrib_handler handler = {};
 	add_int_attrib(&handler, 2);
 	add_float_attrib(&handler, 1);
@@ -5232,18 +5281,24 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 			gl(glBufferSubData(GL_ARRAY_BUFFER, 0, size * count, game_renderer->transforms[offset].elements[0]));
 
 			int num_vertices = 0;
+			u32 index_buffer = 0;
 			if(shader_i == e_shader_default) {
 				num_vertices = 6;
+				index_buffer = platform_renderer->index_buffer_2d;
 			}
 			else if(shader_i == e_shader_basic_3d) {
 				num_vertices = 36;
+				index_buffer = platform_renderer->index_buffer_3d;
 			}
 			else if(shader_i == e_shader_3d_flat) {
 				num_vertices = 6;
+				index_buffer = platform_renderer->index_buffer_2d;
 			}
 			invalid_else;
 
-			gl(glDrawArraysInstanced(GL_TRIANGLES, 0, num_vertices, count));
+			// gl(glDrawArraysInstanced(GL_TRIANGLES, 0, num_vertices, count));
+			gl(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer));
+			gl(glDrawElementsInstanced(GL_TRIANGLES, num_vertices, GL_UNSIGNED_INT, NULL, count));
 			memset(&game_renderer->transforms[offset].element_count, 0, sizeof(game_renderer->transforms[offset].element_count));
 
 			assert(game_renderer->transforms[offset].bucket_count == 1);
