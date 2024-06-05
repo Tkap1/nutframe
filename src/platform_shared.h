@@ -263,6 +263,50 @@ union s_m4
 	s_v4 v[4];
 };
 
+struct s_len_str
+{
+	char* str;
+	int len;
+
+	char operator[](int index)
+	{
+		assert(index >= 0);
+		return str[index];
+	}
+};
+
+#define m_strlit(s) {.str = s, .len = sizeof(s) - 1}
+
+static s_len_str strlit(char* s)
+{
+	return {.str = s, .len = (int)strlen(s)};
+}
+
+[[nodiscard]] static s_len_str get_substr_from(s_len_str x, s_len_str needle)
+{
+	char* match = strstr(x.str, needle.str);
+	if(match) {
+		return {.str = match, .len = (int)(match - x.str)};
+	}
+	else {
+		return {};
+	}
+}
+
+[[nodiscard]] static s_len_str substr_from_to_exclusive(s_len_str x, int start, int end)
+{
+	assert(start >= 0);
+	assert(end > start);
+	return {.str = x.str + start, .len = end - start};
+}
+
+[[nodiscard]] static s_len_str advance(s_len_str x, int n)
+{
+	assert(n > 0);
+	assert(x.len - n >= 0);
+	return {.str = x.str + n, .len = x.len - n};
+}
+
 struct s_recti
 {
 	union
@@ -756,6 +800,30 @@ static u32 hash(u32 value)
 {
 	return value;
 }
+
+struct s_parse_ui_id
+{
+	u32 id;
+	s_len_str text;
+};
+
+[[nodiscard]]
+static s_parse_ui_id parse_ui_id(s_len_str str)
+{
+	s_parse_ui_id result = {};
+	s_len_str id_part = get_substr_from(str, strlit("##"));
+	if(id_part.len > 2) {
+		result.text = substr_from_to_exclusive(str, 0, (int)(id_part.str - str.str));
+		id_part = advance(id_part, 2);
+		result.id = hash(id_part.str);
+	}
+	else {
+		result.text = str;
+		result.id = hash(str.str);
+	}
+	return result;
+}
+
 
 [[nodiscard]]
 static constexpr s_v4 rgb(int hex)
@@ -1334,7 +1402,7 @@ static s_v4 hsv_to_rgb(s_v3 color)
 	return rgba;
 }
 
-static char* format_text(const char* text, ...)
+static s_len_str format_text(const char* text, ...)
 {
 	static constexpr int max_format_text_buffers = 16;
 	static constexpr int max_text_buffer_length = 256;
@@ -1358,7 +1426,7 @@ static char* format_text(const char* text, ...)
 	index += 1;
 	if(index >= max_format_text_buffers) { index = 0; }
 
-	return current_buffer;
+	return strlit(current_buffer);
 }
 
 static constexpr int c_max_arena_push = 16;
@@ -2626,7 +2694,7 @@ struct s_var
 	b8 display;
 	e_var_type type;
 	void* ptr;
-	const char* name;
+	char* name;
 	s_var_value min_val;
 	s_var_value max_val;
 };
@@ -2761,8 +2829,8 @@ struct s_platform_data
 	t_read_file read_file;
 	t_write_file write_file;
 	void (*reset_ui)();
-	s_ui_interaction (*ui_button)(s_game_renderer*, const char*, s_v2, s_v2, s_font*, float, s_input*, s_v2);
-	void (*ui_checkbox)(s_game_renderer*, const char*, s_v2, s_v2, b8*, s_input*, s_v2);
+	s_ui_interaction (*ui_button)(s_game_renderer*, s_len_str, s_v2, s_v2, s_font*, float, s_input*, s_v2);
+	void (*ui_checkbox)(s_game_renderer*, s_len_str, s_v2, s_v2, b8*, s_input*, s_v2);
 	void (*set_window_size)(int, int);
 	void (*set_base_resolution)(int, int);
 	char* variables_path;
@@ -2822,8 +2890,8 @@ void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* 
 
 // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		function headers start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 static int get_render_offset(s_game_renderer* game_renderer, int shader, int texture);
-static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count, int in_column = 0);
-static s_v2 get_text_size(const char* text, s_font* font, float font_size);
+static s_v2 get_text_size_with_count(s_len_str text, s_font* font, float font_size, int count, int in_column = 0);
+static s_v2 get_text_size(s_len_str text, s_font* font, float font_size);
 template <typename t>
 static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc);
 template <typename t>
@@ -2880,7 +2948,7 @@ static int get_spaces_for_column(int column)
 }
 
 // @TODO(tkap, 31/10/2023): Handle new lines
-static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_size, int count, int in_column)
+static s_v2 get_text_size_with_count(s_len_str text, s_font* font, float font_size, int count, int in_column)
 {
 	assert(count >= 0);
 	if(count <= 0) { return {}; }
@@ -2911,9 +2979,9 @@ static s_v2 get_text_size_with_count(const char* text, s_font* font, float font_
 	return size;
 }
 
-static s_v2 get_text_size(const char* text, s_font* font, float font_size)
+static s_v2 get_text_size(s_len_str text, s_font* font, float font_size)
 {
-	return get_text_size_with_count(text, font, font_size, (int)strlen(text));
+	return get_text_size_with_count(text, font, font_size, text.len);
 }
 
 static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_render_data render_data = {}, s_transform t = {})
@@ -3130,12 +3198,11 @@ static void draw_atlas_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s
 	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, texture.game_id)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
 }
 
-static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_pos, int layer, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
+static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_pos, int layer, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
 {
 	float scale = font->scale * (font_size / font->size);
 
-	int len = (int)strlen(text);
-	assert(len > 0);
+	assert(text.len > 0);
 	if(centered) {
 		s_v2 text_size = get_text_size(text, font, font_size);
 		in_pos.x -= text_size.x / 2;
@@ -3143,7 +3210,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 	}
 	s_v2 pos = in_pos;
 	pos.y += font->ascent * scale;
-	for(int char_i = 0; char_i < len; char_i++) {
+	for(int char_i = 0; char_i < text.len; char_i++) {
 		int c = text[char_i];
 		if(c <= 0 || c >= 128) { continue; }
 
@@ -3202,12 +3269,11 @@ static s_v2 draw_text(s_game_renderer* game_renderer, const char* text, s_v2 in_
 	return v2(pos.x, in_pos.y);
 }
 
-static s_v2 draw_text_3d(s_game_renderer* game_renderer, const char* text, s_v3 in_pos, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
+static s_v2 draw_text_3d(s_game_renderer* game_renderer, s_len_str text, s_v3 in_pos, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
 {
 	float scale = font->scale * (font_size / font->size);
 
-	int len = (int)strlen(text);
-	assert(len > 0);
+	assert(text.len > 0);
 	if(centered) {
 		s_v2 text_size = get_text_size(text, font, font_size);
 		in_pos.x -= text_size.x / 2;
@@ -3215,7 +3281,7 @@ static s_v2 draw_text_3d(s_game_renderer* game_renderer, const char* text, s_v3 
 	}
 	s_v2 pos = in_pos.xy;
 	pos.y += font->ascent * scale;
-	for(int char_i = 0; char_i < len; char_i++) {
+	for(int char_i = 0; char_i < text.len; char_i++) {
 		int c = text[char_i];
 		if(c <= 0 || c >= 128) { continue; }
 
@@ -3414,14 +3480,13 @@ static void add_console_command_(s_console* cn, char* name, t_console_func func_
 	cn->commands.add(new_command);
 }
 
-static void add_msg_to_console_(s_console* cn, char* text)
+static void add_msg_to_console_(s_console* cn, s_len_str text)
 {
 	s_str<128> str;
-	int len = (int)strlen(text);
-	assert(len > 0);
-	assert(len < 128);
-	str.len = len;
-	memcpy(str.data, text, len + 1);
+	assert(text.len > 0);
+	assert(text.len < 128);
+	str.len = text.len;
+	memcpy(str.data, text.str, text.len + 1);
 	cn->buffer.insert(0, str);
 }
 #endif // m_debug
@@ -3489,11 +3554,11 @@ static void ui_request_active(s_ui* ui, u32 id)
 }
 
 static s_ui_interaction ui_button(
-	s_game_renderer* game_renderer, const char* text, s_v2 pos, s_v2 size, s_font* font, float font_size, s_input* input, s_v2 mouse
+	s_game_renderer* game_renderer, s_len_str text, s_v2 pos, s_v2 size, s_font* font, float font_size, s_input* input, s_v2 mouse
 )
 {
 	s_ui_interaction result = {};
-	u32 id = hash(text);
+	u32 id = hash(text.str);
 	s_v4 button_color = rgb(0x217278);
 	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
 	if(hovered) {
@@ -3601,10 +3666,10 @@ static t ui_slider(
 	return result;
 }
 
-static void ui_checkbox(s_game_renderer* game_renderer, const char* text, s_v2 pos, s_v2 size, b8* val, s_input* input, s_v2 mouse)
+static void ui_checkbox(s_game_renderer* game_renderer, s_len_str text, s_v2 pos, s_v2 size, b8* val, s_input* input, s_v2 mouse)
 {
 	assert(val);
-	u32 id = hash(text);
+	u32 id = hash(text.str);
 	s_v4 button_color = rgb(0x217278);
 	b8 hovered = mouse_collides_rect_topleft(mouse, pos, size);
 	if(hovered) {
@@ -3756,7 +3821,7 @@ static void update_console(s_console* cn, s_game_renderer* game_renderer)
 							add_msg_to_console(cn, format_text("Command '%.*s' not found", result.end - result.start, result.start));
 						}
 						else {
-							add_msg_to_console(cn, "Expected identifier");
+							add_msg_to_console(cn, strlit("Expected identifier"));
 						}
 					}
 				}
@@ -3833,17 +3898,17 @@ static void update_console(s_console* cn, s_game_renderer* game_renderer)
 	cn->curr_y = lerp_snap(cn->curr_y, cn->target_y, delta * 20.0f, 0.001f);
 	constexpr float input_height = 32.0f;
 	float input_y = g_base_res.y * cn->curr_y - input_height;
-	float cursor_target_x = get_text_size_with_count(cn->input.data, font, input_height, cn->cursor).x;
+	float cursor_target_x = get_text_size_with_count(strlit(cn->input.data), font, input_height, cn->cursor).x;
 	cn->cursor_visual_x = lerp_snap(cn->cursor_visual_x, cursor_target_x, delta * 20, 0.1f);
 	draw_rect(game_renderer, v2(0, 0), 50, v2(g_base_res.x, g_base_res.y * cn->curr_y), rgb(0x44736B), {}, {.origin_offset = c_origin_topleft});
 	draw_rect(game_renderer, v2(0.0f, input_y), 51, v2(g_base_res.x, input_height), rgb(0x5CA79A), {}, {.origin_offset = c_origin_topleft});
 	draw_rect(game_renderer, v2(cn->cursor_visual_x, input_y), 55, v2(input_height * 0.33f, input_height), rgb(0x571E38), {}, {.origin_offset = c_origin_topleft});
 	if(cn->input.len > 0) {
-		draw_text(game_renderer, cn->input.data, v2(0.0f, input_y), 52, input_height, make_color(1), false, font);
+		draw_text(game_renderer, strlit(cn->input.data), v2(0.0f, input_y), 52, input_height, make_color(1), false, font);
 	}
 
 	foreach_val(msg_i, msg, cn->buffer) {
-		draw_text(game_renderer, msg.data, v2(0.0f, input_y - (msg_i + 1) * input_height), 52, input_height, make_color(1), false, font);
+		draw_text(game_renderer, strlit(msg.data), v2(0.0f, input_y - (msg_i + 1) * input_height), 52, input_height, make_color(1), false, font);
 	}
 }
 
@@ -3931,7 +3996,7 @@ static void do_game_layer(
 
 	if(g_platform_data.show_live_vars) {
 		s_v2 pos = g_platform_data.vars_pos;
-		s_ui_interaction interaction = ui_button(game_renderer, "Move", pos, v2(32), NULL, 32, &g_platform_data.logic_input, g_platform_data.mouse);
+		s_ui_interaction interaction = ui_button(game_renderer, strlit("Move"), pos, v2(32), NULL, 32, &g_platform_data.logic_input, g_platform_data.mouse);
 		if(interaction.state == e_ui_pressed) {
 			if(interaction.pressed_this_frame) {
 				g_platform_data.vars_pos_offset = g_platform_data.mouse - pos;
@@ -3954,7 +4019,7 @@ static void do_game_layer(
 			text_pos.x -= 300;
 			text_pos.y += button_height / 2.0f - font_size * 0.5f;
 			s_v2 slider_pos = pos;
-			draw_text(game_renderer, var.name, text_pos, 15, font_size, rgb(0xffffff), false, &game_renderer->fonts[0]);
+			draw_text(game_renderer, strlit(var.name), text_pos, 15, font_size, rgb(0xffffff), false, &game_renderer->fonts[0]);
 			if(var.type == e_var_type_int) {
 				*(int*)var.ptr = ui_slider(
 					game_renderer, var.name, slider_pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size,
@@ -3970,13 +4035,13 @@ static void do_game_layer(
 			else if(var.type == e_var_type_bool) {
 				s_v2 temp = slider_pos;
 				temp.x += 100 - button_height / 2.0f;
-				ui_checkbox(game_renderer, var.name, temp, v2(button_height), (b8*)var.ptr, &g_platform_data.logic_input, g_platform_data.mouse);
+				ui_checkbox(game_renderer, strlit(var.name), temp, v2(button_height), (b8*)var.ptr, &g_platform_data.logic_input, g_platform_data.mouse);
 			}
 			pos.y += button_height + 4.0f;
 		}
 
 		if(ui_button(
-				game_renderer, "Save", pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size, &g_platform_data.logic_input, g_platform_data.mouse
+				game_renderer, strlit("Save"), pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size, &g_platform_data.logic_input, g_platform_data.mouse
 			).state == e_ui_active) {
 			s_str_builder<10 * c_kb> builder;
 			foreach_val(var_i, var, g_platform_data.vars) {
@@ -4166,9 +4231,9 @@ static void on_leaderboard_id_load_success(void* arg, void* in_data, int data_le
 	attr.onerror = failure;
 	attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
 
-	const char* body = format_text("{\"game_key\": \"dev_ae7c0ca6ad2047e1890f76fe7836a5e3\", \"player_identifier\": \"%s\", \"game_version\": \"0.0.0.1\", \"development_mode\": true}", (char*)data);
-	attr.requestData = body;
-	attr.requestDataSize = strlen(body);
+	s_len_str body = format_text("{\"game_key\": \"dev_ae7c0ca6ad2047e1890f76fe7836a5e3\", \"player_identifier\": \"%s\", \"game_version\": \"0.0.0.1\", \"development_mode\": true}", (char*)data);
+	attr.requestData = body.str;
+	attr.requestDataSize = body.len;
 	emscripten_fetch(&attr, "https://api.lootlocker.io/game/v2/session/guest");
 
 }
@@ -4960,7 +5025,7 @@ static b8 set_shader_v2(const char* uniform_name, s_v2 val)
 static s_var* get_var_by_ptr(s_sarray<s_var, 128>* vars, void* ptr);
 
 template <typename t>
-static void live_variable_(s_sarray<s_var, 128>* vars, t* ptr, const char* name, t min_val, t max_val, b8 display)
+static void live_variable_(s_sarray<s_var, 128>* vars, t* ptr, char* name, t min_val, t max_val, b8 display)
 {
 	constexpr b8 is_int = is_same<t, int>;
 	constexpr b8 is_float = is_same<t, float>;
@@ -5086,13 +5151,13 @@ static void submit_leaderboard_score(int time, int leaderboard_id, t_submit_lead
 	attr.onerror = failure;
 	attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
 
-	char* data = format_text("{\"score\": %i}", time);
+	s_len_str data = format_text("{\"score\": %i}", time);
 	char* headers[] = {"x-session-token", g_platform_data.leaderboard_session_token, NULL};
 	attr.requestHeaders = headers;
-	attr.requestData = data;
-	attr.requestDataSize = strlen(data);
-	char* url = format_text("https://api.lootlocker.io/game/leaderboards/%i/submit", leaderboard_id);
-	emscripten_fetch(&attr, url);
+	attr.requestData = data.str;
+	attr.requestDataSize = data.len;
+	s_len_str url = format_text("https://api.lootlocker.io/game/leaderboards/%i/submit", leaderboard_id);
+	emscripten_fetch(&attr, url.str);
 }
 
 static void get_leaderboard_success(emscripten_fetch_t *fetch) {
@@ -5127,8 +5192,8 @@ static void get_leaderboard(int leaderboard_id, t_get_leaderboard_callback get_l
 
 		char* headers[] = {"x-session-token", g_platform_data.leaderboard_session_token, NULL};
 		attr.requestHeaders = headers;
-		char* url = format_text("https://api.lootlocker.io/game/leaderboards/%i/list?count=10", leaderboard_id);
-		emscripten_fetch(&attr, url);
+		s_len_str url = format_text("https://api.lootlocker.io/game/leaderboards/%i/list?count=10", leaderboard_id);
+		emscripten_fetch(&attr, url.str);
 	}
 }
 
@@ -5147,8 +5212,8 @@ static void get_our_leaderboard(int leaderboard_id, t_get_our_leaderboard_callba
 
 		char* headers[] = {"x-session-token", g_platform_data.leaderboard_session_token, NULL};
 		attr.requestHeaders = headers;
-		char* url = format_text("https://api.lootlocker.io/game/leaderboards/%i/member/%i", leaderboard_id, g_platform_data.leaderboard_player_id);
-		emscripten_fetch(&attr, url);
+		s_len_str url = format_text("https://api.lootlocker.io/game/leaderboards/%i/member/%i", leaderboard_id, g_platform_data.leaderboard_player_id);
+		emscripten_fetch(&attr, url.str);
 	}
 }
 #endif // __EMSCRIPTEN__

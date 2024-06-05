@@ -33,6 +33,7 @@ static constexpr s_v2 c_save_point_collision_size = v2(c_play_tile_size * 1.5f);
 static constexpr s_v2 c_jump_refresher_visual_size = v2(c_play_tile_size);
 static constexpr s_v2 c_jump_refresher_collision_size = v2(c_play_tile_size);
 static constexpr s_v2 c_end_point_size = v2(c_play_tile_size);
+static constexpr s_v2 c_base_button_size = v2(320, 48);
 
 static constexpr s_v2i c_sprite_size = v2i(64, 64);
 
@@ -52,7 +53,7 @@ enum e_state
 	e_state_map_select,
 	e_state_play,
 	e_state_editor,
-	e_state_victory,
+	e_state_leaderboard,
 };
 
 struct s_leaderboard_entry
@@ -234,6 +235,13 @@ struct s_ui_element_data
 	s_v2 size;
 };
 
+struct s_ui_optional
+{
+	float font_size;
+	float size_x;
+	float size_y;
+};
+
 struct s_ui
 {
 	s_hashmap<u32, s_ui_element_data, 1024> element_data;
@@ -249,21 +257,32 @@ struct s_dev_menu
 
 struct s_map_data
 {
-	char* name;
+	s_len_str name;
 	char* path;
 	int leaderboard_id;
 };
 
 constexpr s_map_data c_map_data[] = {
-	{.name = "Easy", .path = "platform_map.map", .leaderboard_id = 22605},
-	{.name = "Hard", .path = "map2.map", .leaderboard_id = 22731},
-	{.name = "AQtun", .path = "aqtun.map", .leaderboard_id = 22741},
-	{.name = "Zanarias", .path = "zanarias.map", .leaderboard_id = 22762},
-	{.name = "Azenris", .path = "azenris.map", .leaderboard_id = 22763},
+	{.name = m_strlit("Easy"), .path = "platform_map.map", .leaderboard_id = 22605},
+	{.name = m_strlit("Hard"), .path = "map2.map", .leaderboard_id = 22731},
+	{.name = m_strlit("AQtun"), .path = "aqtun.map", .leaderboard_id = 22741},
+	{.name = m_strlit("Zanarias"), .path = "zanarias.map", .leaderboard_id = 22762},
+	{.name = m_strlit("Azenris"), .path = "azenris.map", .leaderboard_id = 22763},
 
 	#ifndef m_emscripten
-	{.name = "Use this to make your own map", .path = "example.map", .leaderboard_id = 0},
+	{.name = m_strlit("Create map"), .path = "example.map", .leaderboard_id = 0},
 	#endif // m_emscripten
+};
+
+struct s_leaderboard_state
+{
+	b8 coming_from_win;
+	b8 received;
+};
+
+struct s_map_select_state
+{
+	int map_selected;
 };
 
 struct s_game
@@ -273,7 +292,9 @@ struct s_game
 	e_state state;
 	int reset_player;
 	int curr_map;
-	int map_selected;
+
+	s_leaderboard_state leaderboard_state;
+	s_map_select_state map_select_state;
 
 	s_ui ui;
 
@@ -328,7 +349,8 @@ static void on_leaderboard_score_submitted();
 static s_m4 get_camera_view(s_camera3d cam);
 static s_draw_data get_player_draw_data(s_player player);
 static void ui_start(int selected);
-static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr);
+static void ui_bool_button(s_len_str id_str, s_v2 pos, b8* ptr);
 static int ui_end();
 static void do_ui(s_m4 ortho);
-static b8 ui_button(char* id_str, s_v2 pos);
+static b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional = {});
+static void set_state(e_state state);

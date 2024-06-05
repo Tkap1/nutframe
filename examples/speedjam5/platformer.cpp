@@ -113,6 +113,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			game->timer += 1.0 / c_updates_per_second;
 
+
+			if(is_key_pressed(g_input, c_key_escape)) {
+				set_state(e_state_map_select);
+			}
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player update start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_player* player = &game->player;
@@ -346,13 +351,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					s_v2 end_point_pos = index_to_pos(game->map.end_point.pos, c_play_tile_size);
 					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, end_point_pos, c_end_point_size);
 					if(collides) {
-						game->state = e_state_victory;
+						set_state(e_state_leaderboard);
+						game->leaderboard_state.coming_from_win = true;
 						platform_data->play_sound(game->win_sound);
 						if(platform_data->submit_leaderboard_score) {
 							platform_data->submit_leaderboard_score(
 								(int)round(game->timer * 1000.0), c_map_data[game->curr_map].leaderboard_id, on_leaderboard_score_submitted
 							);
-							game->leaderboard_arr.count = 0;
 						}
 						// if(game->leaderboard_arr.count >= c_max_leaderboard_entries) {
 						// 	f64 slowest_time = -1;
@@ -518,10 +523,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	#ifdef m_debug
 	if(is_key_pressed(g_input, c_key_f1)) {
 		if(game->state == e_state_editor) {
-			game->state = e_state_play;
+
+			set_state(e_state_play);
 		}
 		else {
-			game->state = e_state_editor;
+			set_state(e_state_editor);
 		}
 	}
 	#endif // m_debug
@@ -529,20 +535,31 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(game->state) {
 
 		case e_state_map_select: {
+			s_map_select_state* state = &game->map_select_state;
 			start_render_pass(g_r);
-			ui_start(game->map_selected);
-			s_v2 pos = v2(c_half_res.x - 110, c_half_res.y);
-			constexpr float font_size = 48;
+			ui_start(state->map_selected);
+			s_v2 pos = v2(c_half_res.x * 0.2f, c_half_res.y * 0.1f);
+			constexpr float font_size = 32;
 			for(int map_i = 0; map_i < array_count(c_map_data); map_i++) {
 				s_map_data md = c_map_data[map_i];
-				if(ui_button(md.name, pos)) {
+				if(ui_button(md.name, pos, {.font_size = font_size})) {
 					game->curr_map = map_i;
 					load_map(&game->map, map_i, platform_data);
-					game->state = e_state_play;
+					set_state(e_state_play);
 				}
-				pos.y += font_size * 1.1f;
+				s_v2 pos2 = pos;
+				pos2.x += c_base_button_size.x + 80;
+				if(ui_button(format_text("Leaderboard##leaderboard%i", map_i), pos2, {.font_size = font_size, .size_x = 220})) {
+
+					// @Hack(tkap, 05/06/2024): Otherwise we will get leaderboard for the last map we entered (or 0 by default)
+					game->curr_map = map_i;
+
+					set_state(e_state_leaderboard);
+					on_leaderboard_score_submitted();
+				}
+				pos.y += c_base_button_size.y * 1.1f;
 			}
-			game->map_selected = ui_end();
+			state->map_selected = ui_end();
 			g_r->end_render_pass(g_r, {.do_clear = true, .blend_mode = e_blend_mode_normal, .view_projection = ortho});
 		} break;
 
@@ -784,21 +801,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 				float z = c_player_z;
 
-				draw_text_3d(g_r, "What if you shot a rocket and\njumped at the same time?", v3(300, 2015, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("What if you shot a rocket and\njumped at the same time?"), v3(300, 2015, z), 0.5f, make_color(1), false, game->font);
 
-				draw_text_3d(g_r, "Hold\nShoot!", v3(286, 2003, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(286, 2003, z), 0.5f, make_color(1), false, game->font);
 
-				draw_text_3d(g_r, "Hold\nShoot!", v3(246, 1943, z), 0.5f, make_color(1), false, game->font);
-				draw_text_3d(g_r, "It's pogo time!", v3(250, 1943, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(246, 1943, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("It's pogo time!"), v3(250, 1943, z), 0.5f, make_color(1), false, game->font);
 
-				draw_text_3d(g_r, "You can jump mid-air!", v3(289, 1944, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("You can jump mid-air!"), v3(289, 1944, z), 0.5f, make_color(1), false, game->font);
 
 				char* text = "If only there was\n"
 					"a way to get hit by 2\n"
 					"rockets at the same time...\n\n"
 					"I bet that would send\n"
 					"you very high up";
-				draw_text_3d(g_r, text, v3(223, 1930, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit(text), v3(223, 1930, z), 0.5f, make_color(1), false, game->font);
 
 				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = view_projection});
 
@@ -808,7 +825,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			start_render_pass(g_r);
 			{
 				s_time_data data = process_time(game->timer);
-				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font);
 			}
 
@@ -1022,25 +1039,37 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_v2 pos = v2(4, 4);
 				draw_text(g_r, format_text("x: %i y: %i", mouse_index.x, mouse_index.y), pos, 10, font_size, make_color(1), false, game->font);
 				pos.y += font_size;
-				draw_text(g_r, "Press C to move camera to player", pos, 10, font_size, make_color(1), false, game->font);
+				draw_text(g_r, strlit("Press C to move camera to player"), pos, 10, font_size, make_color(1), false, game->font);
 				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho});
 			}
 
 		} break;
 
-		case e_state_victory: {
+		case e_state_leaderboard: {
 
 			start_render_pass(g_r);
 
 			if(is_key_pressed(g_input, c_key_r)) {
-				game->reset_game = true;
-				game->state = e_state_play;
+				set_state(e_state_play);
 			}
 
-			{
+			if(is_key_pressed(g_input, c_key_escape)) {
+				set_state(e_state_map_select);
+			}
+
+			if(!game->leaderboard_state.received) {
+				draw_text(g_r, strlit("Getting leaderboard..."), c_half_res, 10, 48, make_color(0.66f), true, game->font);
+			}
+			else if(game->leaderboard_arr.count <= 0) {
+				draw_text(g_r, strlit("No one has beaten this map :("), c_half_res, 10, 48, make_color(0.66f), true, game->font);
+			}
+
+			if(game->leaderboard_state.coming_from_win) {
 				s_time_data data = process_time((int)round(game->timer * 1000.0) / 1000.0);
-				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 				draw_text(g_r, text, c_half_res * v2(1.0f, 0.2f), 10, 64, make_color(1), true, game->font);
+
+				draw_text(g_r, strlit("Press R to restart"), c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font);
 			}
 
 			s_v2 pos = c_half_res * v2(1.0f, 0.7f);
@@ -1055,12 +1084,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					rank_number = entry.rank;
 				}
 				draw_text(g_r, format_text("%i %s", rank_number, entry.internal_name.data), v2(c_base_res.x * 0.1f, pos.y - 24), 10, 32, color, false, game->font);
-				char* text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 				draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font);
 				pos.y += 48;
 			}
-
-			draw_text(g_r, "Press R to restart", c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font);
 
 			g_r->end_render_pass(g_r, {.do_clear = true, .blend_mode = e_blend_mode_normal, .view_projection = ortho});
 
@@ -1087,8 +1114,8 @@ static void do_ui(s_m4 ortho)
 	start_render_pass(g_r);
 	if(game->dev_menu.active) {
 		ui_start(game->dev_menu.selected_ui);
-		ui_bool_button("Show hitboxes", v2(4, 4), &game->dev_menu.show_hitboxes);
-		ui_bool_button("test", v2(4, 64), &game->dev_menu.show_hitboxes);
+		ui_bool_button(strlit("Show hitboxes"), v2(4, 4), &game->dev_menu.show_hitboxes);
+		ui_bool_button(strlit("test"), v2(4, 64), &game->dev_menu.show_hitboxes);
 		game->dev_menu.selected_ui = ui_end();
 	}
 
@@ -1274,6 +1301,8 @@ static void on_leaderboard_received(s_json* json)
 	end:;
 
 	g_platform_data->get_our_leaderboard(c_map_data[game->curr_map].leaderboard_id, on_our_leaderboard_received);
+
+	game->leaderboard_state.received = true;
 }
 
 static void on_our_leaderboard_received(s_json* json)
@@ -1295,6 +1324,11 @@ static void on_our_leaderboard_received(s_json* json)
 	new_entry.internal_name.from_cstr(internal_name);
 
 	new_entry.time = json_get(j, "score", e_json_integer)->integer;
+
+	// @Note(tkap, 05/06/2024): We are not in this leaderboard!
+	if(new_entry.rank <= 0 || new_entry.time <= 0) {
+		return;
+	}
 
 	b8 is_already_in_top_ten = false;
 	foreach_val(entry_i, entry, game->leaderboard_arr) {
@@ -1344,10 +1378,10 @@ static void ui_start(int selected)
 	g_ui->data_stack.add(data);
 }
 
-static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr)
+static void ui_bool_button(s_len_str id_str, s_v2 pos, b8* ptr)
 {
 	s_ui_data* data = &g_ui->data_stack.get_last();
-	u32 id = hash(id_str);
+	u32 id = hash(id_str.str);
 
 	s_v2 size = v2(320, 48);
 	s_ui_element_data* element_data = g_ui->element_data.get(id);
@@ -1396,18 +1430,30 @@ static void ui_bool_button(char* id_str, s_v2 pos, b8* ptr)
 	data->element_count += 1;
 }
 
-static b8 ui_button(char* id_str, s_v2 pos)
+static b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 {
 	b8 result = false;
 	s_ui_data* data = &g_ui->data_stack.get_last();
-	u32 id = hash(id_str);
+	s_parse_ui_id parse_result = parse_ui_id(id_str);
+
+	float font_size = 48;
+	if(optional.font_size > 0) {
+		font_size = optional.font_size;
+	}
 
 	s_v2 size = v2(320, 48);
-	s_ui_element_data* element_data = g_ui->element_data.get(id);
+	if(optional.size_x > 0) {
+		size.x = optional.size_x;
+	}
+	if(optional.size_y > 0) {
+		size.y = optional.size_y;
+	}
+
+	s_ui_element_data* element_data = g_ui->element_data.get(parse_result.id);
 	if(!element_data) {
 		s_ui_element_data temp_data = {};
 		temp_data.size = size;
-		element_data = g_ui->element_data.set(id, temp_data);
+		element_data = g_ui->element_data.set(parse_result.id, temp_data);
 	}
 
 	b8 hovered = mouse_collides_rect_topleft(g_mouse, pos, size);
@@ -1417,10 +1463,10 @@ static b8 ui_button(char* id_str, s_v2 pos)
 	}
 	b8 selected = data->element_count == data->selected;
 	if(selected) {
-		element_data->size.x = lerp_snap(element_data->size.x, size.x * 1.2f, g_delta * 10, 0.1f);
+		element_data->size.x = lerp_snap(element_data->size.x, size.x * 1.2f, g_delta * 20, 0.1f);
 	}
 	else {
-		element_data->size.x = lerp_snap(element_data->size.x, size.x, g_delta * 10, 0.1f);
+		element_data->size.x = lerp_snap(element_data->size.x, size.x, g_delta * 20, 0.1f);
 	}
 	s_v4 color = make_color(0.5f, 0.1f, 0.1f);
 
@@ -1436,10 +1482,9 @@ static b8 ui_button(char* id_str, s_v2 pos)
 	}
 	draw_rect(g_r, pos, 0, element_data->size, color, {}, {.origin_offset = c_origin_topleft});
 
-	float font_size = size.y * 0.9f;
 	s_v2 text_pos = center_text_on_rect(pos, element_data->size, font_size, false, true);
 	text_pos.x += 4;
-	draw_text(g_r, id_str, text_pos, 1, font_size, make_color(1), false, game->font);
+	draw_text(g_r, parse_result.text, text_pos, 1, font_size, make_color(1), false, game->font);
 	data->element_count += 1;
 
 	return result;
@@ -1457,4 +1502,29 @@ static int ui_end()
 	}
 
 	return data.selected;
+}
+
+static void set_state(e_state state)
+{
+	game->state = state;
+	switch(state) {
+		case e_state_map_select: {
+			game->map_select_state = {};
+		} break;
+
+		case e_state_leaderboard: {
+			game->leaderboard_state = {};
+			game->leaderboard_arr.count = 0;
+		} break;
+
+		case e_state_play: {
+			game->reset_game = true;
+		} break;
+
+		case e_state_editor: {
+
+		} break;
+
+		invalid_default_case;
+	}
 }
