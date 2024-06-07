@@ -1072,18 +1072,23 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_text(g_r, strlit("Press R to restart"), c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font);
 			}
 
+			constexpr int c_max_visible_entries = 10;
 			s_v2 pos = c_half_res * v2(1.0f, 0.7f);
-			for(int entry_i = 0; entry_i < at_most(11, game->leaderboard_arr.count); entry_i++) {
+			for(int entry_i = 0; entry_i < at_most(c_max_visible_entries + 1, game->leaderboard_arr.count); entry_i++) {
 				s_leaderboard_entry entry = game->leaderboard_arr[entry_i];
 				f64 time = entry.time / 1000.0;
 				s_time_data data = process_time(time);
 				s_v4 color = make_color(0.8f);
 				int rank_number = entry_i + 1;
-				if(entry_i == 10 || strcmp(platform_data->leaderboard_public_uid.data, entry.internal_name.data) == 0) {
+				if(entry_i == c_max_visible_entries || strcmp(platform_data->leaderboard_public_uid.data, entry.internal_name.data) == 0) {
 					color = rgb(0xD3A861);
 					rank_number = entry.rank;
 				}
-				draw_text(g_r, format_text("%i %s", rank_number, entry.internal_name.data), v2(c_base_res.x * 0.1f, pos.y - 24), 10, 32, color, false, game->font);
+				char* name = entry.internal_name.data;
+				if(entry.nice_name.len > 0) {
+					name = entry.nice_name.data;
+				}
+				draw_text(g_r, format_text("%i %s", rank_number, name), v2(c_base_res.x * 0.1f, pos.y - 24), 10, 32, color, false, game->font);
 				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 				draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font);
 				pos.y += 48;
