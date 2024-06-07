@@ -54,6 +54,7 @@ enum e_state
 	e_state_play,
 	e_state_editor,
 	e_state_leaderboard,
+	e_state_input_name,
 };
 
 struct s_leaderboard_entry
@@ -280,6 +281,12 @@ struct s_leaderboard_state
 	b8 received;
 };
 
+struct s_input_name_state
+{
+	s_input_str<17> name;
+	s_str<64> error_str;
+};
+
 struct s_map_select_state
 {
 	int map_selected;
@@ -295,6 +302,7 @@ struct s_game
 
 	s_leaderboard_state leaderboard_state;
 	s_map_select_state map_select_state;
+	s_input_name_state input_name_state;
 
 	s_ui ui;
 
@@ -354,3 +362,4 @@ static int ui_end();
 static void do_ui(s_m4 ortho);
 static b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional = {});
 static void set_state(e_state state);
+static void on_set_leaderboard_name(b8 success);

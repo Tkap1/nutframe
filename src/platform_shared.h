@@ -263,121 +263,6 @@ union s_m4
 	s_v4 v[4];
 };
 
-struct s_len_str
-{
-	char* str;
-	int len;
-
-	char operator[](int index)
-	{
-		assert(index >= 0);
-		return str[index];
-	}
-};
-
-#define m_strlit(s) {.str = s, .len = sizeof(s) - 1}
-
-static s_len_str strlit(char* s)
-{
-	return {.str = s, .len = (int)strlen(s)};
-}
-
-[[nodiscard]] static s_len_str get_substr_from(s_len_str x, s_len_str needle)
-{
-	char* match = strstr(x.str, needle.str);
-	if(match) {
-		return {.str = match, .len = (int)(match - x.str)};
-	}
-	else {
-		return {};
-	}
-}
-
-[[nodiscard]] static s_len_str substr_from_to_exclusive(s_len_str x, int start, int end)
-{
-	assert(start >= 0);
-	assert(end > start);
-	return {.str = x.str + start, .len = end - start};
-}
-
-[[nodiscard]] static s_len_str advance(s_len_str x, int n)
-{
-	assert(n > 0);
-	assert(x.len - n >= 0);
-	return {.str = x.str + n, .len = x.len - n};
-}
-
-struct s_recti
-{
-	union
-	{
-		struct
-		{
-			int x;
-			int y;
-			int width;
-			int height;
-		};
-		struct
-		{
-			int x0;
-			int y0;
-			int x1;
-			int y1;
-		};
-	};
-};
-
-struct s_string_parse
-{
-	b8 success;
-	char* first_char;
-	char* last_char;
-	char* continuation;
-	char* result;
-	int len;
-};
-
-
-enum e_json
-{
-	e_json_object,
-	e_json_integer,
-	e_json_string,
-	e_json_bool,
-	e_json_array,
-	e_json_null,
-};
-
-struct s_json
-{
-	e_json type;
-	char* key;
-	s_json* next;
-
-	union
-	{
-		b8 bool_val;
-		s_json* object;
-		s_json* array;
-		int integer;
-		char* str;
-	};
-};
-
-enum e_input_modifier
-{
-	e_input_modifier_none = 0,
-	e_input_modifier_ctrl = 1 << 1,
-};
-
-
-#ifndef m_game
-#ifndef m_debug
-#include "embed.h"
-#endif // m_debug
-#endif // m_game
-
 struct s_rng
 {
 	u32 seed;
@@ -464,42 +349,6 @@ struct s_rng
 	}
 
 };
-
-struct s_ray
-{
-	s_v3 pos;
-	s_v3 dir;
-};
-
-struct s_ray_collision
-{
-	b8 hit;
-	float distance;
-	s_v3 normal;
-	s_v3 point;
-};
-
-enum e_blend_mode
-{
-	e_blend_mode_disable,
-	e_blend_mode_normal,
-	e_blend_mode_additive,
-	e_blend_mode_multiply,
-	e_blend_mode_count,
-};
-
-template <typename t>
-static t at_least(t a, t b)
-{
-	return a > b ? a : b;
-}
-
-template <typename t>
-static t at_most(t a, t b)
-{
-	return b > a ? a : b;
-}
-
 
 template <typename T, int N>
 struct s_sarray
@@ -694,6 +543,267 @@ struct s_sarray
 		}
 	}
 };
+
+static constexpr int c_max_arena_push = 16;
+struct s_lin_arena
+{
+	s_sarray<u64, c_max_arena_push> push;
+	u64 used;
+	u64 capacity;
+	void* memory;
+};
+
+struct s_len_str
+{
+	char* str;
+	int len;
+
+	char operator[](int index)
+	{
+		assert(index >= 0);
+		return str[index];
+	}
+};
+
+
+template <typename t>
+struct s_maybe
+{
+	b8 valid;
+	t value;
+};
+
+template <typename t>
+static s_maybe<t> maybe(t value)
+{
+	return {.valid = true, .value = value};
+}
+
+template <typename t>
+static s_maybe<t> maybe()
+{
+	return {};
+}
+
+template <int n>
+struct s_str
+{
+	int len;
+	char data[n];
+
+	char& operator[](int i)
+	{
+		assert(i >= 0);
+		assert(i <= len);
+		return data[i];
+	}
+
+	void null_terminate()
+	{
+		assert(len >= 0);
+		assert(len < n);
+		data[len] = 0;
+	}
+
+	void from_cstr(char* str)
+	{
+		int in_len = (int)strlen(str);
+		assert(in_len < n);
+		memcpy(data, str, in_len);
+		data[in_len] = 0;
+		len = in_len;
+	}
+
+	void from_data(char* str, int in_len)
+	{
+		assert(in_len < n);
+		memcpy(data, str, in_len);
+		len = in_len;
+		data[in_len] = 0;
+	}
+
+	b8 is_full() { return len >= n - 1; }
+
+	void insert(int index, char c)
+	{
+		assert(index >= 0);
+		assert(index < n);
+		assert(index <= len);
+		assert(!is_full());
+
+		memmove(&data[index + 1], &data[index], len - index);
+		data[index] = c;
+		len += 1;
+		data[len] = 0;
+	}
+
+	void remove_char_at(int index)
+	{
+		assert(index >= 0);
+		assert(index < len);
+
+		len -= 1;
+		memmove(&data[index], &data[index + 1], len - index);
+		data[len] = 0;
+	}
+
+};
+
+template <int n>
+struct s_input_str
+{
+	b8 visual_pos_initialized;
+	s_v2 cursor_visual_pos;
+	float last_edit_time;
+	float last_action_time;
+	s_maybe<int> cursor;
+	s_str<n> str;
+
+	int get_max_chars()
+	{
+		return n - 1;
+	}
+};
+
+#define m_strlit(s) {.str = s, .len = sizeof(s) - 1}
+
+static s_len_str strlit(char* s)
+{
+	return {.str = s, .len = (int)strlen(s)};
+}
+
+[[nodiscard]] static s_len_str get_substr_from(s_len_str x, s_len_str needle)
+{
+	char* match = strstr(x.str, needle.str);
+	if(match) {
+		return {.str = match, .len = (int)(match - x.str)};
+	}
+	else {
+		return {};
+	}
+}
+
+[[nodiscard]] static s_len_str substr_from_to_exclusive(s_len_str x, int start, int end)
+{
+	assert(start >= 0);
+	assert(end > start);
+	return {.str = x.str + start, .len = end - start};
+}
+
+[[nodiscard]] static s_len_str advance(s_len_str x, int n)
+{
+	assert(n > 0);
+	assert(x.len - n >= 0);
+	return {.str = x.str + n, .len = x.len - n};
+}
+
+struct s_recti
+{
+	union
+	{
+		struct
+		{
+			int x;
+			int y;
+			int width;
+			int height;
+		};
+		struct
+		{
+			int x0;
+			int y0;
+			int x1;
+			int y1;
+		};
+	};
+};
+
+struct s_string_parse
+{
+	b8 success;
+	char* first_char;
+	char* last_char;
+	char* continuation;
+	char* result;
+	int len;
+};
+
+
+enum e_json
+{
+	e_json_object,
+	e_json_integer,
+	e_json_string,
+	e_json_bool,
+	e_json_array,
+	e_json_null,
+};
+
+struct s_json
+{
+	e_json type;
+	char* key;
+	s_json* next;
+
+	union
+	{
+		b8 bool_val;
+		s_json* object;
+		s_json* array;
+		int integer;
+		char* str;
+	};
+};
+
+enum e_input_modifier
+{
+	e_input_modifier_none = 0,
+	e_input_modifier_ctrl = 1 << 1,
+};
+
+
+#ifndef m_game
+#ifndef m_debug
+#include "embed.h"
+#endif // m_debug
+#endif // m_game
+
+
+struct s_ray
+{
+	s_v3 pos;
+	s_v3 dir;
+};
+
+struct s_ray_collision
+{
+	b8 hit;
+	float distance;
+	s_v3 normal;
+	s_v3 point;
+};
+
+enum e_blend_mode
+{
+	e_blend_mode_disable,
+	e_blend_mode_normal,
+	e_blend_mode_additive,
+	e_blend_mode_multiply,
+	e_blend_mode_count,
+};
+
+template <typename t>
+static t at_least(t a, t b)
+{
+	return a > b ? a : b;
+}
+
+template <typename t>
+static t at_most(t a, t b)
+{
+	return b > a ? a : b;
+}
+
 
 template <typename t, int n>
 struct s_carray
@@ -1428,15 +1538,6 @@ static s_len_str format_text(const char* text, ...)
 
 	return strlit(current_buffer);
 }
-
-static constexpr int c_max_arena_push = 16;
-struct s_lin_arena
-{
-	s_sarray<u64, c_max_arena_push> push;
-	u64 used;
-	u64 capacity;
-	void* memory;
-};
 
 static void* la_get(s_lin_arena* arena, u64 in_requested)
 {
@@ -2656,6 +2757,7 @@ struct s_key
 
 struct s_key_event
 {
+	b8 went_down;
 	int modifiers;
 	int key;
 };
@@ -2664,7 +2766,6 @@ struct s_input
 {
 	float wheel_movement;
 
-	// @TODO(tkap, 03/06/2024): set this!
 	s_sarray<s_key_event, 128> key_events;
 	s_sarray<char, 128> char_events;
 	s_carray<s_key, c_max_keys> keys;
@@ -2713,36 +2814,6 @@ struct s_ui_interaction
 	e_ui state;
 };
 
-template <int n>
-struct s_str
-{
-	int len;
-	char data[n];
-
-	char& operator[](int i)
-	{
-		assert(i >= 0);
-		assert(i <= len);
-		return data[i];
-	}
-
-	void null_terminate()
-	{
-		assert(len >= 0);
-		assert(len < n);
-		data[len] = 0;
-	}
-
-	void from_cstr(char* str)
-	{
-		int in_len = (int)strlen(str);
-		assert(in_len < n);
-		memcpy(data, str, in_len);
-		data[in_len] = 0;
-		len = in_len;
-	}
-};
-
 #ifdef m_debug
 #define add_console_command(...) add_console_command_(__VA_ARGS__)
 #define add_msg_to_console(...) add_msg_to_console_(__VA_ARGS__)
@@ -2774,6 +2845,7 @@ struct s_console
 typedef void (*t_submit_leaderboard_score_callback)(void);
 typedef void (*t_get_leaderboard_callback)(s_json*);
 typedef void (*t_get_our_leaderboard_callback)(s_json*);
+typedef void (*t_set_leaderboard_name_callback)(b8);
 
 struct s_platform_data
 {
@@ -2799,12 +2871,15 @@ struct s_platform_data
 	void (*submit_leaderboard_score)(int, int, t_submit_leaderboard_score_callback);
 	void (*get_leaderboard)(int, t_get_leaderboard_callback);
 	void (*get_our_leaderboard)(int, t_get_our_leaderboard_callback);
+	void (*register_leaderboard_client)(void);
+	void (*set_leaderboard_name)(s_len_str, t_set_leaderboard_name_callback);
 	char* leaderboard_session_token;
 	t_submit_leaderboard_score_callback submit_leaderboard_score_callback;
 	t_get_leaderboard_callback get_leaderboard_callback;
 	t_get_our_leaderboard_callback get_our_leaderboard_callback;
-	void (*register_leaderboard_client)(void);
+	t_set_leaderboard_name_callback set_leaderboard_name_callback;
 	s_str<64> leaderboard_public_uid;
+	s_str<64> leaderboard_nice_name;
 	s_str<256> leaderboard_player_identifier;
 	int leaderboard_player_id;
 
@@ -2900,6 +2975,8 @@ static s_json* parse_json(char* str);
 static void print_json(s_json* json);
 static s_json* json_get(s_json* json, char* key_name, e_json in_type);
 static s_string_parse parse_string(char* str, b8 do_alloc);
+static s_len_str alloc_string(void* data, int len);
+static char* to_cstr(s_len_str str, s_lin_arena* arena);
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		function headers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
@@ -4182,9 +4259,8 @@ static void on_gl_error(const char* expr, char* file, int line, int error)
 
 #ifdef __EMSCRIPTEN__
 
-
-static void on_store(void* arg) { printf("stored\n"); }
-static void on_error(void* arg) { printf("error\n"); }
+static void on_store_success(void* arg) { printf("stored\n"); }
+static void on_store_error(void* arg) { printf("error\n"); }
 
 static void success(emscripten_fetch_t *fetch) {
 	((char*)fetch->data)[fetch->numBytes] = 0;
@@ -4193,30 +4269,29 @@ static void success(emscripten_fetch_t *fetch) {
 }
 
 static void register_leaderboard_client_success(emscripten_fetch_t *fetch) {
-	((char*)fetch->data)[fetch->numBytes] = 0;
-	s_json* json = parse_json((char*)fetch->data);
+	char buffer[4096] = {};
+	memcpy(buffer, fetch->data, fetch->numBytes);
+	s_json* json = parse_json(buffer);
 	s_json* temp = json_get(json, "session_token", e_json_string);
 	if(temp) {
 		g_platform_data.leaderboard_session_token = temp->str;
 		temp = json_get(json, "public_uid", e_json_string);
 		g_platform_data.leaderboard_public_uid.from_cstr(temp->str);
 		char* player_identifier = json_get(json, "player_identifier", e_json_string)->str;
+		char* nice_name = json_get(json, "player_name", e_json_string)->str;
 		g_platform_data.leaderboard_player_identifier.from_cstr(player_identifier);
 		g_platform_data.leaderboard_player_id = json_get(json, "player_id", e_json_integer)->integer;
+		g_platform_data.leaderboard_nice_name.from_cstr(nice_name);
 	}
-	emscripten_idb_async_store("leaderboard", "id", (void*)g_platform_data.leaderboard_player_identifier.data, g_platform_data.leaderboard_player_identifier.len, NULL, on_store, on_error);
+	emscripten_idb_async_store("leaderboard", "id", (void*)g_platform_data.leaderboard_player_identifier.data, g_platform_data.leaderboard_player_identifier.len, NULL, on_store_success, on_store_error);
 	// We're done with the fetch, so free it
 	emscripten_fetch_close(fetch);
 }
 
 
 static void failure(emscripten_fetch_t *fetch) {
-	((char*)fetch->data)[fetch->numBytes] = 0;
-	// We're done with the fetch, so free it
 	emscripten_fetch_close(fetch);
 }
-
-
 
 static void on_leaderboard_id_load_success(void* arg, void* in_data, int data_len)
 {
@@ -4253,19 +4328,49 @@ static void on_leaderboard_id_load_error(void* arg)
 	emscripten_fetch(&attr, "https://api.lootlocker.io/game/v2/session/guest");
 }
 
-
 static void register_leaderboard_client()
 {
 	if(g_platform_data.leaderboard_session_token) { return; }
 	emscripten_idb_async_load("leaderboard", "id", NULL, on_leaderboard_id_load_success, on_leaderboard_id_load_error);
 }
 
-void on_load(void* arg, void* data, int data_len)
+
+static void set_leaderboard_name_success(emscripten_fetch_t *fetch)
 {
+	// char buffer[4096] = {};
+	// memcpy(buffer, fetch->data, fetch->numBytes);
+	// s_json* json = parse_json(buffer);
+	// print_json(json);
+	// s_json* temp = json_get(json, "session_token", e_json_string);
+	g_platform_data.set_leaderboard_name_callback(true);
+	emscripten_fetch_close(fetch);
 }
 
-void on_load_error(void* arg)
+static void set_leaderboard_name_fail(emscripten_fetch_t *fetch)
 {
+	g_platform_data.set_leaderboard_name_callback(false);
+	emscripten_fetch_close(fetch);
+}
+
+static void set_leaderboard_name(s_len_str name, t_set_leaderboard_name_callback callback)
+{
+	assert(g_platform_data.leaderboard_session_token);
+	g_platform_data.set_leaderboard_name_callback = callback;
+
+	emscripten_fetch_attr_t attr = {};
+	emscripten_fetch_attr_init(&attr);
+	strcpy(attr.requestMethod, "PATCH");
+	attr.onsuccess = set_leaderboard_name_success;
+	attr.onerror = set_leaderboard_name_fail;
+	attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+
+	s_len_str data = format_text("{\"name\": \"%s\"}", to_cstr(name, g_platform_data.frame_arena));
+	char* headers[] = {"x-session-token", g_platform_data.leaderboard_session_token, NULL};
+	attr.requestHeaders = headers;
+	attr.requestData = data.str;
+	attr.requestDataSize = data.len;
+	s_len_str url = strlit("https://api.lootlocker.io/game/player/name");
+	emscripten_fetch(&attr, url.str);
 }
 
 #endif // __EMSCRIPTEN__
@@ -5124,6 +5229,41 @@ static void start_render_pass(s_game_renderer* game_renderer)
 
 #ifndef m_game
 
+static void handle_key_event(int key, b8 is_down, b8 is_repeat)
+{
+	if(is_down) {
+		g_platform_data.any_key_pressed = true;
+	}
+	if(key < c_max_keys) {
+		if(!is_repeat) {
+			s_stored_input si = {};
+			si.key = key;
+			si.is_down = is_down;
+			apply_event_to_input(&g_platform_data.logic_input, si);
+			apply_event_to_input(&g_platform_data.render_input, si);
+			g_platform_data.any_key_pressed = true;
+		}
+
+		#ifdef m_debug
+		if(g_platform_data.recording_input && key != c_key_f10 && !is_repeat) {
+			s_foo ri = {};
+			ri.input = {.is_down = is_down, .key = key};
+			ri.update_count = g_platform_data.update_count;
+			g_platform_data.recorded_input.keys.add(ri);
+		}
+		#endif // m_debug
+
+		{
+			s_key_event key_event = {};
+			key_event.went_down = is_down;
+			key_event.key = key;
+			key_event.modifiers |= e_input_modifier_ctrl * is_key_down(&g_platform_data.logic_input, c_key_left_ctrl);
+			g_platform_data.logic_input.key_events.add(key_event);
+			g_platform_data.render_input.key_events.add(key_event);
+		}
+	}
+}
+
 #ifdef __EMSCRIPTEN__
 
 
@@ -5216,6 +5356,7 @@ static void get_our_leaderboard(int leaderboard_id, t_get_our_leaderboard_callba
 		emscripten_fetch(&attr, url.str);
 	}
 }
+
 #endif // __EMSCRIPTEN__
 
 static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render_pass = {})
@@ -5596,25 +5737,6 @@ static s_percent_data get_percent_data(float time, float duration)
 	return result;
 }
 
-template <typename t>
-struct s_maybe
-{
-	b8 valid;
-	t value;
-};
-
-template <typename t>
-static s_maybe<t> maybe(t value)
-{
-	return {.valid = true, .value = value};
-}
-
-template <typename t>
-static s_maybe<t> maybe()
-{
-	return {};
-}
-
 template <typename key_type, typename value_type, int n>
 struct s_hashmap
 {
@@ -5688,5 +5810,140 @@ static s_v2 center_text_on_rect(s_v2 rect_pos, s_v2 rect_size, float font_size, 
 		result.y += rect_size.y * 0.5f;
 		result.y -= font_size * 0.5f;
 	}
+	return result;
+}
+
+static s_len_str alloc_string(void* data, int len)
+{
+	s_len_str result = {};
+	result.len = len;
+	result.str = (char*)malloc(len + 1);
+	memcpy(result.str, data, len);
+	result.str[len] = 0;
+	return result;
+}
+
+[[nodiscard]]
+static float ilerp_clamp(float start, float end, float value)
+{
+	return ilerp(start, end, clamp(value, start, end));
+}
+
+
+static float handle_advanced_easing(float x, float x_start, float x_end, float duration)
+{
+	assert(duration > 0);
+	assert(duration <= 1);
+	x = clamp(ilerp_clamp(x_start, x_end, x) / duration, 0.0f, 1.0f);
+	return x;
+}
+
+static float ease_in_expo(float x)
+{
+	if(floats_equal(x, 0)) { return 0; }
+	return powf(2, 10 * x - 10);
+}
+
+static float ease_in_quad(float x)
+{
+	return x * x;
+}
+
+static float ease_out_quad(float x)
+{
+	float x2 = 1 - x;
+	return 1 - x2 * x2;
+}
+
+static float ease_out_expo(float x)
+{
+	if(floats_equal(x, 1)) { return 1; }
+	return 1 - powf(2, -10 * x);
+}
+
+static float ease_out_elastic(float x)
+{
+	constexpr float c4 = (2 * pi) / 3;
+	if(floats_equal(x, 0) || floats_equal(x, 1)) { return x; }
+	return powf(2, -5 * x) * sinf((x * 5 - 0.75f) * c4) + 1;
+}
+
+static float ease_out_elastic2(float x)
+{
+	constexpr float c4 = (2 * pi) / 3;
+	if(floats_equal(x, 0) || floats_equal(x, 1)) { return x; }
+	return powf(2, -10 * x) * sinf((x * 10 - 0.75f) * c4) + 1;
+}
+
+#define m_advanced_easings \
+X(ease_in_expo) \
+X(ease_in_quad) \
+X(ease_out_quad) \
+X(ease_out_expo) \
+X(ease_out_elastic) \
+X(ease_out_elastic2) \
+
+#define X(name) \
+static float name##_advanced(float x, float x_start, float x_end, float target_start, float target_end, float duration) \
+{ \
+	x = handle_advanced_easing(x, x_start, x_end, duration); \
+	return lerp(target_start, target_end, name(x)); \
+}
+m_advanced_easings
+#undef X
+
+static void add_clamp(float* ptr, float to_add, float min_val, float max_val)
+{
+	*ptr = clamp(*ptr + to_add, min_val, max_val);
+}
+
+template <int n>
+static b8 handle_string_input(s_input_str<n>* str, s_input* input, float time)
+{
+	b8 result = false;
+	if(!str->cursor.valid) {
+		str->cursor = maybe(0);
+	}
+	foreach_val(c_i, c, input->char_events) {
+		if(is_alpha_numeric(c) || c == '_') {
+			if(!str->str.is_full()) {
+				str->str.insert(str->cursor.value, c);
+				str->cursor.value += 1;
+				str->last_edit_time = time;
+				str->last_action_time = str->last_edit_time;
+			}
+		}
+		else if(c == '\b') {
+			if(str->cursor.value > 0) {
+				str->cursor.value -= 1;
+				str->str.remove_char_at(str->cursor.value);
+				str->last_edit_time = time;
+				str->last_action_time = str->last_edit_time;
+			}
+		}
+	}
+
+	foreach_val(event_i, event, input->key_events) {
+		if(!event.went_down) { continue; }
+		if(event.key == c_key_enter) {
+			result = true;
+			str->last_action_time = time;
+		}
+		else if(event.key == c_key_escape) {
+			str->cursor.value = 0;
+			str->str.len = 0;
+			str->str[0] = 0;
+			str->last_edit_time = time;
+			str->last_action_time = str->last_edit_time;
+		}
+	}
+	return result;
+}
+
+static char* to_cstr(s_len_str str, s_lin_arena* arena)
+{
+	char* result = (char*)la_get(arena, str.len + 1);
+	memcpy(result, str.str, str.len);
+	result[str.len] = 0;
 	return result;
 }

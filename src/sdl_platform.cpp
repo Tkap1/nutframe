@@ -109,11 +109,12 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_platform_data.get_leaderboard = get_leaderboard;
 	g_platform_data.get_our_leaderboard = get_our_leaderboard;
 	g_platform_data.register_leaderboard_client = register_leaderboard_client;
+	g_platform_data.set_leaderboard_name = set_leaderboard_name;
 	#endif // __EMSCRIPTEN__
 
 
 	g_window = SDL_CreateWindow(
-		"DigHard", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+		"Rocket Jump!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		256, 256, SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL
 	);
 
@@ -270,31 +271,17 @@ static void do_one_frame()
 			case SDL_KEYDOWN:
 			case SDL_KEYUP: {
 				int key = sdl_key_to_windows_key(e.key.keysym.sym);
-				b8 is_repeat = e.key.repeat ? true : false;
 				if(key == -1) { break; }
+				b8 is_repeat = e.key.repeat ? true : false;
 				b8 is_down = e.type == SDL_KEYDOWN;
-				s_stored_input si = {};
-				si.key = key;
-				si.is_down = is_down;
-				if(!is_repeat) {
-					apply_event_to_input(&g_platform_data.logic_input, si);
-					apply_event_to_input(&g_platform_data.render_input, si);
-				}
+
+				handle_key_event(key, is_down, is_repeat);
 
 				// @Note(tkap, 11/11/2023): SDL does not give us a text input event for backspace, so let's hack it
 				if(key == c_key_backspace && is_down) {
 					g_platform_data.logic_input.char_events.add('\b');
 					g_platform_data.render_input.char_events.add('\b');
 				}
-
-				#ifdef m_debug
-				if(g_platform_data.recording_input && key != c_key_f10 && !is_repeat) {
-					s_foo ri = {};
-					ri.input = si;
-					ri.update_count = g_platform_data.update_count;
-					g_platform_data.recorded_input.keys.add(ri);
-				}
-				#endif // m_debug
 
 			} break;
 
@@ -303,21 +290,7 @@ static void do_one_frame()
 			{
 				int key = sdl_key_to_windows_key(e.button.button);
 				b8 is_down = e.type == SDL_MOUSEBUTTONDOWN;
-				s_stored_input si = {};
-				si.key = key;
-				si.is_down = is_down;
-				apply_event_to_input(&g_platform_data.logic_input, si);
-				apply_event_to_input(&g_platform_data.render_input, si);
-
-				#ifdef m_debug
-				if(g_platform_data.recording_input && key != c_key_f10) {
-					s_foo ri = {};
-					ri.input = si;
-					ri.update_count = g_platform_data.update_count;
-					g_platform_data.recorded_input.keys.add(ri);
-				}
-				#endif // m_debug
-
+				handle_key_event(key, is_down, false);
 			} break;
 
 			case SDL_TEXTINPUT: {

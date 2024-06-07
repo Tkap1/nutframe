@@ -71,9 +71,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->editor.curr_tile = e_tile_normal;
 		game->reset_game = true;
 
-		if(platform_data->register_leaderboard_client) {
-			platform_data->register_leaderboard_client();
+		if(g_platform_data->register_leaderboard_client) {
+			g_platform_data->register_leaderboard_client();
 		}
+
+		// set_state(e_state_input_name);
 	}
 
 	switch(game->state) {
@@ -351,27 +353,29 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					s_v2 end_point_pos = index_to_pos(game->map.end_point.pos, c_play_tile_size);
 					b8 collides = rect_collides_rect_center(player->pos, c_player_collision_size, end_point_pos, c_end_point_size);
 					if(collides) {
-						set_state(e_state_leaderboard);
-						game->leaderboard_state.coming_from_win = true;
+						#ifdef m_emscripten
+						constexpr b8 are_we_on_web = true;
+						#else // m_emscripten
+						constexpr b8 are_we_on_web = false;
+						#endif // m_emscripten
+
 						platform_data->play_sound(game->win_sound);
-						if(platform_data->submit_leaderboard_score) {
-							platform_data->submit_leaderboard_score(
-								(int)round(game->timer * 1000.0), c_map_data[game->curr_map].leaderboard_id, on_leaderboard_score_submitted
-							);
+						if constexpr(are_we_on_web) {
+							if(platform_data->leaderboard_nice_name.len > 0) {
+								set_state(e_state_leaderboard);
+								game->leaderboard_state.coming_from_win = true;
+								platform_data->submit_leaderboard_score(
+									(int)round(game->timer * 1000.0), c_map_data[game->curr_map].leaderboard_id, on_leaderboard_score_submitted
+								);
+							}
+							else {
+								set_state(e_state_input_name);
+							}
 						}
-						// if(game->leaderboard_arr.count >= c_max_leaderboard_entries) {
-						// 	f64 slowest_time = -1;
-						// 	int index = 0;
-						// 	foreach_val(time_i, time, game->leaderboard_arr) {
-						// 		if(time > slowest_time) {
-						// 			index = time_i;
-						// 			slowest_time = time;
-						// 		}
-						// 	}
-						// 	game->leaderboard_arr.remove_and_swap(index);
-						// }
-						// game->leaderboard_arr.add(game->timer);
-						// game->leaderboard_arr.small_sort();
+						else {
+							set_state(e_state_leaderboard);
+							game->leaderboard_state.coming_from_win = true;
+						}
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check end point collision end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1098,6 +1102,71 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		} break;
 
+		case e_state_input_name: {
+			start_render_pass(g_r);
+
+			s_input_name_state* state = &game->input_name_state;
+
+			float font_size = 36;
+
+			s_v2 pos = c_base_res * v2(0.5f, 0.4f);
+
+			b8 submitted = handle_string_input(&state->name, g_input, game->render_time);
+			if(submitted) {
+				b8 can_submit = true;
+				if(state->name.str.len < 2) {
+					can_submit = false;
+					state->error_str.from_cstr("Name must have at least 2 characters!");
+				}
+				if(can_submit) {
+					state->error_str.len = 0;
+					platform_data->set_leaderboard_name(strlit(state->name.str.data), on_set_leaderboard_name);
+				}
+			}
+
+			draw_text(g_r, strlit("Enter your name"), c_base_res * v2(0.5f, 0.2f), 10, font_size, make_color(1), true, game->font);
+			if(state->error_str.len > 0) {
+				draw_text(g_r, strlit(state->error_str.data), c_base_res * v2(0.5f, 0.3f), 10, font_size, rgb(0xD77870), true, game->font);
+			}
+
+			if(state->name.str.len > 0) {
+				draw_text(g_r, strlit(state->name.str.data), pos, 10, font_size, make_color(1), true, game->font);
+			}
+
+			s_v2 full_text_size = get_text_size(strlit(state->name.str.data), game->font, font_size);
+			s_v2 partial_text_size = get_text_size_with_count(strlit(state->name.str.data), game->font, font_size, state->name.cursor.value);
+			s_v2 cursor_pos = v2(
+				-full_text_size.x * 0.5f + pos.x + partial_text_size.x,
+				pos.y - font_size * 0.5f
+			);
+
+			s_v2 cursor_size = v2(15.0f, font_size);
+			float t = game->render_time - max(state->name.last_action_time, state->name.last_edit_time);
+			b8 blink = false;
+			constexpr float c_blink_rate = 0.75f;
+			if(t > 0.75f && fmodf(t, c_blink_rate) >= c_blink_rate / 2) {
+				blink = true;
+			}
+			float t2 = clamp(game->render_time - state->name.last_edit_time, 0.0f, 1.0f);
+			s_v4 color = lerp(rgb(0xffdddd), brighter(rgb(0xABC28F), 0.8f), 1 - powf(1 - t2, 3));
+			float extra_height = ease_out_elastic2_advanced(t2, 0, 1, 20, 0, 0.75f);
+			cursor_size.y += extra_height;
+
+			if(!state->name.visual_pos_initialized) {
+				state->name.visual_pos_initialized = true;
+				state->name.cursor_visual_pos = cursor_pos;
+			}
+			else {
+				state->name.cursor_visual_pos = lerp_snap(state->name.cursor_visual_pos, cursor_pos, g_delta * 20);
+			}
+
+			if(!blink) {
+				draw_rect(g_r, state->name.cursor_visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, {}, {.origin_offset = c_origin_topleft});
+			}
+
+			g_r->end_render_pass(g_r, {.do_clear = true, .blend_mode = e_blend_mode_normal, .view_projection = ortho});
+		} break;
+
 		invalid_default_case;
 	}
 
@@ -1530,6 +1599,24 @@ static void set_state(e_state state)
 
 		} break;
 
+		case e_state_input_name: {
+			game->input_name_state = {};
+		} break;
+
 		invalid_default_case;
+	}
+}
+
+static void on_set_leaderboard_name(b8 success)
+{
+	if(success) {
+		set_state(e_state_leaderboard);
+		game->leaderboard_state.coming_from_win = true;
+		g_platform_data->submit_leaderboard_score(
+			(int)round(game->timer * 1000.0), c_map_data[game->curr_map].leaderboard_id, on_leaderboard_score_submitted
+		);
+	}
+	else {
+		game->input_name_state.error_str.from_cstr("Name is already taken!");
 	}
 }

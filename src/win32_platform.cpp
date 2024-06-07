@@ -424,31 +424,10 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 		case WM_KEYUP:
 		case WM_SYSKEYUP:
 		{
-			if(msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
-			{
-				g_platform_data.any_key_pressed = true;
-			}
-
 			key = (int)remap_key_if_necessary(wparam, lparam);
 			is_down = !(b32)((HIWORD(lparam) >> 15) & 1);
-			int is_echo = is_down && ((lparam >> 30) & 1);
-			if(key < c_max_keys && !is_echo)
-			{
-				s_stored_input si = {};
-				si.key = key;
-				si.is_down = is_down;
-				apply_event_to_input(&g_platform_data.logic_input, si);
-				apply_event_to_input(&g_platform_data.render_input, si);
-
-				#ifdef m_debug
-				if(g_platform_data.recording_input && key != c_key_f10) {
-					s_foo ri = {};
-					ri.input = si;
-					ri.update_count = g_platform_data.update_count;
-					g_platform_data.recorded_input.keys.add(ri);
-				}
-				#endif // m_debug
-			}
+			int is_repeat = is_down && ((lparam >> 30) & 1);
+			handle_key_event(key, is_down, (b8)is_repeat);
 		} break;
 
 		// @TODO(tkap, 11/11/2023): We probably want to record char events
@@ -478,21 +457,7 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 			goto deez;
 		{
 			deez:
-			s_stored_input si = {};
-			si.key = key;
-			si.is_down = is_down;
-			apply_event_to_input(&g_platform_data.logic_input, si);
-			apply_event_to_input(&g_platform_data.render_input, si);
-			g_platform_data.any_key_pressed = true;
-
-			#ifdef m_debug
-			if(g_platform_data.recording_input) {
-				s_foo ri = {};
-				ri.input = si;
-				ri.update_count = g_platform_data.update_count;
-				g_platform_data.recorded_input.keys.add(ri);
-			}
-			#endif // m_debug
+			handle_key_event(key, is_down, false);
 		} break;
 
 		default:
@@ -506,7 +471,7 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 
 static void create_window(int width, int height)
 {
-	const char* class_name = "DigHard_CLASS";
+	const char* class_name = "RocketJump!_CLASS";
 	HINSTANCE instance = GetModuleHandle(NULL);
 
 	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = NULL;
@@ -584,7 +549,7 @@ static void create_window(int width, int height)
 		g_window.handle = CreateWindowEx(
 			0,
 			class_name,
-			"DigHard",
+			"Rocket Jump!",
 			style,
 			CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top,
 			NULL,
