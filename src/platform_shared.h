@@ -5710,6 +5710,7 @@ static void print_json(s_json* json)
 
 static s_json* json_get(s_json* json, char* key_name, e_json in_type)
 {
+	assert(json);
 	for(s_json* j = json; j; j = j->next) {
 		if(!j->key) {
 			if(j->object) {

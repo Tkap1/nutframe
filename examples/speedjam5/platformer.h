@@ -283,7 +283,7 @@ struct s_leaderboard_state
 
 struct s_input_name_state
 {
-	s_input_str<17> name;
+	s_input_str<64> name;
 	s_str<64> error_str;
 };
 

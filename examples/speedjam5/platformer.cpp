@@ -1121,6 +1121,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				if(can_submit) {
 					state->error_str.len = 0;
 					platform_data->set_leaderboard_name(strlit(state->name.str.data), on_set_leaderboard_name);
+					platform_data->leaderboard_nice_name = state->name.str;
 				}
 			}
 
@@ -1374,7 +1375,9 @@ static void on_leaderboard_received(s_json* json)
 	}
 	end:;
 
+	#ifdef m_emscripten
 	g_platform_data->get_our_leaderboard(c_map_data[game->curr_map].leaderboard_id, on_our_leaderboard_received);
+	#endif // m_emscripten
 
 	game->leaderboard_state.received = true;
 }
@@ -1385,7 +1388,9 @@ static void on_our_leaderboard_received(s_json* json)
 	if(!j) { return; }
 
 	s_leaderboard_entry new_entry = {};
-	s_json* player = json_get(j, "player", e_json_object)->object;
+	s_json* player = json_get(j, "player", e_json_object);
+	if(!player) { return; }
+	player = player->object;
 
 	new_entry.rank = json_get(j, "rank", e_json_integer)->integer;
 
