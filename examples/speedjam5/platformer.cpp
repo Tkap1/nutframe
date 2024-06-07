@@ -1057,10 +1057,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				set_state(e_state_play);
 			}
 
-			if(is_key_pressed(g_input, c_key_escape)) {
-				set_state(e_state_map_select);
-			}
-
 			if(!game->leaderboard_state.received) {
 				draw_text(g_r, strlit("Getting leaderboard..."), c_half_res, 10, 48, make_color(0.66f), true, game->font);
 			}
@@ -1097,6 +1093,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font);
 				pos.y += 48;
 			}
+
+			ui_start(99);
+			if(ui_button(strlit("Back"), c_base_res * v2(0.85f, 0.92f), {.font_size = 32, .size_x = 90}) || is_key_pressed(g_input, c_key_escape)) {
+				set_state(e_state_map_select);
+			}
+			ui_end();
 
 			g_r->end_render_pass(g_r, {.do_clear = true, .blend_mode = e_blend_mode_normal, .view_projection = ortho});
 
