@@ -58,6 +58,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/speedjam5/death3.wav", platform_data->frame_arena);
 		game->player_run_texture = g_r->load_texture(renderer, "examples/speedjam5/player_run.png");
 		game->player_idle_texture = g_r->load_texture(renderer, "examples/speedjam5/player_idle.png");
+		// game->player_charge_texture = g_r->load_texture(renderer, "examples/speedjam5/player_charge.png");
+		// game->player_leap_texture = g_r->load_texture(renderer, "examples/speedjam5/player_leap.png");
+		game->player_jump_texture = g_r->load_texture(renderer, "examples/speedjam5/player_jump.png");
+		game->player_fall_texture = g_r->load_texture(renderer, "examples/speedjam5/player_fall.png");
 
 		game->font = &renderer->fonts[0];
 		platform_data->variables_path = "examples/speedjam5/variables.h";
@@ -178,6 +182,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 				if(is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_key_up) || is_key_pressed(g_input, c_key_w)) {
 					if(player->jumps_left > 0) {
+						player->jump_time = c_player_jump_time;
 						platform_data->play_sound(game->jump_sound);
 						if(player->vel.y > 0) {
 							player->vel.y = -c_jump_strength;
@@ -189,19 +194,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 
+
 				b8 pushed = false;
 				float x_vel = player->vel.x + input_vel;
-				if(x_vel > 0) {
-					player->flip_x = false;
-					player->state = 1;
-				}
-				else if(x_vel < 0) {
-					player->flip_x = true;
-					player->state = 1;
-				}
-				else {
-					player->state = 0;
-				}
+				player->last_x_vel = x_vel;
 
 				s_v2 pos_before_moving = game->player.pos;
 				b8 do_trail = false;
@@ -681,6 +677,27 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_player* player = &game->player;
+
+				if(player->last_x_vel > 0) {
+					player->flip_x = false;
+					player->state = 1;
+				}
+				else if(player->last_x_vel < 0) {
+					player->flip_x = true;
+					player->state = 1;
+				}
+				else {
+					player->state = 0;
+				}
+				if(player->vel.y > 0.07f) {
+					player->state = 5;
+				}
+
+				if(player->jump_time > 0.0f) {
+					player->state = 3;
+				}
+				add_clamp_min(&player->jump_time, -g_delta, 0);
+
 				player->animation_timer += g_delta;
 				s_v2 pos = lerp(player->prev_pos, player->pos, interp_dt);
 				s_draw_data draw_data = get_player_draw_data(*player);
@@ -1449,6 +1466,18 @@ static s_draw_data get_player_draw_data(s_player player)
 		int i = roundfi(fmodf(player.animation_timer / 0.05f, 5));
 		data.index = v2i(300 * i, 0);
 	}
+	else if(player.state == 3) {
+		data.texture = game->player_jump_texture;
+		s_percent_data pdata = get_percent_data(player.jump_time, c_player_jump_time);
+		int i = roundfi(pdata.percent_inv * 14);
+		data.index = v2i(300 * i, 0);
+	}
+	else if(player.state == 5) {
+		data.texture = game->player_fall_texture;
+		int i = roundfi(fmodf(player.animation_timer / 0.05f, 5));
+		data.index = v2i(300 * i, 0);
+	}
+	invalid_else;
 	return data;
 }
 

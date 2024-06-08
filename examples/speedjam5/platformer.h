@@ -23,6 +23,7 @@ static constexpr float c_gravity = 0.001f;
 static constexpr float c_small = 0.0001f;
 static constexpr float c_particle_z = c_player_z - 0.01f;
 static constexpr float c_spike_collision_size_multiplier = 0.8f;
+static constexpr float c_player_jump_time = 0.4f;
 
 static constexpr s_v2 c_projectile_visual_size = v2(1.0f);
 static constexpr s_v2 c_projectile_collision_size = v2(0.25f);
@@ -110,6 +111,10 @@ struct s_editor
 
 struct s_player
 {
+	// @Note(tkap, 08/06/2024): For animation
+	float jump_time;
+	float last_x_vel;
+
 	b8 flip_x;
 	b8 released_left_button_since_death;
 	float animation_timer;
@@ -319,6 +324,10 @@ struct s_game
 	s_texture save_point_texture;
 	s_texture player_idle_texture;
 	s_texture player_run_texture;
+	s_texture player_jump_texture;
+	// s_texture player_leap_texture;
+	// s_texture player_charge_texture;
+	s_texture player_fall_texture;
 	s_carray<s_texture, e_tile_count> tile_texture_arr;
 	s_sarray<s_projectile, c_max_projectiles> projectile_arr;
 	s_sarray<s_particle, c_max_particles> particle_arr;

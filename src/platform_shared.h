@@ -5898,6 +5898,16 @@ static void add_clamp(float* ptr, float to_add, float min_val, float max_val)
 	*ptr = clamp(*ptr + to_add, min_val, max_val);
 }
 
+static void add_clamp_min(float* ptr, float to_add, float min_val)
+{
+	*ptr = at_least(min_val, *ptr + to_add);
+}
+
+static void add_clamp_max(float* ptr, float to_add, float max_val)
+{
+	*ptr = at_most(max_val, *ptr + to_add);
+}
+
 template <int n>
 static b8 handle_string_input(s_input_str<n>* str, s_input* input, float time)
 {
