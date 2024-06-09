@@ -274,6 +274,7 @@ constexpr s_map_data c_map_data[] = {
 	{.name = m_strlit("AQtun"), .path = "aqtun.map", .leaderboard_id = 22741},
 	{.name = m_strlit("Zanarias"), .path = "zanarias.map", .leaderboard_id = 22762},
 	{.name = m_strlit("Azenris"), .path = "azenris.map", .leaderboard_id = 22763},
+	{.name = m_strlit("Platforms"), .path = "platforms.map", .leaderboard_id = 22806},
 
 	#ifndef m_emscripten
 	{.name = m_strlit("Create map"), .path = "example.map", .leaderboard_id = 0},
