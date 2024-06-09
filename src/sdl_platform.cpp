@@ -319,9 +319,6 @@ static void do_one_frame()
 
 
 	do_game_layer(g_game_renderer, g_game_memory);
-
-	gl_render(&g_platform_renderer, g_game_renderer);
-
 	SDL_GL_SwapWindow(g_window);
 	// return result;
 }

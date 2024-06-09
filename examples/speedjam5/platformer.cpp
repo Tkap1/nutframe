@@ -493,23 +493,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
 
-	if(platform_data->window_resized) {
-
-		// @TODO(tkap, 09/06/2024): this should be done for us in the platform layer
-		g_r->delete_framebuffer(g_r, game->main_fbo);
-		g_r->delete_framebuffer(g_r, game->bloom_fbo);
-		g_r->delete_framebuffer(g_r, game->fbo_arr[0]);
-		g_r->delete_framebuffer(g_r, game->fbo_arr[1]);
-
-		s_v2i size = v2i(platform_data->window_width, platform_data->window_height);
-		s_v2i size2 = v2i(roundfi(platform_data->window_width * 0.25f), roundfi(platform_data->window_height * 0.25f));
-
-		game->main_fbo = g_r->make_framebuffer(g_r, size);
-		game->fbo_arr[0] = g_r->make_framebuffer(g_r, size);
-		game->fbo_arr[1] = g_r->make_framebuffer(g_r, size2);
-		game->bloom_fbo = g_r->make_framebuffer_with_existing_depth(g_r, size, game->main_fbo->depth);
-	}
-
 	g_r->clear_framebuffer(game->fbo_arr[0], {});
 	g_r->clear_framebuffer(game->fbo_arr[1], {});
 	g_r->clear_framebuffer(game->main_fbo, {});

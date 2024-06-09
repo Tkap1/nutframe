@@ -272,8 +272,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 		do_game_layer(game_renderer, game_memory, update, render);
 
-		gl_render(&g_platform_renderer, game_renderer);
-
 		SwapBuffers(g_window.dc);
 
 		#ifdef m_debug
