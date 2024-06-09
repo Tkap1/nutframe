@@ -25,3 +25,5 @@ tile that doesnt give you jumps back
 spikes that go up once you step on them
 
 we can change window size but the cycle_between_resolutions function seems to be broken
+
+make the editor have different background than empty space

@@ -545,8 +545,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(game->state) {
 
 		case e_state_map_select: {
+
 			s_map_select_state* state = &game->map_select_state;
 			start_render_pass(g_r);
+
 			ui_start(state->map_selected);
 			s_v2 pos = v2(c_half_res.x * 0.2f, c_half_res.y * 0.1f);
 			constexpr float font_size = 32;
@@ -559,6 +561,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				s_v2 pos2 = pos;
 				pos2.x += c_base_button_size.x + 80;
+				#ifdef m_emscripten
 				if(ui_button(format_text("Leaderboard##leaderboard%i", map_i), pos2, {.font_size = font_size, .size_x = 220})) {
 
 					// @Hack(tkap, 05/06/2024): Otherwise we will get leaderboard for the last map we entered (or 0 by default)
@@ -567,6 +570,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					set_state(e_state_leaderboard);
 					on_leaderboard_score_submitted();
 				}
+				#endif // m_emscripten
 				pos.y += c_base_button_size.y * 1.1f;
 			}
 			state->map_selected = ui_end();
@@ -884,6 +888,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		case e_state_editor: {
 
 			start_render_pass(g_r);
+			s_editor* editor = &game->editor;
 			s_v2i mouse_index = pos_to_index(game->editor_cam.screen_to_world(g_mouse), c_editor_tile_size);
 
 			if(is_key_pressed(g_input, c_key_f2) && is_key_down(g_input, c_key_left_shift) && is_key_down(g_input, c_key_left_ctrl)) {
@@ -937,74 +942,202 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			game->editor_cam.pos += dir * g_delta * cam_speed;
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		move editor camera end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			for(int i = 0; i <= 9; i++) {
+			for(int i = 0; i < c_things_to_place_count; i++) {
 				if(is_key_pressed(g_input, c_key_1 + i)) {
 					game->editor.curr_tile = (e_tile)(i + 1);
+					editor->state = e_editor_state_place;
 				}
 			}
 
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add tile start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			if(game->editor.curr_tile > e_tile_invalid && game->editor.curr_tile < e_tile_count) {
-				if(is_key_down(g_input, c_left_mouse)) {
-					if(is_index_valid(mouse_index)) {
-						game->map.tile_arr[mouse_index.y][mouse_index.x] = game->editor.curr_tile;
+			if(is_key_pressed(g_input, c_key_v) && is_key_down(g_input, c_key_left_ctrl)) {
+				if(editor->copied_tile_arr.count > 0) {
+					editor->state = e_editor_state_place;
+					editor->curr_tile = c_things_to_place_count + 1;
+				}
+			}
+
+			switch(editor->state) {
+				case e_editor_state_select: {
+					s_editor_select_state* state = &editor->select_state;
+					if(is_key_pressed(g_input, c_left_mouse) && !state->selecting) {
+						state->selection_start = mouse_index;
+						state->selecting = true;
 					}
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add tile end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add jump refresher start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			if(game->editor.curr_tile == e_tile_count) {
-				if(is_key_pressed(g_input, c_left_mouse)) {
-					if(is_index_valid(mouse_index)) {
-						b8 duplicate = false;
-						foreach_val(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
-							if(jump_refresher.pos == mouse_index) {
-								duplicate = true;
-								break;
+					s_v2i selection_start = mouse_index;
+					s_v2i selection_end = mouse_index;
+					if(state->selecting) {
+						selection_start.x = min(state->selection_start.x, selection_start.x);
+						selection_start.y = min(state->selection_start.y, selection_start.y);
+						selection_end.x = max(state->selection_start.x, mouse_index.x);
+						selection_end.y = max(state->selection_start.y, mouse_index.y);
+					}
+					selection_start.x = clamp(selection_start.x, 0, c_tiles_right - 1);
+					selection_start.y = clamp(selection_start.y, 0, c_tiles_down - 1);
+					selection_end.x = clamp(selection_end.x, 0, c_tiles_right - 1);
+					selection_end.y = clamp(selection_end.y, 0, c_tiles_down - 1);
+
+					if(is_key_down(g_input, c_key_escape)) {
+						editor->selected_tile_arr.clear();
+					}
+
+					if(state->selecting && !is_key_down(g_input, c_left_mouse)) {
+						state->selecting = false;
+
+						editor->selected_tile_arr.clear();
+						for(int y = selection_start.y; y <= selection_end.y; y++) {
+							for(int x = selection_start.x; x <= selection_end.x; x++) {
+								s8 tile = game->map.tile_arr[y][x];
+								if(tile <= e_tile_invalid) { continue; }
+								editor->selected_tile_arr[y][x] = true;
 							}
 						}
-						if(!duplicate) {
-							s_jump_refresher jr = {};
-							jr.pos = mouse_index;
-							game->map.jump_refresher_arr.add_checked(jr);
-						}
 					}
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add jump refresher end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add save point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			if(game->editor.curr_tile == e_tile_count + 1) {
-				if(is_key_pressed(g_input, c_left_mouse)) {
-					if(is_index_valid(mouse_index)) {
-						b8 duplicate = false;
-						foreach_val(save_point_i, save_point, game->map.save_point_arr) {
-							if(save_point.pos == mouse_index) {
-								duplicate = true;
-								break;
+					if(is_key_pressed(g_input, c_key_c) && is_key_down(g_input, c_key_left_ctrl)) {
+						b8 copied_something = false;
+						for(int y = 0; y < c_tiles_down; y++) {
+							for(int x = 0; x < c_tiles_right; x++) {
+								if(!editor->selected_tile_arr[y][x]) { continue; }
+								s8 tile = game->map.tile_arr[y][x];
+								assert(tile > e_tile_invalid);
+								if(!copied_something) {
+									editor->copied_tile_arr.count = 0;
+									copied_something = true;
+								}
+								s_copied_tile copied_tile = {};
+								copied_tile.tile = tile;
+								copied_tile.index = v2i(x, y);
+								editor->copied_tile_arr.add(copied_tile);
 							}
 						}
-						if(!duplicate) {
-							s_save_point sp = {};
-							sp.pos = mouse_index;
-							game->map.save_point_arr.add_checked(sp);
+						if(copied_something) {
+							editor->state = e_editor_state_place;
+							editor->curr_tile = c_things_to_place_count + 1;
 						}
 					}
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add save point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add end point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			else if(game->editor.curr_tile == e_tile_count + 2) {
-				if(is_key_pressed(g_input, c_left_mouse)) {
-					if(is_index_valid(mouse_index)) {
-						game->map.end_point.pos = mouse_index;
+					s_v2 selection_size = v2(selection_end - selection_start);
+					selection_size.x += 1;
+					selection_size.y += 1;
+					selection_size *= c_editor_tile_size;
+					draw_empty_rect(g_r, v2(selection_start) * c_editor_tile_size + selection_size * 0.5f, 15, selection_size, 4, make_color(1));
+
+				} break;
+				case e_editor_state_place: {
+
+					if(is_key_pressed(g_input, c_key_escape)) {
+						editor->state = e_editor_state_select;
 					}
-				}
+
+					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add tile start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+					if(game->editor.curr_tile > e_tile_invalid && game->editor.curr_tile < e_tile_count) {
+						if(is_key_down(g_input, c_left_mouse)) {
+							if(is_index_valid(mouse_index)) {
+								game->map.tile_arr[mouse_index.y][mouse_index.x] = (e_tile)game->editor.curr_tile;
+							}
+						}
+					}
+					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add tile end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+					b8 are_we_pasting = editor->curr_tile == c_things_to_place_count + 1;
+					s_v2i paste_offset = v2i(99999, 99999);
+					foreach_val(copied_tile_i, copied_tile, editor->copied_tile_arr) {
+						paste_offset.x = min(copied_tile.index.x, paste_offset.x);
+						paste_offset.y = min(copied_tile.index.y, paste_offset.y);
+					}
+
+					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw copied tiles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+					if(are_we_pasting) {
+						foreach_val(copied_tile_i, copied_tile, editor->copied_tile_arr) {
+							assert(copied_tile.tile > e_tile_invalid);
+							s_v2i index = mouse_index;
+							s_v2i diff = copied_tile.index - paste_offset;
+							index += diff;
+							s_v2 pos = v2(index) * c_editor_tile_size;
+							s_v4 color = make_color(0.1f, 1.0f, 0.1f);
+							if(!is_index_valid(index)) {
+								color = make_color(1.0f, 0.1f, 0.1f);
+							}
+							draw_texture(g_r, pos, 2, v2(c_editor_tile_size), color, game->tile_texture_arr[copied_tile.tile], {}, {.origin_offset = c_origin_topleft});
+						}
+					}
+					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw copied tiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add jump refresher start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+					if(game->editor.curr_tile == e_tile_count) {
+						if(is_key_pressed(g_input, c_left_mouse)) {
+							if(is_index_valid(mouse_index)) {
+								b8 duplicate = false;
+								foreach_val(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
+									if(jump_refresher.pos == mouse_index) {
+										duplicate = true;
+										break;
+									}
+								}
+								if(!duplicate) {
+									s_jump_refresher jr = {};
+									jr.pos = mouse_index;
+									game->map.jump_refresher_arr.add_checked(jr);
+								}
+							}
+						}
+					}
+					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add jump refresher end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add save point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+					if(game->editor.curr_tile == e_tile_count + 1) {
+						if(is_key_pressed(g_input, c_left_mouse)) {
+							if(is_index_valid(mouse_index)) {
+								b8 duplicate = false;
+								foreach_val(save_point_i, save_point, game->map.save_point_arr) {
+									if(save_point.pos == mouse_index) {
+										duplicate = true;
+										break;
+									}
+								}
+								if(!duplicate) {
+									s_save_point sp = {};
+									sp.pos = mouse_index;
+									game->map.save_point_arr.add_checked(sp);
+								}
+							}
+						}
+					}
+					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add save point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add end point start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+					else if(game->editor.curr_tile == e_tile_count + 2) {
+						if(is_key_pressed(g_input, c_left_mouse)) {
+							if(is_index_valid(mouse_index)) {
+								game->map.end_point.pos = mouse_index;
+							}
+						}
+					}
+					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		paste copied tiles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+					else if(are_we_pasting) {
+						if(is_key_down(g_input, c_left_mouse)) {
+							if(is_index_valid(mouse_index)) {
+								foreach_val(copied_tile_i, copied_tile, editor->copied_tile_arr) {
+									assert(copied_tile.tile > e_tile_invalid);
+									s_v2i index = mouse_index;
+									s_v2i diff = copied_tile.index - paste_offset;
+									index += diff;
+									s_v2 pos = v2(index) * c_editor_tile_size;
+									s_v4 color = make_color(0.1f, 1.0f, 0.1f);
+									if(is_index_valid(index)) {
+										game->map.tile_arr[index.y][index.x] = (e_tile)copied_tile.tile;
+									}
+								}
+							}
+						}
+					}
+					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		paste copied tiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+				} break;
 			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		delete start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -1038,6 +1171,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					if(tile > 0) {
 						s_v2 pos = v2(x, y) * c_editor_tile_size;
 						draw_texture(g_r, pos, 1, v2(c_editor_tile_size), make_color(1), game->tile_texture_arr[tile], {}, {.origin_offset = c_origin_topleft});
+						if(game->editor.selected_tile_arr[y][x]) {
+							draw_empty_rect(g_r, pos + v2(c_editor_tile_size) * 0.5f, 2, v2(c_editor_tile_size * sin2(-game->render_time * 8.0f)), 4, make_color(1));
+						}
 					}
 				}
 			}
@@ -1065,12 +1201,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			g_r->end_render_pass(g_r, {.view_projection = m4_multiply(ortho, game->editor_cam.get_matrix()), .framebuffer = game->main_fbo});
+			g_r->end_render_pass(g_r, {.do_depth = true, .view_projection = m4_multiply(ortho, game->editor_cam.get_matrix()), .framebuffer = game->main_fbo});
 
 			{
 				start_render_pass(g_r);
 
-				if(is_key_pressed(g_input, c_key_c)) {
+				if(is_key_pressed(g_input, c_key_c) && !is_key_down(g_input, c_key_left_ctrl)) {
 					game->editor_cam.pos = game->player.pos * c_editor_tile_size - c_base_res * 0.5f;
 				}
 

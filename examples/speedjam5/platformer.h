@@ -47,7 +47,7 @@ enum e_tile : s8
 	e_tile_platform,
 	e_tile_count,
 };
-
+constexpr int c_things_to_place_count = (e_tile_count - 1) + 3;
 
 enum e_state
 {
@@ -104,9 +104,41 @@ struct s_end_point
 	s_v2i pos;
 };
 
+enum e_editor_state
+{
+	e_editor_state_select,
+	e_editor_state_place,
+};
+
+struct s_editor_select_state
+{
+	s_v2i selection_start;
+	b8 selecting;
+};
+
+struct s_editor_place_state
+{
+	int temp;
+};
+
+#ifdef m_debug
+struct s_copied_tile
+{
+	s_v2i index;
+	s8 tile;
+};
+#endif // m_debug
+
 struct s_editor
 {
-	e_tile curr_tile;
+	#ifdef m_debug
+	s_sarray<s_copied_tile, 32768> copied_tile_arr;
+	#endif // m_debug
+	s_carray2<b8, c_tiles_down, c_tiles_right> selected_tile_arr;
+	e_editor_state state;
+	s_editor_select_state select_state;
+	s_editor_place_state place_state;
+	int curr_tile;
 };
 
 struct s_player

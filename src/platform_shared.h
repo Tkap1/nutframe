@@ -1966,6 +1966,14 @@ static s_v2i operator+(s_v2i a, s_v2i b)
 	return result;
 }
 
+static s_v2i operator-(s_v2i a, s_v2i b)
+{
+	s_v2i result;
+	result.x = a.x - b.x;
+	result.y = a.y - b.y;
+	return result;
+}
+
 static s_v2 operator-(s_v2 a, s_v2 b)
 {
 	s_v2 result;
@@ -3102,7 +3110,7 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 	}
 	t.model = model;
 
-	t.pos = v3(pos, 0);
+	t.pos = v3(pos, -99.0f + layer * 2);
 	t.draw_size = size;
 	t.color = color;
 	t.uv_min = v2(0, 0);
@@ -3183,7 +3191,7 @@ static void draw_texture_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size,
 static void draw_line(s_game_renderer* game_renderer, s_v2 from, s_v2 to, int layer, float thickness, s_v4 color, s_render_data render_data = {}, s_transform t = {})
 {
 	t.flags |= e_render_flag_line;
-	t.pos = v3(from, 0);
+	t.pos = v3(from, -99.0f + layer * 2);
 	t.draw_size = to;
 	t.texture_size.x = thickness;
 	t.color = color;
@@ -3193,17 +3201,32 @@ static void draw_line(s_game_renderer* game_renderer, s_v2 from, s_v2 to, int la
 	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, 0)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
 }
 
+static void draw_empty_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, float thickness, s_v4 color, s_render_data render_data = {}, s_transform t = {})
+{
+	s_v2 half_size = size * 0.5f;
+	float half_thickness = thickness * 0.5f;
+	s_v2 thickness_v = v2(half_thickness, 0.0f);
+	// top
+	draw_line(game_renderer, pos + half_size * v2(-1, -1) - thickness_v, pos + half_size * v2(1, -1) + thickness_v, layer, thickness, color, render_data, t);
+	// bottom
+	draw_line(game_renderer, pos + half_size * v2(-1, 1) - thickness_v, pos + half_size * v2(1, 1) + thickness_v, layer, thickness, color, render_data, t);
+	// left
+	draw_line(game_renderer, pos + half_size * v2(-1, -1), pos + half_size * v2(-1, 1), layer, thickness, color, render_data, t);
+	// right
+	draw_line(game_renderer, pos + half_size * v2(1, -1), pos + half_size * v2(1, 1), layer, thickness, color, render_data, t);
+}
+
 static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_render_data render_data = {}, s_transform t = {})
 {
 
-	s_m4 model = m4_translate(v3(pos, 0));
+	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
 	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
 	t.model = model;
 	t.flags |= e_render_flag_use_texture;
-	t.pos = v3(pos, 0);
+	t.pos = v3(pos, -99.0f + layer * 2);
 	t.draw_size = size;
 	t.color = color;
 	t.uv_min = v2(0, 1);
@@ -3220,14 +3243,14 @@ static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_
 
 static void draw_framebuffer(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_framebuffer* framebuffer, s_render_data render_data = {}, s_transform t = {})
 {
-	s_m4 model = m4_translate(v3(pos, 0));
+	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
 	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
 	t.model = model;
 	t.flags |= e_render_flag_use_texture;
-	t.pos = v3(pos, 0);
+	t.pos = v3(pos, -99.0f + layer * 2);
 	t.draw_size = size;
 	t.color = color;
 	t.uv_min = v2(0, 0);
@@ -3239,7 +3262,7 @@ static void draw_framebuffer(s_game_renderer* game_renderer, s_v2 pos, int layer
 static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_v2i sprite_pos, s_v2i sprite_size, s_render_data render_data = {}, s_transform t = {})
 {
 
-	s_m4 model = m4_translate(v3(pos, 0));
+	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
 	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
@@ -3247,7 +3270,7 @@ static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2
 	t.model = model;
 
 	t.flags |= e_render_flag_use_texture;
-	t.pos = v3(pos, 0);
+	t.pos = v3(pos, -99.0f + layer * 2);
 	t.draw_size = size;
 	t.color = color;
 	t.uv_min = v2(
@@ -3339,7 +3362,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_po
 		// glyph_pos.y += font->ascent * scale;
 		// glyph_pos.y += font_size;
 		t.flags |= e_render_flag_use_texture | e_render_flag_text;
-		t.pos = v3(glyph_pos, 0);
+		t.pos = v3(glyph_pos, -99.0f + layer * 2);
 
 		s_v2 center = t.pos.xy + t.draw_size / 2 * v2(1, -1);
 		s_v2 bottomleft = t.pos.xy;
@@ -3410,7 +3433,7 @@ static s_v2 draw_text_3d(s_game_renderer* game_renderer, s_len_str text, s_v3 in
 		// glyph_pos.y += font->ascent * scale;
 		// glyph_pos.y += font_size;
 		t.flags |= e_render_flag_use_texture | e_render_flag_text;
-		t.pos = v3(glyph_pos, 0);
+		t.pos = v3(glyph_pos, in_pos.z);
 
 		s_v2 center = t.pos.xy + t.draw_size / 2 * v2(1, -1);
 		s_v2 bottomleft = t.pos.xy;

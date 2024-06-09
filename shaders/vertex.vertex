@@ -52,17 +52,16 @@ void main()
 
 	// @Note(tkap, 25/05/2024): Draw line
 	if((in_flags & 16) != 0) {
-		vec2 from = in_pos.xy * (2.0 / base_res) - 1.0;
-		vec2 to = in_draw_size * (2.0 / base_res) - 1.0;
-		float thickness = in_texture_size.x / base_res.x * 0.5;
-		vec2 perp = normalize(to - from);
-		float ar = base_res.x / base_res.y;
-		perp = vec2(-perp.y, -perp.x * ar);
-
-		vec2 v0 = vec2(from.x + perp.x * thickness, -from.y + perp.y * thickness);
-		vec2 v1 = vec2(to.x + perp.x * thickness, -to.y + perp.y * thickness);
-		vec2 v2 = vec2(to.x - perp.x * thickness, -to.y - perp.y * thickness);
-		vec2 v3 = vec2(from.x - perp.x * thickness, -from.y - perp.y * thickness);
+		vec2 from = in_pos.xy;
+		vec2 to = in_draw_size;
+		float thickness = in_texture_size.x;
+		float half_thickness = thickness * 0.5;
+		vec2 dir = normalize(to - from);
+		vec2 offset = vec2(dir.y * half_thickness, -dir.x * half_thickness);
+		vec2 v0 = from + offset;
+		vec2 v1 = to + offset;
+		vec2 v2 = to - offset;
+		vec2 v3 = from - offset;
 		vertices[0] = v0;
 		vertices[1] = v1;
 		vertices[2] = v2;
@@ -124,8 +123,7 @@ void main()
 	v_local_uv = local_uv[gl_VertexID];
 
 	if((in_flags & 16) != 0) {
-		// @TODO(tkap, 27/05/2024): this z=0 is wrong!
-		gl_Position = vec4(vertices[gl_VertexID], 0.0, 1.0);
+		gl_Position = view_projection * vec4(vertices[gl_VertexID], in_pos.z, 1.0);
 	}
 	else {
 		// vec2 pos = in_pos.xy * (2.0 / base_res) - 1.0;
