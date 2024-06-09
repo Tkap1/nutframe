@@ -335,7 +335,7 @@ struct s_map_select_state
 struct s_game
 {
 	b8 initialized;
-	b8 do_bloom;
+	b8 disable_bloom;
 	b8 reset_game;
 	e_state state;
 	int reset_player;

@@ -583,8 +583,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				pos.y += c_base_button_size.y * 1.1f;
 			}
 
-			if(ui_button(format_text("Bloom: %s", game->do_bloom ? "On": "Off"), c_base_res * v2(0.05f, 0.92f), {.font_size = 32, .size_x = 180})) {
-				game->do_bloom = !game->do_bloom;
+			if(ui_button(format_text("Bloom: %s", game->disable_bloom ? "Off": "On"), c_base_res * v2(0.05f, 0.92f), {.font_size = 32, .size_x = 180})) {
+				game->disable_bloom = !game->disable_bloom;
 			}
 
 			state->map_selected = ui_end();
@@ -1370,7 +1370,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	do_ui(ortho);
 
 	// @Note(tkap, 08/06/2024): Luminance
-	if(game->do_bloom) {
+	if(!game->disable_bloom) {
 		start_render_pass(g_r);
 		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, {.shader = 3});
 		g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[0]});
