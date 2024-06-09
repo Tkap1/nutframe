@@ -23,3 +23,5 @@ we have a bug where bugs are not shown until way too close. happens on the left 
 
 tile that doesnt give you jumps back
 spikes that go up once you step on them
+
+we can change window size but the cycle_between_resolutions function seems to be broken

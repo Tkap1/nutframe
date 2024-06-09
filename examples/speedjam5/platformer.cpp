@@ -610,10 +610,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			if(is_key_pressed(g_input, c_key_f3)) {
 				game->player.pos = v2(game->map.end_point.pos) * v2(c_play_tile_size);
 			}
-			if(is_key_pressed(g_input, c_key_f4)) {
-				static int r = 0;
-				r = platform_data->cycle_between_available_resolutions(r);
-			}
+			// if(is_key_pressed(g_input, c_key_f4)) {
+			// 	static int r = 0;
+			// 	r = platform_data->cycle_between_available_resolutions(r);
+			// }
 			#endif // m_debug
 
 			game->ray = get_ray(g_mouse, c_base_res, game->cam, view, projection);
@@ -1241,7 +1241,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	start_render_pass(g_r);
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo);
-	g_r->end_render_pass(g_r, {.view_projection = ortho});
+	g_r->end_render_pass(g_r, {.do_clear = true, .view_projection = ortho});
 
 }
 

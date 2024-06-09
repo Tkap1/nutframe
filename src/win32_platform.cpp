@@ -530,7 +530,8 @@ static void create_window(int width, int height)
 		window_class.hIcon = LoadIcon(instance, MAKEINTRESOURCE(MY_ICON));
 		check(RegisterClassEx(&window_class));
 
-		DWORD style = (WS_OVERLAPPEDWINDOW) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX;
+		// DWORD style = (WS_OVERLAPPEDWINDOW) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX;
+		DWORD style = (WS_OVERLAPPEDWINDOW);
 		RECT rect = {};
 		rect.right = width;
 		rect.bottom = height;

@@ -5449,12 +5449,12 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 
 static void clear_framebuffer(s_framebuffer* fbo, s_v4 clear_color)
 {
+	assert(!fbo->is_main);
 	gl(glBindFramebuffer(GL_FRAMEBUFFER, fbo->gpu_id));
+	gl(glViewport(0, 0, (int)fbo->texture.size.x, (int)fbo->texture.size.y));
 	glDepthMask(GL_TRUE);
 	gl(glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w));
 	gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
-	s_recti rect = do_letter_boxing((int)g_base_res.x, (int)g_base_res.y, g_platform_data.window_width, g_platform_data.window_height);
-	gl(glViewport(rect.x, rect.y, rect.width, rect.height));
 }
 
 #endif // m_game
