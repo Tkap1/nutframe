@@ -220,12 +220,14 @@ struct s_v2
 	float x;
 	float y;
 };
+#define m_v2_members(v) (v.x), (v.y)
 
 struct s_v2i
 {
 	int x;
 	int y;
 };
+#define m_v2i_members(v) (v.x), (v.y)
 
 struct s_v3
 {
@@ -240,6 +242,7 @@ struct s_v3
 	};
 	float z;
 };
+#define m_v3_members(v) (v.x), (v.y), (v.z)
 
 struct s_v4
 {
@@ -255,6 +258,7 @@ struct s_v4
 	};
 	float w;
 };
+#define m_v4_members(v) (v.x), (v.y), (v.z), (v.w)
 
 union s_m4
 {
