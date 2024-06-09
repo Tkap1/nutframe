@@ -1119,7 +1119,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		paste copied tiles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 					else if(are_we_pasting) {
-						if(is_key_down(g_input, c_left_mouse)) {
+						if(is_key_pressed(g_input, c_left_mouse)) {
 							if(is_index_valid(mouse_index)) {
 								foreach_val(copied_tile_i, copied_tile, editor->copied_tile_arr) {
 									assert(copied_tile.tile > e_tile_invalid);
