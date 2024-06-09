@@ -21,7 +21,7 @@ if !debug!==0 (
 	set comp=!comp! -O3
 ) else (
 	@REM set comp=!comp! -Dm_debug
-	set comp=!comp! -O3
+	@REM set comp=!comp! -O3
 	set comp=!comp! -sSAFE_HEAP=0
 	set comp=!comp! -sASSERTIONS=0
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
@@ -30,6 +30,8 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../shaders/basic_3d.fragment@shaders/basic_3d.fragment
 	set comp=!comp! --preload-file ../shaders/3d_flat.vertex@shaders/3d_flat.vertex
 	set comp=!comp! --preload-file ../shaders/3d_flat.fragment@shaders/3d_flat.fragment
+	set comp=!comp! --preload-file ../shaders/threshold.fragment@shaders/threshold.fragment
+	set comp=!comp! --preload-file ../shaders/blur.fragment@shaders/blur.fragment
 	set comp=!comp! --preload-file ../examples/speedjam5/noise.png@examples/speedjam5/noise.png
 	set comp=!comp! --preload-file ../examples/speedjam5/sheet.png@examples/speedjam5/sheet.png
 	set comp=!comp! --preload-file ../examples/speedjam5/tile_normal.png@examples/speedjam5/tile_normal.png

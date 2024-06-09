@@ -333,6 +333,9 @@ struct s_game
 	s_sarray<s_particle, c_max_particles> particle_arr;
 	s_rng rng;
 	s_font* font;
+	s_framebuffer* main_fbo;
+	s_framebuffer* bloom_fbo;
+	s_carray<s_framebuffer*, 2> fbo_arr;
 	s_player player;
 	s_map map;
 	int curr_save_point;

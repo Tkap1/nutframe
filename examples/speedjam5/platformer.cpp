@@ -63,6 +63,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->player_jump_texture = g_r->load_texture(renderer, "examples/speedjam5/player_jump.png");
 		game->player_fall_texture = g_r->load_texture(renderer, "examples/speedjam5/player_fall.png");
 
+		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
+		game->fbo_arr[0] = g_r->make_framebuffer(g_r, v2i(c_base_res));
+		game->fbo_arr[1] = g_r->make_framebuffer(g_r, v2i(c_base_res * 0.25f));
+		game->bloom_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
+
 		game->font = &renderer->fonts[0];
 		platform_data->variables_path = "examples/speedjam5/variables.h";
 		game->cam.pos = v3(0, 0, -5);
@@ -434,10 +439,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 				if(explode) {
-					s_visual_effect ve = {};
-					ve.type = e_visual_effect_projectile_explosion;
-					ve.pos = projectile->pos;
-					game->visual_effect_arr.add(ve);
+					// s_visual_effect ve = {};
+					// ve.type = e_visual_effect_projectile_explosion;
+					// ve.pos = projectile->pos;
+					// game->visual_effect_arr.add(ve);
 					s_v2 dir = v2_normalized(game->player.pos - projectile->pos);
 					float distance = v2_distance(game->player.pos, projectile->pos);
 					float strength = smoothstep(c_far_push_range, c_near_push_range, distance) * c_push_strength;
@@ -487,6 +492,28 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, float interp_dt)
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
+
+	if(platform_data->window_resized) {
+
+		// @TODO(tkap, 09/06/2024): this should be done for us in the platform layer
+		g_r->delete_framebuffer(g_r, game->main_fbo);
+		g_r->delete_framebuffer(g_r, game->bloom_fbo);
+		g_r->delete_framebuffer(g_r, game->fbo_arr[0]);
+		g_r->delete_framebuffer(g_r, game->fbo_arr[1]);
+
+		s_v2i size = v2i(platform_data->window_width, platform_data->window_height);
+		s_v2i size2 = v2i(roundfi(platform_data->window_width * 0.25f), roundfi(platform_data->window_height * 0.25f));
+
+		game->main_fbo = g_r->make_framebuffer(g_r, size);
+		game->fbo_arr[0] = g_r->make_framebuffer(g_r, size);
+		game->fbo_arr[1] = g_r->make_framebuffer(g_r, size2);
+		game->bloom_fbo = g_r->make_framebuffer_with_existing_depth(g_r, size, game->main_fbo->depth);
+	}
+
+	g_r->clear_framebuffer(game->fbo_arr[0], {});
+	g_r->clear_framebuffer(game->fbo_arr[1], {});
+	g_r->clear_framebuffer(game->main_fbo, {});
+	g_r->clear_framebuffer(game->bloom_fbo, {});
 
 	g_mouse = platform_data->mouse;
 
@@ -560,7 +587,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				pos.y += c_base_button_size.y * 1.1f;
 			}
 			state->map_selected = ui_end();
-			g_r->end_render_pass(g_r, {.do_clear = true, .blend_mode = e_blend_mode_normal, .view_projection = ortho});
+			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 		} break;
 
 		case e_state_play: {
@@ -581,7 +608,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				start_render_pass(g_r);
 				draw_rect(g_r, c_half_res, 0, c_base_res, make_color(1), {}, {.effect_id = 5});
 				g_r->end_render_pass(
-					g_r, {.do_clear = true, .dont_write_depth = true, .cam_pos = game->cam.pos, .view_projection = ortho}
+					g_r, {.dont_write_depth = true, .cam_pos = game->cam.pos, .view_projection = ortho, .framebuffer = game->main_fbo}
 				);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		background end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -600,10 +627,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			if(is_key_pressed(g_input, c_key_f3)) {
 				game->player.pos = v2(game->map.end_point.pos) * v2(c_play_tile_size);
 			}
-			// if(is_key_pressed(g_input, c_key_f4)) {
-			// 	static int r = 0;
-			// 	r = platform_data->cycle_between_available_resolutions(r);
-			// }
+			if(is_key_pressed(g_input, c_key_f4)) {
+				static int r = 0;
+				r = platform_data->cycle_between_available_resolutions(r);
+			}
 			#endif // m_debug
 
 			game->ray = get_ray(g_mouse, c_base_res, game->cam, view, projection);
@@ -674,6 +701,90 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw projectiles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			foreach_val(projectile_i, projectile, game->projectile_arr) {
+				s_v2 pos = lerp(projectile.prev_pos, projectile.pos, interp_dt);
+				// draw_cube(g_r, v3(pos.x, pos.y, c_player_z), c_projectile_size, make_color(1.0f, 1.0f, 0.1f));
+				draw_atlas_3d(
+					g_r, v3(pos, c_player_z - c_small), c_projectile_visual_size, make_color(1), game->sheet, v2i(256, 0), c_sprite_size, {}, {.rotation = v2_angle(projectile.dir)}
+				);
+
+				if(game->dev_menu.show_hitboxes) {
+					draw_rect_3d(g_r, v3(pos, c_player_z - c_small), c_projectile_collision_size, make_color(1), {}, {.effect_id = 8});
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw projectiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		visual effects start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			foreach_ptr(ve_i, ve, game->visual_effect_arr) {
+				ve->timer += g_delta;
+				float duration = 0;
+				switch(ve->type) {
+					case e_visual_effect_projectile_explosion: {
+						duration = 0.25f;
+						int index = clamp(roundfi(ve->timer / 0.25f * 2), 0, 2);
+						s_v2i index_arr[] = {v2i(64, 0), v2i(128, 0), v2i(192, 0)};
+						draw_atlas_3d(g_r, v3(ve->pos, c_player_z - 0.001f), v2(4), make_color(1), game->sheet, index_arr[index], c_sprite_size);
+					} break;
+					invalid_default_case;
+				}
+
+				if(ve->timer > duration) {
+					game->visual_effect_arr.remove_and_swap(ve_i--);
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		visual effects end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			g_r->end_render_pass(g_r, {.do_depth = true, .do_cull = true, .view_projection = view_projection, .framebuffer = game->main_fbo});
+
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hints start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			if(game->curr_map == 0) {
+
+				start_render_pass(g_r);
+
+				float z = c_player_z;
+
+				draw_text_3d(g_r, strlit("What if you shot a rocket and\njumped at the same time?"), v3(300, 2015, z), 0.5f, make_color(1), false, game->font);
+
+				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(286, 2003, z), 0.5f, make_color(1), false, game->font);
+
+				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(246, 1943, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("It's pogo time!"), v3(250, 1943, z), 0.5f, make_color(1), false, game->font);
+
+				draw_text_3d(g_r, strlit("You can jump mid-air!"), v3(289, 1944, z), 0.5f, make_color(1), false, game->font);
+
+				char* text = "If only there was\n"
+					"a way to get hit by 2\n"
+					"rockets at the same time...\n\n"
+					"I bet that would send\n"
+					"you very high up";
+				draw_text_3d(g_r, strlit(text), v3(223, 1930, z), 0.5f, make_color(1), false, game->font);
+
+				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = view_projection, .framebuffer = game->main_fbo});
+
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hints end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			start_render_pass(g_r);
+			{
+				s_time_data data = process_time(game->timer);
+				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font);
+			}
+
+			#ifdef m_debug
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw coords start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				draw_text(g_r, format_text("x: %0.1f y: %0.1f", game->player.pos.x, game->player.pos.y), v2(0, 32), 10, 32, make_color(1), false, game->font);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw coords end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			#endif // m_debug
+
+			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
+
+
+			start_render_pass(g_r);
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_player* player = &game->player;
@@ -711,45 +822,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw projectiles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			foreach_val(projectile_i, projectile, game->projectile_arr) {
-				s_v2 pos = lerp(projectile.prev_pos, projectile.pos, interp_dt);
-				// draw_cube(g_r, v3(pos.x, pos.y, c_player_z), c_projectile_size, make_color(1.0f, 1.0f, 0.1f));
-				draw_atlas_3d(
-					g_r, v3(pos, c_player_z - c_small), c_projectile_visual_size, make_color(1), game->sheet, v2i(256, 0), c_sprite_size, {}, {.rotation = v2_angle(projectile.dir)}
-				);
+			g_r->end_render_pass(
+				g_r, {.do_depth = true, .blend_mode = e_blend_mode_normal, .cam_pos = game->cam.pos, .view_projection = view_projection, .framebuffer = game->bloom_fbo}
+			);
 
-				if(game->dev_menu.show_hitboxes) {
-					draw_rect_3d(g_r, v3(pos, c_player_z - c_small), c_projectile_collision_size, make_color(1), {}, {.effect_id = 8});
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw projectiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		visual effects start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			foreach_ptr(ve_i, ve, game->visual_effect_arr) {
-				ve->timer += g_delta;
-				float duration = 0;
-				switch(ve->type) {
-					case e_visual_effect_projectile_explosion: {
-						duration = 0.25f;
-						int index = clamp(roundfi(ve->timer / 0.25f * 2), 0, 2);
-						s_v2i index_arr[] = {v2i(64, 0), v2i(128, 0), v2i(192, 0)};
-						draw_atlas_3d(g_r, v3(ve->pos, c_player_z - 0.001f), v2(4), make_color(1), game->sheet, index_arr[index], c_sprite_size);
-					} break;
-					invalid_default_case;
-				}
-
-				if(ve->timer > duration) {
-					game->visual_effect_arr.remove_and_swap(ve_i--);
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		visual effects end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			g_r->end_render_pass(g_r, {.do_depth = true, .do_cull = true, .view_projection = view_projection});
-
+			start_render_pass(g_r);
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		trail start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				start_render_pass(g_r);
 				foreach_ptr(trail_i, trail, game->trail_arr) {
 					constexpr float duration = 0.25f;
 					s_percent_data p = get_percent_data(trail->time, duration);
@@ -762,12 +841,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						game->trail_arr.remove_and_swap(trail_i--);
 					}
 				}
-				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = view_projection});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		trail end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
-
+			g_r->end_render_pass(
+				g_r, {.blend_mode = e_blend_mode_normal, .cam_pos = game->cam.pos, .view_projection = view_projection, .framebuffer = game->bloom_fbo}
+			);
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -811,54 +890,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 
-				g_r->end_render_pass(g_r, {.do_depth = true, .dont_write_depth = true, .blend_mode = e_blend_mode_additive, .cam_pos = game->cam.pos, .view_projection = view_projection});
+				g_r->end_render_pass(g_r, {.do_depth = true, .dont_write_depth = true, .blend_mode = e_blend_mode_additive, .cam_pos = game->cam.pos, .view_projection = view_projection, .framebuffer = game->bloom_fbo});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hints start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			if(game->curr_map == 0) {
-
-				start_render_pass(g_r);
-
-				float z = c_player_z;
-
-				draw_text_3d(g_r, strlit("What if you shot a rocket and\njumped at the same time?"), v3(300, 2015, z), 0.5f, make_color(1), false, game->font);
-
-				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(286, 2003, z), 0.5f, make_color(1), false, game->font);
-
-				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(246, 1943, z), 0.5f, make_color(1), false, game->font);
-				draw_text_3d(g_r, strlit("It's pogo time!"), v3(250, 1943, z), 0.5f, make_color(1), false, game->font);
-
-				draw_text_3d(g_r, strlit("You can jump mid-air!"), v3(289, 1944, z), 0.5f, make_color(1), false, game->font);
-
-				char* text = "If only there was\n"
-					"a way to get hit by 2\n"
-					"rockets at the same time...\n\n"
-					"I bet that would send\n"
-					"you very high up";
-				draw_text_3d(g_r, strlit(text), v3(223, 1930, z), 0.5f, make_color(1), false, game->font);
-
-				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = view_projection});
-
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hints end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			start_render_pass(g_r);
-			{
-				s_time_data data = process_time(game->timer);
-				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font);
-			}
-
-			#ifdef m_debug
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw coords start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				draw_text(g_r, format_text("x: %0.1f y: %0.1f", game->player.pos.x, game->player.pos.y), v2(0, 32), 10, 32, make_color(1), false, game->font);
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw coords end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-			#endif // m_debug
-
-			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho});
 
 
 		} break;
@@ -1047,7 +1082,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			g_r->end_render_pass(g_r, {.do_clear = true, .view_projection = m4_multiply(ortho, game->editor_cam.get_matrix())});
+			g_r->end_render_pass(g_r, {.view_projection = m4_multiply(ortho, game->editor_cam.get_matrix()), .framebuffer = game->main_fbo});
 
 			{
 				start_render_pass(g_r);
@@ -1061,7 +1096,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_text(g_r, format_text("x: %i y: %i", mouse_index.x, mouse_index.y), pos, 10, font_size, make_color(1), false, game->font);
 				pos.y += font_size;
 				draw_text(g_r, strlit("Press C to move camera to player"), pos, 10, font_size, make_color(1), false, game->font);
-				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho});
+				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 			}
 
 		} break;
@@ -1117,7 +1152,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			ui_end();
 
-			g_r->end_render_pass(g_r, {.do_clear = true, .blend_mode = e_blend_mode_normal, .view_projection = ortho});
+			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 
 		} break;
 
@@ -1184,7 +1219,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_rect(g_r, state->name.cursor_visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, {}, {.origin_offset = c_origin_topleft});
 			}
 
-			g_r->end_render_pass(g_r, {.do_clear = true, .blend_mode = e_blend_mode_normal, .view_projection = ortho});
+			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 		} break;
 
 		invalid_default_case;
@@ -1197,6 +1232,34 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	#endif // m_debug
 
 	do_ui(ortho);
+
+	// @Note(tkap, 08/06/2024): Luminance
+	start_render_pass(g_r);
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, {.shader = 3});
+	g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[0]});
+
+	// @Note(tkap, 08/06/2024): Blur
+	start_render_pass(g_r);
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], {.shader = 4});
+	g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[1]});
+
+	// @Note(tkap, 08/06/2024): Combine
+	start_render_pass(g_r);
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[1]);
+	g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_additive, .view_projection = ortho, .framebuffer = game->bloom_fbo});
+
+	start_render_pass(g_r);
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo);
+	g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_additive, .view_projection = ortho, .framebuffer = game->main_fbo});
+
+	// start_render_pass(g_r);
+	// draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0]);
+	// g_r->end_render_pass(g_r, {.view_projection = ortho});
+
+	start_render_pass(g_r);
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo);
+	g_r->end_render_pass(g_r, {.view_projection = ortho});
+
 }
 
 #ifdef m_build_dll
@@ -1214,7 +1277,7 @@ static void do_ui(s_m4 ortho)
 	}
 
 	g_r->end_render_pass(
-		g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho}
+		g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo}
 	);
 }
 

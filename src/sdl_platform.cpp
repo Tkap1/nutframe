@@ -1,4 +1,3 @@
-
 #pragma comment(lib, "opengl32.lib")
 
 // #if !defined(m_debug) && defined(_WIN32)
@@ -34,6 +33,7 @@
 #include "resource.h"
 
 static void set_cursor_pos(int x, int y);
+static void set_vsync(bool val);
 #include "platform_shared.h"
 
 static b8 play_sound(s_sound* sound);
@@ -196,13 +196,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		after_loading_texture(g_game_renderer);
 	}
 
-	g_game_renderer->set_vsync = set_vsync;
-	g_game_renderer->load_texture = load_texture;
-	g_game_renderer->load_font = load_font;
-	g_game_renderer->make_framebuffer = make_framebuffer;
-	g_game_renderer->set_shader_float = set_shader_float;
-	g_game_renderer->set_shader_v2 = set_shader_v2;
-	g_game_renderer->end_render_pass = end_render_pass;
 	init_gl(&g_platform_renderer, g_game_renderer, &platform_frame_arena);
 
 	b8 running = true;

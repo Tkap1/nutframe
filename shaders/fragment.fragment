@@ -82,6 +82,11 @@ vec3 circle(vec2 pos, vec2 uv, float radius)
 	return vec3(d);
 }
 
+float luminance(vec3 v)
+{
+	return v.r * 0.2126 + v.g * 0.7152 + v.b * 0.0722;
+}
+
 void main()
 {
 	vec4 color;

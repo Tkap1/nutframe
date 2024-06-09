@@ -24,6 +24,7 @@ set linker=-INCREMENTAL:NO
 
 if !platform!==0 (
 	set platform_file=..\src\win32_platform.cpp
+	set comp=!comp! -Dm_windows
 )
 
 if !platform!==1 (

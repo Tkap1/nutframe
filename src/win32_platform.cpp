@@ -34,6 +34,7 @@ struct s_window
 static s_window g_window;
 
 static void set_cursor_pos(int x, int y);
+static void set_vsync(bool val);
 #include "platform_shared.h"
 
 struct s_voice : IXAudio2VoiceCallback
@@ -65,7 +66,6 @@ static b8 init_audio();
 static b8 play_sound(s_sound* sound);
 static void init_performance();
 static f64 get_seconds();
-static void set_vsync(b8 val);
 static int cycle_between_available_resolutions(int current);
 static void center_window();
 static void set_actual_window_size(int width, int height);
@@ -227,14 +227,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		game_renderer->textures.add({});
 		after_loading_texture(game_renderer);
 	}
-
-	game_renderer->set_vsync = set_vsync;
-	game_renderer->load_texture = load_texture;
-	game_renderer->load_font = load_font;
-	game_renderer->make_framebuffer = make_framebuffer;
-	game_renderer->set_shader_float = set_shader_float;
-	game_renderer->set_shader_v2 = set_shader_v2;
-	game_renderer->end_render_pass = end_render_pass;
 
 	init_gl(&g_platform_renderer, game_renderer, &platform_frame_arena);
 
@@ -498,7 +490,7 @@ static void create_window(int width, int height)
 			instance,
 			NULL
 		);
-		assert(dummy_window != INVALID_HANDLE_VALUE);
+		assert(dummy_window);
 
 		HDC dc = GetDC(dummy_window);
 
@@ -557,7 +549,7 @@ static void create_window(int width, int height)
 			instance,
 			NULL
 		);
-		assert(g_window.handle != INVALID_HANDLE_VALUE);
+		assert(g_window.handle);
 
 		center_window();
 
@@ -768,7 +760,7 @@ static void set_borderless(HWND handle)
 
 static void set_non_borderless(HWND handle)
 {
-	SetWindowLongA(handle, GWL_STYLE, (WS_OVERLAPPEDWINDOW) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
+	SetWindowLongA(handle, GWL_STYLE, (WS_OVERLAPPEDWINDOW));
 }
 
 static int cycle_between_available_resolutions(int current)

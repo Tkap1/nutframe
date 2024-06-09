@@ -1,0 +1,102 @@
+
+flat in int v_flags;
+flat in int v_effect_id;
+in float v_mix_weight;
+in vec3 v_pos;
+in vec2 v_origin_offset;
+in vec2 v_draw_size;
+in vec2 v_texture_size;
+in vec2 v_uv_min;
+in vec2 v_uv_max;
+in vec4 v_color;
+in vec4 v_mix_color;
+
+in vec2 v_uv;
+in vec2 v_local_uv;
+
+out vec4 out_color;
+
+uniform vec2 base_res;
+uniform vec2 window_size;
+uniform float time;
+uniform vec2 player_pos;
+uniform vec2 mouse;
+uniform vec2 snake_pos;
+uniform vec2 ball_rot;
+uniform float snake_apple_time;
+
+uniform sampler2D in_texture;
+uniform sampler2D noise;
+uniform vec3 cam_pos;
+
+#define pi 3.1415
+
+mat2 rot(float angle)
+{
+	float c = cos(-angle);
+	float s = sin(-angle);
+	return mat2(c, -s, s, c);
+}
+
+vec2 n22(vec2 p)
+{
+	vec3 a = fract(p.xyx * vec3(123.34, 234.34, 345.65));
+	a += dot(a, a + 34.45);
+	return fract(vec2(a.x * a.y, a.y * a.z));
+}
+
+float range_lerp(float val, float amin, float amax, float bmin, float bmax)
+{
+	float p = (val - amin) / (amax - amin);
+	return bmin + (bmax - bmin) * p;
+}
+
+float sin_range(float min_val, float max_val, float x)
+{
+	return range_lerp(sin(x), -1.0, 1.0, min_val, max_val);
+}
+
+float sin2(float s)
+{
+	return sin(s) * 0.5 + 0.5;
+}
+
+vec4 pma(vec4 col)
+{
+	return vec4(col.rgb * col.a, col.a);
+}
+
+bool point_in_rect_topleft(vec2 point, vec2 pos, vec2 size)
+{
+	return point.x >= pos.x && point.x <= pos.x + size.x && point.y >= pos.y && point.y <= pos.y + size.y;
+}
+
+vec3 circle(vec2 pos, vec2 uv, float radius)
+{
+	vec2 ar = vec2(1.0, base_res.y / base_res.x);
+	pos *= ar;
+	uv *= ar;
+	float d = distance(pos, uv);
+	d = smoothstep(radius, 0.0, d);
+	// return vec3(d * 0.1, d * 0.4, d);
+	return vec3(d);
+}
+
+float luminance(vec3 v)
+{
+	return v.r * 0.2126 + v.g * 0.7152 + v.b * 0.0722;
+}
+
+void main()
+{
+	vec4 texture_color = texture(in_texture, v_local_uv);
+	vec3 color = texture_color.rgb;
+	float l = luminance(color);
+	l = smoothstep(0.0, 1.0, l);
+	if(l <= 0.0) { discard; }
+	// l *= 10.0;
+	// l = pow(l, 2.0);
+	color = vec3(color * l);
+	// color = vec3(l);
+	out_color = vec4(color, 0.0);
+}

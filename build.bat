@@ -25,6 +25,7 @@ set comp=!comp! -wd4201 -wd4100 -wd4464 -wd4820 -wd5219 -wd4365 -wd4514 -wd5045 
 
 if !platform!==0 (
 	set platform_file=..\src\win32_platform.cpp
+	set comp=!comp! -Dm_windows
 )
 
 if !platform!==1 (
