@@ -21,7 +21,7 @@ if !debug!==0 (
 	set comp=!comp! -O3
 ) else (
 	@REM set comp=!comp! -Dm_debug
-	@REM set comp=!comp! -O3
+	set comp=!comp! -O3
 	set comp=!comp! -sSAFE_HEAP=0
 	set comp=!comp! -sASSERTIONS=0
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
@@ -46,6 +46,7 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../aqtun.map@aqtun.map
 	set comp=!comp! --preload-file ../zanarias.map@zanarias.map
 	set comp=!comp! --preload-file ../azenris.map@azenris.map
+	set comp=!comp! --preload-file ../platforms.map@platforms.map
 	set comp=!comp! -gsource-map
 	@REM set comp=!comp! -fsanitize=address
 )

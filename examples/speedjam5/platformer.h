@@ -147,6 +147,7 @@ struct s_player
 	float jump_time;
 	float last_x_vel;
 
+	b8 did_any_action;
 	b8 flip_x;
 	b8 released_left_button_since_death;
 	float animation_timer;
@@ -297,16 +298,17 @@ struct s_map_data
 {
 	s_len_str name;
 	char* path;
+	s_v3 cam_offset;
 	int leaderboard_id;
 };
 
 constexpr s_map_data c_map_data[] = {
-	{.name = m_strlit("Easy"), .path = "platform_map.map", .leaderboard_id = 22605},
-	{.name = m_strlit("Hard"), .path = "map2.map", .leaderboard_id = 22731},
-	{.name = m_strlit("AQtun"), .path = "aqtun.map", .leaderboard_id = 22741},
-	{.name = m_strlit("Zanarias"), .path = "zanarias.map", .leaderboard_id = 22762},
-	{.name = m_strlit("Azenris"), .path = "azenris.map", .leaderboard_id = 22763},
-	{.name = m_strlit("Platforms"), .path = "platforms.map", .leaderboard_id = 22806},
+	{.name = m_strlit("Easy"), .path = "platform_map.map", .cam_offset = v3(0.0f, -2, -10), .leaderboard_id = 22605},
+	{.name = m_strlit("Hard"), .path = "map2.map", .cam_offset = v3(0.0f, -2, -10), .leaderboard_id = 22731},
+	{.name = m_strlit("AQtun"), .path = "aqtun.map", .cam_offset = v3(0.0f, -2, -10), .leaderboard_id = 22741},
+	{.name = m_strlit("Zanarias"), .path = "zanarias.map", .cam_offset = v3(0.0f, -2, -10), .leaderboard_id = 22762},
+	{.name = m_strlit("Azenris"), .path = "azenris.map", .cam_offset = v3(0.0f, -2, -10), .leaderboard_id = 22763},
+	{.name = m_strlit("Platforms"), .path = "platforms.map", .cam_offset = v3(5.0f, -2, -15), .leaderboard_id = 22806},
 
 	#ifndef m_emscripten
 	{.name = m_strlit("Create map"), .path = "example.map", .leaderboard_id = 0},
@@ -333,6 +335,7 @@ struct s_map_select_state
 struct s_game
 {
 	b8 initialized;
+	b8 do_bloom;
 	b8 reset_game;
 	e_state state;
 	int reset_player;

@@ -6,6 +6,7 @@
 #include "platformer.h"
 
 static constexpr s_v2 c_base_res = {800, 800};
+// static constexpr s_v2 c_base_res = {1366, 768};
 static constexpr s_v2 c_half_res = {c_base_res.x * 0.5f, c_base_res.y * 0.5f};
 
 static s_input* g_input;
@@ -105,10 +106,12 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				game->projectile_arr.count = 0;
 				if(game->curr_save_point == 0) {
 					game->timer = 0;
+					game->player.did_any_action = false;
 				}
 				if(game->reset_player == 2) {
 					game->timer = 0;
 					game->curr_save_point = 0;
+					game->player.did_any_action = false;
 				}
 				if(game->map.save_point_arr.count > 0) {
 					game->player.pos = index_to_pos(game->map.save_point_arr[game->curr_save_point].pos, c_play_tile_size);
@@ -122,7 +125,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 
-			game->timer += 1.0 / c_updates_per_second;
+			if(game->player.did_any_action) {
+				game->timer += 1.0 / c_updates_per_second;
+			}
 
 
 			if(is_key_pressed(g_input, c_key_escape)) {
@@ -141,14 +146,17 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				float input_vel = 0;
 				if(is_key_down(g_input, c_key_a) || is_key_down(g_input, c_key_left)) {
 					input_vel -= c_player_speed;
+					player->did_any_action = true;
 				}
 				if(is_key_down(g_input, c_key_d) || is_key_down(g_input, c_key_right)) {
 					input_vel += c_player_speed;
+					player->did_any_action = true;
 				}
 				input_vel = clamp(input_vel, -c_max_input_vel, c_max_input_vel);
 
 				player->shoot_timer = at_most(c_shoot_delay, player->shoot_timer + 1);
 				if(player->released_left_button_since_death && player->shoot_timer >= c_shoot_delay && is_key_down(g_input, c_left_mouse)) {
+					player->did_any_action = true;
 					player->shoot_timer -= c_shoot_delay;
 					s_projectile p = {};
 					p.pos = player->pos;
@@ -187,6 +195,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 				if(is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_key_up) || is_key_pressed(g_input, c_key_w)) {
 					if(player->jumps_left > 0) {
+						player->did_any_action = true;
 						player->jump_time = c_player_jump_time;
 						platform_data->play_sound(game->jump_sound);
 						if(player->vel.y > 0) {
@@ -573,6 +582,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				#endif // m_emscripten
 				pos.y += c_base_button_size.y * 1.1f;
 			}
+
+			if(ui_button(format_text("Bloom: %s", game->do_bloom ? "On": "Off"), c_base_res * v2(0.05f, 0.92f), {.font_size = 32, .size_x = 180})) {
+				game->do_bloom = !game->do_bloom;
+			}
+
 			state->map_selected = ui_end();
 			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 		} break;
@@ -582,8 +596,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_v2 pos = lerp(game->player.prev_pos, game->player.pos, interp_dt);
 				game->cam.pos.xy = pos;
-				game->cam.pos.y -= 2;
-				game->cam.pos.z = -10;
+				game->cam.pos.z = 0;
+				game->cam.pos += c_map_data[game->curr_map].cam_offset;
 			}
 
 			s_m4 view = get_camera_view(game->cam);
@@ -886,6 +900,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		} break;
 
 		case e_state_editor: {
+			#ifdef m_debug
 
 			start_render_pass(g_r);
 			s_editor* editor = &game->editor;
@@ -1218,6 +1233,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 			}
 
+			#endif // m_debug
+
 		} break;
 
 		case e_state_leaderboard: {
@@ -1353,19 +1370,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	do_ui(ortho);
 
 	// @Note(tkap, 08/06/2024): Luminance
-	start_render_pass(g_r);
-	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, {.shader = 3});
-	g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[0]});
+	if(game->do_bloom) {
+		start_render_pass(g_r);
+		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, {.shader = 3});
+		g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[0]});
 
-	// @Note(tkap, 08/06/2024): Blur
-	start_render_pass(g_r);
-	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], {.shader = 4});
-	g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[1]});
+		// @Note(tkap, 08/06/2024): Blur
+		start_render_pass(g_r);
+		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], {.shader = 4});
+		g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[1]});
 
-	// @Note(tkap, 08/06/2024): Combine
-	start_render_pass(g_r);
-	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[1]);
-	g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_additive, .view_projection = ortho, .framebuffer = game->bloom_fbo});
+		// @Note(tkap, 08/06/2024): Combine
+		start_render_pass(g_r);
+		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[1]);
+		g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_additive, .view_projection = ortho, .framebuffer = game->bloom_fbo});
+	}
 
 	start_render_pass(g_r);
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo);
@@ -1373,7 +1392,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	// start_render_pass(g_r);
 	// draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0]);
-	// g_r->end_render_pass(g_r, {.view_projection = ortho});
+	// g_r->end_render_pass(g_r, {.view_projection = ortho})
 
 	start_render_pass(g_r);
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo);
