@@ -111,6 +111,7 @@ X(PFNGLGETPROGRAMIVPROC, glGetProgramiv) \
 X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
 X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers) \
 X(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv) \
+X(PFNGLBLENDFUNCSEPARATEPROC, glBlendFuncSeparate) \
 
 #else // __EMSCRIPTEN__
 
@@ -154,6 +155,7 @@ X(PFNGLGETPROGRAMIVPROC, glGetProgramiv) \
 X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
 X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers) \
 X(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv) \
+X(PFNGLBLENDFUNCSEPARATEPROC, glBlendFuncSeparate) \
 
 #endif // __EMSCRIPTEN__
 
@@ -794,13 +796,32 @@ struct s_ray_collision
 	s_v3 point;
 };
 
+
+enum e_depth_mode
+{
+	e_depth_mode_no_read_no_write,
+	e_depth_mode_read_and_write,
+	e_depth_mode_read_no_write,
+	e_depth_mode_no_read_yes_write,
+};
+
+enum e_cull_mode
+{
+	e_cull_mode_disabled,
+	e_cull_mode_back_ccw,
+	e_cull_mode_front_ccw,
+	e_cull_mode_back_cw,
+	e_cull_mode_front_cw,
+};
+
 enum e_blend_mode
 {
-	e_blend_mode_disable,
-	e_blend_mode_normal,
+	e_blend_mode_disabled,
 	e_blend_mode_additive,
+	e_blend_mode_premultiply_alpha,
 	e_blend_mode_multiply,
-	e_blend_mode_count,
+	e_blend_mode_normal,
+	e_blend_mode_additive_no_alpha,
 };
 
 template <typename t>
@@ -2959,7 +2980,6 @@ typedef s_font* (*t_load_font)(s_game_renderer*, const char*, int, s_lin_arena*)
 struct s_game_renderer
 {
 	b8 did_we_alloc;
-	b8 in_render_pass;
 	t_set_vsync set_vsync;
 	t_load_texture load_texture;
 	t_load_font load_font;
@@ -5171,12 +5191,6 @@ static int to_bit(int a)
 	return 1 << a;
 }
 
-static void start_render_pass(s_game_renderer* game_renderer)
-{
-	assert(!game_renderer->in_render_pass);
-	game_renderer->in_render_pass = true;
-}
-
 #ifndef m_game
 
 static void handle_key_event(int key, b8 is_down, b8 is_repeat)
@@ -5309,15 +5323,101 @@ static void get_our_leaderboard(int leaderboard_id, t_get_our_leaderboard_callba
 
 #endif // __EMSCRIPTEN__
 
+
+static void set_depth_testing(e_depth_mode mode)
+{
+	switch(mode) {
+		case e_depth_mode_no_read_no_write: {
+			glDisable(GL_DEPTH_TEST);
+			glDepthMask(GL_FALSE);
+		} break;
+		case e_depth_mode_read_and_write: {
+			glEnable(GL_DEPTH_TEST);
+			glDepthMask(GL_TRUE);
+		} break;
+		case e_depth_mode_read_no_write: {
+			glEnable(GL_DEPTH_TEST);
+			glDepthMask(GL_FALSE);
+		} break;
+		case e_depth_mode_no_read_yes_write: {
+			glDisable(GL_DEPTH_TEST);
+			glDepthMask(GL_TRUE);
+		} break;
+		invalid_default_case;
+	}
+}
+
+static void set_cull_mode(e_cull_mode mode)
+{
+	switch(mode) {
+		case e_cull_mode_disabled: {
+			glDisable(GL_CULL_FACE);
+		} break;
+
+		case e_cull_mode_back_ccw: {
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_BACK);
+			glFrontFace(GL_CCW);
+		} break;
+
+		case e_cull_mode_front_ccw: {
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_FRONT);
+			glFrontFace(GL_CCW);
+		} break;
+
+		case e_cull_mode_back_cw: {
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_BACK);
+			glFrontFace(GL_CW);
+		} break;
+
+		case e_cull_mode_front_cw: {
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_FRONT);
+			glFrontFace(GL_CW);
+		} break;
+		invalid_default_case;
+	}
+}
+
+static void set_blend_mode(e_blend_mode mode)
+{
+	switch(mode) {
+		case e_blend_mode_disabled: {
+			glDisable(GL_BLEND);
+		} break;
+		case e_blend_mode_additive: {
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_ONE, GL_ONE);
+		} break;
+		case e_blend_mode_premultiply_alpha: {
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+		} break;
+		case e_blend_mode_multiply: {
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+		} break;
+		case e_blend_mode_normal: {
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		} break;
+		case e_blend_mode_additive_no_alpha: {
+			glEnable(GL_BLEND);
+			glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE);
+		} break;
+		invalid_default_case;
+	}
+}
+
 static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render_pass)
 {
-	assert(game_renderer->in_render_pass);
 	s_framebuffer* framebuffer = render_pass.framebuffer;
 	if(!framebuffer) {
 		framebuffer = &game_renderer->framebuffers[0];
 	}
 	s_platform_renderer* platform_renderer = &g_platform_renderer;
-	game_renderer->in_render_pass = false;
 	if(render_pass.do_depth) {
 		gl(glEnable(GL_DEPTH_TEST));
 	}

@@ -556,7 +556,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		case e_state_map_select: {
 
 			s_map_select_state* state = &game->map_select_state;
-			start_render_pass(g_r);
 
 			ui_start(state->map_selected);
 			s_v2 pos = v2(c_half_res.x * 0.2f, c_half_res.y * 0.1f);
@@ -606,15 +605,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				start_render_pass(g_r);
 				draw_rect(g_r, c_half_res, 0, c_base_res, make_color(1), {}, {.effect_id = 5});
 				g_r->end_render_pass(
 					g_r, {.dont_write_depth = true, .cam_pos = game->cam.pos, .view_projection = ortho, .framebuffer = game->main_fbo}
 				);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		background end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			start_render_pass(g_r);
 
 			#ifdef m_debug
 			if(is_key_pressed(g_input, c_right_mouse)) {
@@ -742,8 +738,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hints start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(game->curr_map == 0) {
 
-				start_render_pass(g_r);
-
 				float z = c_player_z;
 
 				draw_text_3d(g_r, strlit("What if you shot a rocket and\njumped at the same time?"), v3(300, 2015, z), 0.5f, make_color(1), false, game->font);
@@ -767,7 +761,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hints end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			start_render_pass(g_r);
 			{
 				s_time_data data = process_time(game->timer);
 				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
@@ -785,7 +778,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 
 
-			start_render_pass(g_r);
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_player* player = &game->player;
@@ -827,7 +819,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				g_r, {.do_depth = true, .blend_mode = e_blend_mode_normal, .cam_pos = game->cam.pos, .view_projection = view_projection, .framebuffer = game->bloom_fbo}
 			);
 
-			start_render_pass(g_r);
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		trail start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				foreach_ptr(trail_i, trail, game->trail_arr) {
@@ -851,7 +842,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				start_render_pass(g_r);
 
 				// if(is_key_down(g_input, c_left_mouse)) {
 				// if(is_key_pressed(g_input, c_right_mouse)) {
@@ -902,7 +892,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		case e_state_editor: {
 			#ifdef m_debug
 
-			start_render_pass(g_r);
 			s_editor* editor = &game->editor;
 			s_v2i mouse_index = pos_to_index(game->editor_cam.screen_to_world(g_mouse), c_editor_tile_size);
 
@@ -1219,7 +1208,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			g_r->end_render_pass(g_r, {.do_depth = true, .view_projection = m4_multiply(ortho, game->editor_cam.get_matrix()), .framebuffer = game->main_fbo});
 
 			{
-				start_render_pass(g_r);
 
 				if(is_key_pressed(g_input, c_key_c) && !is_key_down(g_input, c_key_left_ctrl)) {
 					game->editor_cam.pos = game->player.pos * c_editor_tile_size - c_base_res * 0.5f;
@@ -1239,7 +1227,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		case e_state_leaderboard: {
 
-			start_render_pass(g_r);
 
 			if(is_key_pressed(g_input, c_key_r)) {
 				set_state(e_state_play);
@@ -1293,7 +1280,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		} break;
 
 		case e_state_input_name: {
-			start_render_pass(g_r);
 
 			s_input_name_state* state = &game->input_name_state;
 
@@ -1371,22 +1357,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	// @Note(tkap, 08/06/2024): Luminance
 	if(!game->disable_bloom) {
-		start_render_pass(g_r);
 		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, {.shader = 3});
 		g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[0]});
 
 		// @Note(tkap, 08/06/2024): Blur
-		start_render_pass(g_r);
 		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], {.shader = 4});
 		g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[1]});
 
 		// @Note(tkap, 08/06/2024): Combine
-		start_render_pass(g_r);
 		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[1]);
 		g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_additive, .view_projection = ortho, .framebuffer = game->bloom_fbo});
 	}
 
-	start_render_pass(g_r);
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo);
 	g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_additive, .view_projection = ortho, .framebuffer = game->main_fbo});
 
@@ -1394,7 +1376,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	// draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0]);
 	// g_r->end_render_pass(g_r, {.view_projection = ortho})
 
-	start_render_pass(g_r);
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo);
 	g_r->end_render_pass(g_r, {.do_clear = true, .view_projection = ortho});
 
@@ -1406,7 +1387,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 static void do_ui(s_m4 ortho)
 {
-	start_render_pass(g_r);
 	if(game->dev_menu.active) {
 		ui_start(game->dev_menu.selected_ui);
 		ui_bool_button(strlit("Show hitboxes"), v2(4, 4), &game->dev_menu.show_hitboxes);
