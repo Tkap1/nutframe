@@ -273,8 +273,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 		SwapBuffers(g_window.dc);
 
-		// nocheckin
-		#if 0
 		#ifdef m_debug
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hot reload shaders and textures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		{
@@ -284,8 +282,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				b8 is_fragment = strstr(file_path, ".fragment") != NULL;
 				b8 advance_file = true;
 				if(is_vertex || is_fragment) {
-					for(int shader_i = 0; shader_i < e_shader_count; shader_i++) {
-						s_shader_paths paths = c_shader_paths[shader_i];
+					foreach_val(paths_i, paths, g_platform_renderer.shader_path_arr) {
+						s_shader* shader = &game_renderer->shader_arr[paths_i];
 						b8 do_load = false;
 						if(is_vertex) {
 							if(strcmp(file_path, paths.vertex_path) == 0) {
@@ -303,21 +301,22 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 							char* vertex_src = read_file(paths.vertex_path, &platform_frame_arena);
 							char* fragment_src = read_file(paths.fragment_path, &platform_frame_arena);
 							if(!vertex_src || !vertex_src[0] || !fragment_src || !fragment_src[0]) { advance_file = false; }
-							u32 program =  load_shader_from_str(vertex_src, fragment_src, g_platform_data.program_error);
+							u32 program = load_shader_from_str(vertex_src, fragment_src, g_platform_data.program_error);
 
 							// @Note(tkap, 11/10/2023): We successfully loaded the shader files, but they don't compile/link, so we want to advance file
 							if(!program) {
-								g_platform_data.program_that_failed = g_platform_renderer.programs[shader_i];
+								g_platform_data.program_that_failed = shader->gl_id;
 								break;
 							}
 
-							if(g_platform_data.program_that_failed == g_platform_renderer.programs[shader_i]) {
+							if(g_platform_data.program_that_failed == shader->gl_id) {
 								g_platform_data.program_that_failed = 0;
 							}
 
 							gl(glUseProgram(0));
-							gl(glDeleteProgram(g_platform_renderer.programs[shader_i]));
-							g_platform_renderer.programs[shader_i] = program;
+							gl(glDeleteProgram(shader->gl_id));
+							shader->gl_id = program;
+							when_shader_first_loaded(shader);
 
 							log_info("Reloaded %s", file_path);
 
@@ -326,7 +325,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					}
 				}
 				else {
-					foreach_val(texture_i, texture, game_renderer->textures) {
+					foreach_val(texture_i, texture, game_renderer->texture_arr) {
 						// @Note(tkap, 11/10/2023): Our first texture is a "fake texture", so let's not try to read it's path (it doesn't have any)
 						if(!texture.path) { continue; }
 
@@ -342,7 +341,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 							new_texture.game_id = texture_i;
 							new_texture.path = file_path;
 							stbi_image_free(data);
-							game_renderer->textures[texture_i] = new_texture;
+							game_renderer->texture_arr[texture_i] = new_texture;
 							log_info("Reloaded %s", file_path);
 							break;
 						}
@@ -355,7 +354,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		}
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hot reload shaders and textures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 		#endif // m_debug
-		#endif
 	}
 
 	return 0;
