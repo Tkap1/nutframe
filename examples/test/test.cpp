@@ -1325,48 +1325,42 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	do_ui(ortho);
 
-	g_r->clear_framebuffer(game->fbo_arr[0], zero, c_default_fbo_clear_flags);
-	g_r->end_render_pass(g_r, game->background_render_pass, game->fbo_arr[0], {.view_projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass0, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_and_write, .view_projection = view_projection});
-	g_r->end_render_pass(g_r, game->things_to_bloom_render_pass0, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = view_projection});
-	g_r->end_render_pass(g_r, game->things_to_bloom_render_pass1, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_additive_no_alpha, .view_projection = view_projection});
-	g_r->end_render_pass(g_r, game->world_render_pass1, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = view_projection});
-	g_r->end_render_pass(g_r, game->ui_render_pass0, game->fbo_arr[0], {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
-	g_r->end_render_pass(g_r, game->ui_render_pass1, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
+	g_r->clear_framebuffer(game->main_fbo, v4(0, 0, 0, 0), c_default_fbo_clear_flags);
+	g_r->clear_framebuffer(game->fbo_arr[0], v4(0, 0, 0, 0), c_default_fbo_clear_flags);
+	g_r->clear_framebuffer(game->fbo_arr[1], v4(0, 0, 0, 0), c_default_fbo_clear_flags);
+	g_r->clear_framebuffer(game->bloom_fbo, v4(0, 0, 0, 0), c_default_fbo_clear_flags);
 
-	#if 0
-	// @Note(tkap, 08/06/2024): Luminance
+	g_r->end_render_pass(g_r, game->background_render_pass, game->main_fbo, {.view_projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass0, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .view_projection = view_projection});
+
+	g_r->end_render_pass(g_r, game->things_to_bloom_render_pass0, game->bloom_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = view_projection});
+	g_r->end_render_pass(g_r, game->things_to_bloom_render_pass1, game->bloom_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_additive, .view_projection = view_projection});
+
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		bloom start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	if(!game->disable_bloom) {
-		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, NULL, {.shader = 3});
-		g_r->end_render_pass(g_r, game->render_pass, game->fbo_arr[0], {.view_projection = ortho});
+		// @Note(tkap, 04/10/2024): Threshold/Luminance
+		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, game->things_to_bloom_render_pass0, {.shader = 3});
+		g_r->end_render_pass(g_r, game->things_to_bloom_render_pass0, game->fbo_arr[0], {.view_projection = ortho});
 
-		// @Note(tkap, 08/06/2024): Blur
-		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], NULL, {.shader = 4});
-		g_r->end_render_pass(g_r, game->render_pass, game->fbo_arr[1], {.view_projection = ortho});
+		// @Note(tkap, 04/10/2024): Blur
+		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], game->things_to_bloom_render_pass0, {.shader = 4});
+		g_r->end_render_pass(g_r, game->things_to_bloom_render_pass0, game->fbo_arr[1], {.view_projection = ortho});
 
-		// @Note(tkap, 08/06/2024): Combine
-		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[1]);
-		g_r->end_render_pass(g_r, game->render_pass, game->bloom_fbo, {.blend_mode = e_blend_mode_additive, .view_projection = ortho});
+		// @Note(tkap, 04/10/2024): Combine
+		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[1], game->things_to_bloom_render_pass0);
+		g_r->end_render_pass(g_r, game->things_to_bloom_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_additive, .view_projection = ortho});
 	}
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		bloom end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo);
-	g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_additive, .view_projection = ortho});
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, game->things_to_bloom_render_pass0);
+	g_r->end_render_pass(g_r, game->things_to_bloom_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_additive, .view_projection = ortho});
 
-	// start_render_pass(g_r);
-	// draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0]);
-	// g_r->end_render_pass(g_r, {.view_projection = ortho})
-
-	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
-	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass1, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = view_projection});
+	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
 
 	g_r->clear_framebuffer(g_r->default_fbo, zero, c_default_fbo_clear_flags);
-	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo);
-	g_r->end_render_pass(g_r, game->render_pass, g_r->default_fbo, {.view_projection = ortho});
-
-	#endif
-
-	g_r->clear_framebuffer(g_r->default_fbo, zero, c_default_fbo_clear_flags);
-	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], game->ui_render_pass0);
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo, game->ui_render_pass0);
 	g_r->end_render_pass(g_r, game->ui_render_pass0, g_r->default_fbo, {.view_projection = ortho});
 
 }
