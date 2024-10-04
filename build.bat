@@ -14,7 +14,7 @@ SETLOCAL ENABLEDELAYEDEXPANSION
 
 @REM 0 for win32, 1 for SDL
 set platform=0
-set client_file=..\examples\speedjam5\platformer.cpp
+set client_file=..\examples\test\test.cpp
 set exe_name=DigHard
 
 set build_dll=1

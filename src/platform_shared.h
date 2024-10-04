@@ -163,7 +163,7 @@ m_gl_funcs
 
 
 
-#endif // m_game
+#endif // ifndef m_game
 
 #define assert(cond) do { if(!(cond)) { on_failed_assert(#cond, __FILE__, __LINE__); } } while(0)
 #define unreferenced(thing) (void)thing;
@@ -732,7 +732,6 @@ struct s_string_parse
 	int len;
 };
 
-
 enum e_json
 {
 	e_json_object,
@@ -764,6 +763,14 @@ enum e_input_modifier
 	e_input_modifier_none = 0,
 	e_input_modifier_ctrl = 1 << 1,
 };
+
+enum e_fbo_clear
+{
+	e_fbo_clear_color = 1 << 0,
+	e_fbo_clear_depth = 1 << 1,
+};
+
+static constexpr int c_default_fbo_clear_flags = e_fbo_clear_color | e_fbo_clear_depth;
 
 
 #ifndef m_game
@@ -2960,7 +2967,7 @@ struct s_game_renderer
 	t_set_shader_float set_shader_float;
 	t_set_shader_v2 set_shader_v2;
 	void (*end_render_pass)(s_game_renderer*, s_render_pass);
-	void (*clear_framebuffer)(s_framebuffer*, s_v4);
+	void (*clear_framebuffer)(s_framebuffer*, s_v4, int);
 	s_framebuffer* (*make_framebuffer_with_existing_depth)(s_game_renderer*, s_v2i, s_texture);
 	// void (*delete_framebuffer)(s_game_renderer*, s_framebuffer*);
 	f64 total_time;
@@ -2998,7 +3005,7 @@ static s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, s_v2i siz
 static b8 set_shader_v2(const char* uniform_name, s_v2 val);
 static b8 set_shader_float(const char* uniform_name, float val);
 static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render_pass = {});
-static void clear_framebuffer(s_framebuffer* fbo, s_v4 clear_color);
+static void clear_framebuffer(s_framebuffer* fbo, s_v4 clear_color, int flags = e_fbo_clear_color | e_fbo_clear_depth);
 static s_framebuffer* make_framebuffer_with_existing_depth(s_game_renderer* game_renderer, s_v2i size, s_texture depth);
 // static void delete_framebuffer(s_game_renderer* game_renderer, s_framebuffer* fbo);
 #endif
@@ -5474,14 +5481,23 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 	}
 }
 
-static void clear_framebuffer(s_framebuffer* fbo, s_v4 clear_color)
+static void clear_framebuffer(s_framebuffer* fbo, s_v4 clear_color, int in_flags)
 {
 	assert(!fbo->is_main);
 	gl(glBindFramebuffer(GL_FRAMEBUFFER, fbo->gpu_id));
 	gl(glViewport(0, 0, (int)fbo->texture.size.x, (int)fbo->texture.size.y));
-	glDepthMask(GL_TRUE);
 	gl(glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w));
-	gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+	assert(in_flags != 0);
+	int flags = 0;
+	if(in_flags & e_fbo_clear_color) {
+		flags |= GL_COLOR_BUFFER_BIT;
+		gl(glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w));
+	}
+	if(in_flags & e_fbo_clear_depth) {
+		glDepthMask(GL_TRUE);
+		flags |= GL_DEPTH_BUFFER_BIT;
+	}
+	gl(glClear(flags));
 }
 
 #endif // m_game

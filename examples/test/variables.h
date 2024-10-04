@@ -1,0 +1,10 @@
+static float c_player_speed = 0.017857f;
+static float c_ground_friction = 0.797619f;
+static float c_apply_gravity = 0.535714f;
+static float c_jump_strength = 0.068452f;
+static float c_max_input_vel = 0.100000f;
+static int c_shoot_delay = 95;
+static float c_near_push_range = 0.000000f;
+static float c_far_push_range = 10.119047f;
+static float c_push_strength = 0.119821f;
+static float c_projectile_speed = 0.148810f;
