@@ -219,12 +219,11 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		platform_frame_arena = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
 		game_frame_arena = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
 		g_platform_data.frame_arena = &game_frame_arena;
+		g_platform_data.permanent_arena = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
 
-		game_renderer->arenas[0] = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
-		game_renderer->arenas[1] = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
-		game_renderer->transform_arenas[0] = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
-		game_renderer->transform_arenas[1] = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
-		game_renderer->textures.add({});
+		// @TODO(tkap, 04/10/2024): put all of this shit in platform_shared so both SDL and win32 can call it. no duplication
+		game_renderer->frame_arena = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
+		game_renderer->texture_arr.add({});
 		after_loading_texture(game_renderer);
 	}
 
@@ -274,19 +273,18 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 		SwapBuffers(g_window.dc);
 
+		// nocheckin
+		#if 0
 		#ifdef m_debug
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hot reload shaders and textures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		{
-			while(g_file_read < g_file_write)
-			{
+			while(g_file_read < g_file_write) {
 				char* file_path = g_files[g_file_read % c_max_files];
 				b8 is_vertex = strstr(file_path, ".vertex") != NULL;
 				b8 is_fragment = strstr(file_path, ".fragment") != NULL;
 				b8 advance_file = true;
-				if(is_vertex || is_fragment)
-				{
-					for(int shader_i = 0; shader_i < e_shader_count; shader_i++)
-					{
+				if(is_vertex || is_fragment) {
+					for(int shader_i = 0; shader_i < e_shader_count; shader_i++) {
 						s_shader_paths paths = c_shader_paths[shader_i];
 						b8 do_load = false;
 						if(is_vertex) {
@@ -327,19 +325,15 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 						}
 					}
 				}
-				else
-				{
-					foreach_val(texture_i, texture, game_renderer->textures)
-					{
+				else {
+					foreach_val(texture_i, texture, game_renderer->textures) {
 						// @Note(tkap, 11/10/2023): Our first texture is a "fake texture", so let's not try to read it's path (it doesn't have any)
 						if(!texture.path) { continue; }
 
-						if(strcmp(texture.path, file_path) == 0)
-						{
+						if(strcmp(texture.path, file_path) == 0) {
 							int width, height, num_channels;
 							void* data = stbi_load(file_path, &width, &height, &num_channels, 4);
-							if(!data)
-							{
+							if(!data) {
 								advance_file = false;
 								break;
 							}
@@ -354,14 +348,14 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 						}
 					}
 				}
-				if(advance_file)
-				{
+				if(advance_file) {
 					g_file_read += 1;
 				}
 			}
 		}
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hot reload shaders and textures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 		#endif // m_debug
+		#endif
 	}
 
 	return 0;

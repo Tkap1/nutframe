@@ -53,7 +53,7 @@ if !debug!==0 (
 
 @REM -sFULL_ES3
 pushd build
-	call emcc ..\src\sdl_platform.cpp ..\examples\speedjam5\platformer.cpp -Dm_sdl -sFULL_ES3 !comp! -std=c++20 -Wno-writable-strings -sUSE_SDL=2 -sUSE_WEBGL2=1 -sALLOW_MEMORY_GROWTH -o index.html -I"C:\Users\34687\Desktop\Dev\C\emsdk\upstream\emscripten\cache\sysroot\include"
+	call emcc ..\src\sdl_platform.cpp ..\examples\test\test.cpp -Dm_sdl -sFULL_ES3 !comp! -std=c++20 -Wno-writable-strings -sUSE_SDL=2 -sUSE_WEBGL2=1 -sALLOW_MEMORY_GROWTH -o index.html -I"C:\Users\34687\Desktop\Dev\C\emsdk\upstream\emscripten\cache\sysroot\include"
 popd
 
 copy build\index.html index.html > NUL

@@ -16,18 +16,7 @@ in vec2 v_local_uv;
 
 out vec4 out_color;
 
-uniform vec2 base_res;
-uniform vec2 window_size;
-uniform float time;
-uniform vec2 player_pos;
-uniform vec2 mouse;
-uniform vec2 snake_pos;
-uniform vec2 ball_rot;
-uniform float snake_apple_time;
-
 uniform sampler2D in_texture;
-uniform sampler2D noise;
-uniform vec3 cam_pos;
 
 #define pi 3.1415
 
@@ -69,17 +58,6 @@ vec4 pma(vec4 col)
 bool point_in_rect_topleft(vec2 point, vec2 pos, vec2 size)
 {
 	return point.x >= pos.x && point.x <= pos.x + size.x && point.y >= pos.y && point.y <= pos.y + size.y;
-}
-
-vec3 circle(vec2 pos, vec2 uv, float radius)
-{
-	vec2 ar = vec2(1.0, base_res.y / base_res.x);
-	pos *= ar;
-	uv *= ar;
-	float d = distance(pos, uv);
-	d = smoothstep(radius, 0.0, d);
-	// return vec3(d * 0.1, d * 0.4, d);
-	return vec3(d);
 }
 
 float luminance(vec3 v)

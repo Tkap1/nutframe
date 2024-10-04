@@ -187,12 +187,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		platform_frame_arena = make_lin_arena_from_memory(5 * c_mb, la_get(&all, 5 * c_mb));
 		g_game_frame_arena = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
 		g_platform_data.frame_arena = &g_game_frame_arena;
+		g_platform_data.permanent_arena = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
 
-		g_game_renderer->arenas[0] = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
-		g_game_renderer->arenas[1] = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
-		g_game_renderer->transform_arenas[0] = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
-		g_game_renderer->transform_arenas[1] = make_lin_arena_from_memory(10 * c_mb, la_get(&all, 10 * c_mb));
-		g_game_renderer->textures.add({});
+		g_game_renderer->frame_arena = make_lin_arena_from_memory(25 * c_mb, la_get(&all, 25 * c_mb));
+		g_game_renderer->texture_arr.add({});
 		after_loading_texture(g_game_renderer);
 	}
 

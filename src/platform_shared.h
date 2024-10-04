@@ -559,6 +559,55 @@ struct s_lin_arena
 	void* memory;
 };
 
+static void* la_get(s_lin_arena* arena, u64 in_requested);
+
+
+struct s_dynamic_buffer
+{
+	int num_capacity_bytes;
+	int num_used_bytes;
+	u8* data;
+};
+
+static void copy_into_dynamic_buffer(s_dynamic_buffer* buffer, void* in_data, int in_size, s_lin_arena* arena)
+{
+	assert(buffer->num_capacity_bytes > 0);
+
+	if(buffer->num_used_bytes + in_size > buffer->num_capacity_bytes) {
+		int new_capacity = (buffer->num_used_bytes + in_size) * 2;
+		u8* temp = (u8*)la_get(arena, new_capacity);
+		memcpy(temp, buffer->data, buffer->num_used_bytes);
+		buffer->num_capacity_bytes = new_capacity;
+		buffer->data = temp;
+	}
+	memcpy(buffer->data + buffer->num_used_bytes, in_data, in_size);
+	buffer->num_used_bytes += in_size;
+}
+
+static s_dynamic_buffer make_dynamic_buffer(int num_capacity_bytes, s_lin_arena* arena)
+{
+	s_dynamic_buffer result = {};
+	result.num_capacity_bytes = num_capacity_bytes;
+	result.data = (u8*)la_get(arena, num_capacity_bytes);
+	return result;
+}
+
+struct s_render_group
+{
+	int count;
+	u16 shader_id;
+	u16 texture_id;
+	u8 mesh_id;
+	s_dynamic_buffer data;
+};
+
+struct s_render_pass
+{
+	bool* seen_arr;
+	u8* index_arr;
+	s_sarray<s_render_group, 128> render_group_arr;
+};
+
 struct s_len_str
 {
 	char* str;
@@ -1765,6 +1814,15 @@ void s_str_builder<max_chars>::pop_tab()
 	tab_count--;
 }
 
+
+enum e_mesh
+{
+	e_mesh_rect,
+	e_mesh_cube,
+	e_mesh_count,
+};
+
+
 #ifndef m_game
 
 static s_v2 g_base_res = {0, 0};
@@ -1774,16 +1832,6 @@ static s_v2 g_base_res = {0, 0};
 #else // m_debug
 #define gl(...) __VA_ARGS__
 #endif // m_debug
-
-enum e_shader
-{
-	e_shader_default,
-	e_shader_basic_3d,
-	e_shader_3d_flat,
-	e_shader_threshold,
-	e_shader_blur,
-	e_shader_count
-};
 
 struct s_attrib
 {
@@ -1803,14 +1851,18 @@ struct s_shader_paths
 	const char* fragment_path;
 };
 
-struct s_platform_renderer
+struct s_vbo
 {
 	int max_elements;
+	u32 gl_id;
+};
+
+struct s_platform_renderer
+{
 	u32 default_vao;
-	u32 default_vbo;
+	s_vbo default_vbo_;
 	u32 index_buffer_2d;
 	u32 index_buffer_3d;
-	s_carray<u32, e_shader_count> programs;
 };
 static s_platform_renderer g_platform_renderer = {};
 
@@ -2714,19 +2766,6 @@ typedef b8 (*t_set_shader_v2)(const char*, s_v2);
 typedef char* (*t_read_file)(const char*, s_lin_arena*, u64*);
 typedef b8 (*t_write_file)(const char*, void*, u64);
 
-// @Note(tkap, 08/10/2023): We have a bug with this. If we ever go from having never drawn anything to drawing 64*16+1 things we will
-// exceed the max bucket count (16 currently). To fix this, I guess we have to allow merging in the middle of a frame?? Seems messy...
-static constexpr int c_bucket_capacity = 64;
-
-template <typename t>
-struct s_bucket_array
-{
-	int bucket_count;
-	s_carray<int, 16> capacity;
-	s_carray<int, 16> element_count;
-	s_carray<t*, 16> elements;
-};
-
 #pragma pack(push, 1)
 struct s_transform
 {
@@ -2756,19 +2795,15 @@ struct s_framebuffer
 	s_texture depth;
 };
 
-
-struct s_render_pass
+struct s_render_pass_data
 {
-	b8 do_clear;
-	b8 do_depth;
-	b8 do_cull;
-	b8 dont_write_depth;
+	e_depth_mode depth_mode;
 	e_blend_mode blend_mode;
+	e_cull_mode cull_mode;
 	s_v3 cam_pos;
-	s_m4 view_projection;
-	s_framebuffer* framebuffer;
-	s_v4 clear_color;
+	s_m4 view_projection = m4_identity();
 };
+
 
 struct s_game_window
 {
@@ -2942,6 +2977,7 @@ struct s_platform_data
 	int window_height;
 	s_input logic_input;
 	s_input render_input;
+	s_lin_arena permanent_arena;
 	s_lin_arena* frame_arena;
 	s_v2 mouse;
 	f64 frame_time;
@@ -2974,19 +3010,23 @@ struct s_platform_data
 static s_platform_data g_platform_data = {};
 #endif // m_game
 
+struct s_shader
+{
+	u32 gl_id;
+};
+
 static constexpr int c_max_framebuffers = 8;
 typedef s_texture (*t_load_texture)(s_game_renderer*, const char*);
 typedef s_font* (*t_load_font)(s_game_renderer*, const char*, int, s_lin_arena*);
 struct s_game_renderer
 {
-	b8 did_we_alloc;
 	t_set_vsync set_vsync;
 	t_load_texture load_texture;
 	t_load_font load_font;
 	t_make_framebuffer make_framebuffer;
 	t_set_shader_float set_shader_float;
 	t_set_shader_v2 set_shader_v2;
-	void (*end_render_pass)(s_game_renderer*, s_render_pass);
+	void (*end_render_pass)(s_game_renderer*, s_render_pass*, s_framebuffer*, s_render_pass_data);
 	void (*clear_framebuffer)(s_framebuffer*, s_v4, int);
 	s_framebuffer* (*make_framebuffer_with_existing_depth)(s_game_renderer*, s_v2i, s_texture);
 	// void (*delete_framebuffer)(s_game_renderer*, s_framebuffer*);
@@ -2994,17 +3034,14 @@ struct s_game_renderer
 
 	s_texture checkmark_texture;
 
-	// @Note(tkap, 08/10/2023): We esentially want s_bucket_array<s_transform> transforms[e_shader_count][e_texture_count];
-	// but we don't know how many textures and shaders there will be at compile time, because the game code may load any amount
-	s_bucket_array<s_transform>* transforms;
+	s_framebuffer* default_fbo;
 
-	int transform_arena_index;
-	s_carray<s_lin_arena, 2> transform_arenas;
-	int arena_index;
-	s_carray<s_lin_arena, 2> arenas;
-	s_sarray<s_texture, 32> textures;
-	s_carray<b8, c_max_framebuffers> framebuffer_active_arr;
-	s_carray<s_framebuffer, c_max_framebuffers> framebuffers;
+	s_lin_arena frame_arena;
+	s_render_pass* default_render_pass;
+	s_sarray<s_framebuffer, c_max_framebuffers> framebuffer_arr;
+
+	s_sarray<s_texture, 32> texture_arr;
+	s_sarray<s_shader, 32> shader_arr;
 	s_sarray<s_font, 4> fonts;
 };
 
@@ -3022,28 +3059,24 @@ void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* 
 #if !defined(m_game)
 
 static s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, s_v2i size);
-static b8 set_shader_v2(const char* uniform_name, s_v2 val);
-static b8 set_shader_float(const char* uniform_name, float val);
-static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render_pass = {});
+static b8 set_shader_v2(u32 gl_id, const char* uniform_name, s_v2 val);
+static b8 set_shader_float(u32 gl_id, const char* uniform_name, float val);
+static void end_render_pass(s_game_renderer* gr, s_render_pass* render_pass, s_framebuffer* fbo, s_render_pass_data render_pass_data = {});
 static void clear_framebuffer(s_framebuffer* fbo, s_v4 clear_color, int flags = e_fbo_clear_color | e_fbo_clear_depth);
 static s_framebuffer* make_framebuffer_with_existing_depth(s_game_renderer* game_renderer, s_v2i size, s_texture depth);
 // static void delete_framebuffer(s_game_renderer* game_renderer, s_framebuffer* fbo);
 #endif
 
 // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		function headers start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-static int get_render_offset(s_game_renderer* game_renderer, int shader, int texture);
 static s_v2 get_text_size_with_count(s_len_str text, s_font* font, float font_size, int count, int in_column = 0);
 static s_v2 get_text_size(s_len_str text, s_font* font, float font_size);
-template <typename t>
-static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc);
-template <typename t>
-static void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena);
 static s_json* parse_json(char* str);
 static void print_json(s_json* json);
 static s_json* json_get(s_json* json, char* key_name, e_json in_type);
 static s_string_parse parse_string(char* str, b8 do_alloc);
 static s_len_str alloc_string(void* data, int len);
 static char* to_cstr(s_len_str str, s_lin_arena* arena);
+static s_render_pass* make_render_pass(s_game_renderer* gr, s_lin_arena* arena);
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		function headers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
@@ -3076,12 +3109,6 @@ static b8 is_key_pressed(s_input* input, int key) {
 static b8 is_key_released(s_input* input, int key) {
 	assert(key < c_max_keys);
 	return (!input->keys[key].is_down && input->keys[key].count == 1) || input->keys[key].count > 1;
-}
-
-static int get_render_offset(s_game_renderer* game_renderer, int shader, int texture)
-{
-	int result = shader * game_renderer->textures.count + texture;
-	return result;
 }
 
 static int get_spaces_for_column(int column)
@@ -3128,7 +3155,43 @@ static s_v2 get_text_size(s_len_str text, s_font* font, float font_size)
 	return get_text_size_with_count(text, font, font_size, text.len);
 }
 
-static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_render_data render_data = {}, s_transform t = {})
+static int get_render_group_index(s_game_renderer* gr, int shader, int texture, int mesh)
+{
+	int shader_stride = gr->texture_arr.count * e_mesh_count;
+	int texture_stride = e_mesh_count;
+	return (shader * shader_stride) + (texture * texture_stride) + mesh;
+}
+
+static void draw_generic(s_game_renderer* gr, void* data, s_render_pass* render_pass, int shader_id, int texture_id, e_mesh mesh_id)
+{
+	// @TODO(tkap, 04/10/2024): maybe this doesnt go here
+	// assert(render_pass);
+	if(!render_pass) {
+		render_pass = gr->default_render_pass;
+	}
+
+	s_render_group* entry = NULL;
+	int entry_index = get_render_group_index(gr, shader_id, texture_id, mesh_id);
+	if(render_pass->seen_arr[entry_index]) {
+		int index = render_pass->index_arr[entry_index];
+		entry = &render_pass->render_group_arr[index];
+	}
+	else {
+		render_pass->seen_arr[entry_index] = true;
+		render_pass->index_arr[entry_index] = (u8)render_pass->render_group_arr.count;
+		int index = render_pass->render_group_arr.add({});
+		entry = &render_pass->render_group_arr[index];
+		assert(entry->count == 0);
+		entry->data = make_dynamic_buffer(sizeof(s_transform) * 16, &gr->frame_arena);
+		entry->shader_id = (u16)shader_id;
+		entry->texture_id = (u16)texture_id;
+		entry->mesh_id = (u8)mesh_id;
+	}
+	copy_into_dynamic_buffer(&entry->data, data, sizeof(s_transform), &gr->frame_arena);
+	entry->count += 1;
+}
+
+static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
 	model = m4_multiply(model, m4_scale(v3(size, 1)));
@@ -3143,10 +3206,11 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, 0)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	// @TODO(tkap, 04/10/2024): we want some default render pass
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, 0, e_mesh_rect);
 }
 
-static void draw_rect_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_render_data render_data = {}, s_transform t = {})
+static void draw_rect_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	s_m4 model = m4_translate(pos);
 	model = m4_multiply(model, m4_scale(v3(size, 1)));
@@ -3160,10 +3224,10 @@ static void draw_rect_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, 0)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, 0, e_mesh_rect);
 }
 
-static void draw_cube(s_game_renderer* game_renderer, s_v3 pos, s_v3 size, s_v4 color, s_render_data render_data = {}, s_transform t = {})
+static void draw_cube(s_game_renderer* game_renderer, s_v3 pos, s_v3 size, s_v4 color, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 
 	if(render_data.shader == 0) { render_data.shader = 1; }
@@ -3176,10 +3240,10 @@ static void draw_cube(s_game_renderer* game_renderer, s_v3 pos, s_v3 size, s_v4 
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, 0)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, 0, e_mesh_cube);
 }
 
-static void draw_textured_cube(s_game_renderer* game_renderer, s_v3 pos, s_v3 size, s_v4 color, s_texture texture, s_render_data render_data = {}, s_transform t = {})
+static void draw_textured_cube(s_game_renderer* game_renderer, s_v3 pos, s_v3 size, s_v4 color, s_texture texture, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	if(render_data.shader == 0) { render_data.shader = 1; }
 
@@ -3192,10 +3256,10 @@ static void draw_textured_cube(s_game_renderer* game_renderer, s_v3 pos, s_v3 si
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, texture.game_id)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, texture.game_id, e_mesh_cube);
 }
 
-static void draw_texture_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_texture texture, s_render_data render_data = {}, s_transform t = {})
+static void draw_texture_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_texture texture, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 
 	if(render_data.shader == 0) { render_data.shader = 2; }
@@ -3212,10 +3276,10 @@ static void draw_texture_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size,
 		swap(&t.uv_min.x, &t.uv_max.x);
 	}
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, texture.game_id)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, texture.game_id, e_mesh_rect);
 }
 
-static void draw_line(s_game_renderer* game_renderer, s_v2 from, s_v2 to, int layer, float thickness, s_v4 color, s_render_data render_data = {}, s_transform t = {})
+static void draw_line(s_game_renderer* game_renderer, s_v2 from, s_v2 to, int layer, float thickness, s_v4 color, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	t.flags |= e_render_flag_line;
 	t.pos = v3(from, -99.0f + layer * 2);
@@ -3225,25 +3289,25 @@ static void draw_line(s_game_renderer* game_renderer, s_v2 from, s_v2 to, int la
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, 0)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, 0, e_mesh_rect);
 }
 
-static void draw_empty_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, float thickness, s_v4 color, s_render_data render_data = {}, s_transform t = {})
+static void draw_empty_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, float thickness, s_v4 color, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	s_v2 half_size = size * 0.5f;
 	float half_thickness = thickness * 0.5f;
 	s_v2 thickness_v = v2(half_thickness, 0.0f);
 	// top
-	draw_line(game_renderer, pos + half_size * v2(-1, -1) - thickness_v, pos + half_size * v2(1, -1) + thickness_v, layer, thickness, color, render_data, t);
+	draw_line(game_renderer, pos + half_size * v2(-1, -1) - thickness_v, pos + half_size * v2(1, -1) + thickness_v, layer, thickness, color, render_pass, render_data, t);
 	// bottom
-	draw_line(game_renderer, pos + half_size * v2(-1, 1) - thickness_v, pos + half_size * v2(1, 1) + thickness_v, layer, thickness, color, render_data, t);
+	draw_line(game_renderer, pos + half_size * v2(-1, 1) - thickness_v, pos + half_size * v2(1, 1) + thickness_v, layer, thickness, color, render_pass, render_data, t);
 	// left
-	draw_line(game_renderer, pos + half_size * v2(-1, -1), pos + half_size * v2(-1, 1), layer, thickness, color, render_data, t);
+	draw_line(game_renderer, pos + half_size * v2(-1, -1), pos + half_size * v2(-1, 1), layer, thickness, color, render_pass, render_data, t);
 	// right
-	draw_line(game_renderer, pos + half_size * v2(1, -1), pos + half_size * v2(1, 1), layer, thickness, color, render_data, t);
+	draw_line(game_renderer, pos + half_size * v2(1, -1), pos + half_size * v2(1, 1), layer, thickness, color, render_pass, render_data, t);
 }
 
-static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_render_data render_data = {}, s_transform t = {})
+static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
@@ -3265,10 +3329,10 @@ static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_
 	// 	swap(&t.uv_min.y, &t.uv_max.y);
 	// }
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, texture.game_id)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, texture.game_id, e_mesh_rect);
 }
 
-static void draw_framebuffer(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_framebuffer* framebuffer, s_render_data render_data = {}, s_transform t = {})
+static void draw_framebuffer(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_framebuffer* framebuffer, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
 	model = m4_multiply(model, m4_scale(v3(size, 1)));
@@ -3283,10 +3347,10 @@ static void draw_framebuffer(s_game_renderer* game_renderer, s_v2 pos, int layer
 	t.uv_min = v2(0, 0);
 	t.uv_max = v2(1, 1);
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, framebuffer->texture.game_id)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, framebuffer->texture.game_id, e_mesh_rect);
 }
 
-static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_v2i sprite_pos, s_v2i sprite_size, s_render_data render_data = {}, s_transform t = {})
+static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_v2i sprite_pos, s_v2i sprite_size, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
@@ -3318,10 +3382,10 @@ static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2
 	// 	swap(&t.uv_min.y, &t.uv_max.y);
 	// }
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, texture.game_id)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, texture.game_id, e_mesh_rect);
 }
 
-static void draw_atlas_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_texture texture, s_v2i sprite_pos, s_v2i sprite_size, s_render_data render_data = {}, s_transform t = {})
+static void draw_atlas_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_texture texture, s_v2i sprite_pos, s_v2i sprite_size, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 
 	if(render_data.shader == 0) { render_data.shader = 2; }
@@ -3354,10 +3418,10 @@ static void draw_atlas_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s
 	// 	swap(&t.uv_min.y, &t.uv_max.y);
 	// }
 	t.mix_color = v41f(1);
-	bucket_add(&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, texture.game_id)], t, &game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, texture.game_id, e_mesh_rect);
 }
 
-static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_pos, int layer, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
+static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_pos, int layer, float font_size, s_v4 color, b8 centered, s_font* font, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	float scale = font->scale * (font_size / font->size);
 
@@ -3417,10 +3481,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_po
 		swap(&t.uv_min.y, &t.uv_max.y);
 		t.origin_offset = c_origin_bottomleft;
 
-		bucket_add(
-			&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, font->texture.game_id)], t,
-			&game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc
-		);
+		draw_generic(game_renderer, &t, render_pass, render_data.shader, font->texture.game_id, e_mesh_rect);
 
 		pos.x += glyph.advance_width * scale;
 
@@ -3428,7 +3489,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_po
 	return v2(pos.x, in_pos.y);
 }
 
-static s_v2 draw_text_3d(s_game_renderer* game_renderer, s_len_str text, s_v3 in_pos, float font_size, s_v4 color, b8 centered, s_font* font, s_render_data render_data = {}, s_transform t = {})
+static s_v2 draw_text_3d(s_game_renderer* game_renderer, s_len_str text, s_v3 in_pos, float font_size, s_v4 color, b8 centered, s_font* font, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	float scale = font->scale * (font_size / font->size);
 
@@ -3488,10 +3549,7 @@ static s_v2 draw_text_3d(s_game_renderer* game_renderer, s_len_str text, s_v3 in
 		swap(&t.uv_min.y, &t.uv_max.y);
 		t.origin_offset = c_origin_bottomleft;
 
-		bucket_add(
-			&game_renderer->transforms[get_render_offset(game_renderer, render_data.shader, font->texture.game_id)], t,
-			&game_renderer->arenas[game_renderer->arena_index], &game_renderer->did_we_alloc
-		);
+		draw_generic(game_renderer, &t, render_pass, render_data.shader, font->texture.game_id, e_mesh_rect);
 
 		pos.x += glyph.advance_width * scale;
 
@@ -3519,81 +3577,6 @@ static s_lin_arena make_lin_arena_from_memory(u64 capacity, void* memory)
 	result.capacity = capacity;
 	result.memory = memory;
 	return result;
-}
-
-
-template <typename t>
-static void bucket_add(s_bucket_array<t>* arr, t new_element, s_lin_arena* arena, b8* did_we_alloc)
-{
-	assert(arr);
-	assert(arena);
-	assert(did_we_alloc);
-
-
-	for(int bucket_i = 0; bucket_i < arr->bucket_count; bucket_i++) {
-		int* count = &arr->element_count[bucket_i];
-		assert(*count <= arr->capacity[bucket_i]);
-
-		assert((u8*)&arr->elements[bucket_i][0] >= (u8*)arena->memory);
-		assert((u8*)&arr->elements[bucket_i][0] < (u8*)arena->memory + arena->used);
-
-		if(*count < arr->capacity[bucket_i]) {
-			arr->elements[bucket_i][*count] = new_element;
-			*count += 1;
-			return;
-		}
-	}
-
-	// assert(arr->bucket_count < 16);
-	if(arr->bucket_count >= 16) {
-		return;
-	}
-
-	constexpr int capacity = c_bucket_capacity;
-	arr->elements[arr->bucket_count] = (t*)la_get(arena, sizeof(t) * capacity);
-	arr->capacity[arr->bucket_count] = capacity;
-	arr->elements[arr->bucket_count][0] = new_element;
-	arr->element_count[arr->bucket_count] = 1;
-	arr->bucket_count += 1;
-
-	if(arr->bucket_count > 1) {
-		*did_we_alloc = true;
-	}
-}
-
-template <typename t>
-static void bucket_merge(s_bucket_array<t>* arr, s_lin_arena* arena)
-{
-	int capacity = 0;
-	int count = 0;
-	constexpr int element_size = sizeof(t);
-	t* elements;
-
-	assert(arr->bucket_count <= 16);
-
-	if(arr->capacity[0] <= 0) { return; }
-
-	for(int i = 0; i < arr->bucket_count; i++) {
-		capacity += arr->capacity[i];
-	}
-
-	elements = (t*)la_get(arena, element_size * capacity);
-
-	for(int i = 0; i < arr->bucket_count; i++) {
-		assert((count + arr->element_count[i]) * element_size <= element_size * capacity);
-		memcpy(&elements[count], arr->elements[i], element_size * arr->element_count[i]);
-		count += arr->element_count[i];
-
-		// @Note(tkap, 27/10/2023): Unnecessary
-		arr->elements[i] = NULL;
-		arr->element_count[i] = 0;
-		arr->capacity[i] = 0;
-	}
-
-	arr->elements[0] = elements;
-	arr->capacity[0] = capacity;
-	arr->element_count[0] = count;
-	arr->bucket_count = 1;
 }
 
 static void on_failed_assert(const char* cond, const char* file, int line)
@@ -3651,7 +3634,7 @@ static void add_msg_to_console_(s_console* cn, s_len_str text)
 #endif // m_debug
 
 #ifndef m_game
-static u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
+static s_shader platform_load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
 static b8 check_for_shader_errors(u32 id, char* out_error);
 static s_texture load_texture_from_file(const char* path, u32 filtering);
 static void after_loading_texture(s_game_renderer* game_renderer);
@@ -3661,30 +3644,6 @@ static void set_base_resolution(int width, int height)
 	g_base_res.x = (float)width;
 	g_base_res.y = (float)height;
 }
-
-// @TODO(tkap, 17/10/2023): This has to go away in favor of a dynamic system when we add support for custom shaders
-static constexpr s_shader_paths c_shader_paths[e_shader_count] = {
-	{
-		.vertex_path = "shaders/vertex.vertex",
-		.fragment_path = "shaders/fragment.fragment",
-	},
-	{
-		.vertex_path = "shaders/basic_3d.vertex",
-		.fragment_path = "shaders/basic_3d.fragment",
-	},
-	{
-		.vertex_path = "shaders/3d_flat.vertex",
-		.fragment_path = "shaders/3d_flat.fragment",
-	},
-	{
-		.vertex_path = "shaders/vertex.vertex",
-		.fragment_path = "shaders/threshold.fragment",
-	},
-	{
-		.vertex_path = "shaders/vertex.vertex",
-		.fragment_path = "shaders/blur.fragment",
-	},
-};
 
 struct s_ui_id
 {
@@ -3757,7 +3716,7 @@ static s_ui_interaction ui_button(
 		}
 	}
 
-	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, pos, 10, size, button_color, NULL, {}, {.origin_offset = c_origin_topleft});
 	if(font) {
 		s_v2 text_pos = pos;
 		text_pos += size / 2;
@@ -3820,8 +3779,8 @@ static t ui_slider(
 		pos.y - handle_size.y / 2 + size.y / 2
 	);
 
-	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
-	draw_rect(game_renderer, handle_pos, 11, handle_size, handle_color, {}, {.flags = e_render_flag_circle, .origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, pos, 10, size, button_color, NULL, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, handle_pos, 11, handle_size, handle_color, NULL, {}, {.flags = e_render_flag_circle, .origin_offset = c_origin_topleft});
 	s_v2 text_pos = pos;
 	text_pos += size / 2;
 	if constexpr(is_int) {
@@ -3865,9 +3824,9 @@ static void ui_checkbox(s_game_renderer* game_renderer, s_len_str text, s_v2 pos
 		}
 	}
 
-	draw_rect(game_renderer, pos, 10, size, button_color, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, pos, 10, size, button_color, NULL, {}, {.origin_offset = c_origin_topleft});
 	if(*val) {
-		draw_texture(game_renderer, pos, 11, size, make_color(0,1,0), game_renderer->checkmark_texture, {}, {.origin_offset = c_origin_topleft});
+		draw_texture(game_renderer, pos, 11, size, make_color(0,1,0), game_renderer->checkmark_texture, NULL, {}, {.origin_offset = c_origin_topleft});
 	}
 }
 
@@ -4067,9 +4026,9 @@ static void update_console(s_console* cn, s_game_renderer* game_renderer)
 	float input_y = g_base_res.y * cn->curr_y - input_height;
 	float cursor_target_x = get_text_size_with_count(strlit(cn->input.data), font, input_height, cn->cursor).x;
 	cn->cursor_visual_x = lerp_snap(cn->cursor_visual_x, cursor_target_x, delta * 20, 0.1f);
-	draw_rect(game_renderer, v2(0, 0), 50, v2(g_base_res.x, g_base_res.y * cn->curr_y), rgb(0x44736B), {}, {.origin_offset = c_origin_topleft});
-	draw_rect(game_renderer, v2(0.0f, input_y), 51, v2(g_base_res.x, input_height), rgb(0x5CA79A), {}, {.origin_offset = c_origin_topleft});
-	draw_rect(game_renderer, v2(cn->cursor_visual_x, input_y), 55, v2(input_height * 0.33f, input_height), rgb(0x571E38), {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, v2(0, 0), 50, v2(g_base_res.x, g_base_res.y * cn->curr_y), rgb(0x44736B), NULL, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, v2(0.0f, input_y), 51, v2(g_base_res.x, input_height), rgb(0x5CA79A), NULL, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(game_renderer, v2(cn->cursor_visual_x, input_y), 55, v2(input_height * 0.33f, input_height), rgb(0x571E38), NULL, {}, {.origin_offset = c_origin_topleft});
 	if(cn->input.len > 0) {
 		draw_text(game_renderer, strlit(cn->input.data), v2(0.0f, input_y), 52, input_height, make_color(1), false, font);
 	}
@@ -4301,6 +4260,12 @@ static void do_game_layer(
 
 	float interp_dt = (float)(time / delay);
 	render(&g_platform_data, game_memory, game_renderer, interp_dt);
+
+	{
+		s_m4 ortho = m4_orthographic(0, g_base_res.x, g_base_res.y, 0, -100, 100);
+		game_renderer->end_render_pass(game_renderer, game_renderer->default_render_pass, game_renderer->default_fbo, {.view_projection = ortho});
+	}
+
 	g_platform_data.render_count += 1;
 	g_platform_data.render_input.wheel_movement = 0;
 
@@ -4316,6 +4281,7 @@ static void do_game_layer(
 	}
 
 	g_platform_data.frame_arena->used = 0;
+	game_renderer->frame_arena.used = 0;
 }
 
 static void on_gl_error(const char* expr, char* file, int line, int error)
@@ -4472,8 +4438,9 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	game_renderer->load_texture = load_texture;
 	game_renderer->load_font = load_font;
 	game_renderer->make_framebuffer = make_framebuffer;
-	game_renderer->set_shader_float = set_shader_float;
-	game_renderer->set_shader_v2 = set_shader_v2;
+	// @Fixme(tkap, 04/10/2024):
+	// game_renderer->set_shader_float = set_shader_float;
+	// game_renderer->set_shader_v2 = set_shader_v2;
 	game_renderer->end_render_pass = end_render_pass;
 	game_renderer->clear_framebuffer = clear_framebuffer;
 	game_renderer->make_framebuffer_with_existing_depth = make_framebuffer_with_existing_depth;
@@ -4493,8 +4460,9 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	gl(glGenVertexArrays(1, &platform_renderer->default_vao));
 	gl(glBindVertexArray(platform_renderer->default_vao));
 
-	gl(glGenBuffers(1, &platform_renderer->default_vbo));
-	gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo));
+	platform_renderer->default_vbo_.max_elements = 0;
+	gl(glGenBuffers(1, &platform_renderer->default_vbo_.gl_id));
+	gl(glBindBuffer(GL_ARRAY_BUFFER, platform_renderer->default_vbo_.gl_id));
 
 	gl(glGenBuffers(1, &platform_renderer->index_buffer_2d));
 	gl(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, platform_renderer->index_buffer_2d));
@@ -4561,14 +4529,40 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	add_float_attrib(&handler, 4);
 	finish_attribs(&handler);
 
-	platform_renderer->max_elements = 64;
-	gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * platform_renderer->max_elements, NULL, GL_DYNAMIC_DRAW));
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		built-in shaders start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	{
+		static constexpr s_shader_paths c_shader_paths[] = {
+			{
+				.vertex_path = "shaders/vertex.vertex",
+				.fragment_path = "shaders/fragment.fragment",
+			},
+			{
+				.vertex_path = "shaders/basic_3d.vertex",
+				.fragment_path = "shaders/basic_3d.fragment",
+			},
+			{
+				.vertex_path = "shaders/3d_flat.vertex",
+				.fragment_path = "shaders/3d_flat.fragment",
+			},
+			{
+				.vertex_path = "shaders/vertex.vertex",
+				.fragment_path = "shaders/threshold.fragment",
+			},
+			{
+				.vertex_path = "shaders/vertex.vertex",
+				.fragment_path = "shaders/blur.fragment",
+			},
+		};
 
-	for(int shader_i = 0; shader_i < e_shader_count; shader_i++) {
-		u32 program = load_shader(c_shader_paths[shader_i].vertex_path, c_shader_paths[shader_i].fragment_path, arena);
-		assert(program);
-		platform_renderer->programs[shader_i] = program;
+		for(int shader_i = 0; shader_i < array_count(c_shader_paths); shader_i++) {
+			s_shader shader = platform_load_shader(c_shader_paths[shader_i].vertex_path, c_shader_paths[shader_i].fragment_path, arena);
+			assert(shader.gl_id);
+			game_renderer->shader_arr.add(shader);
+		}
+
 	}
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		built-in shaders end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 	// @Fixme(tkap, 20/10/2023): path
 	game_renderer->checkmark_texture = load_texture(game_renderer, "assets/checkmark.png");
@@ -4579,14 +4573,16 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	// gl(glUseProgram(platform_renderer->programs[e_shader_default]));
 
 	s_framebuffer framebuffer = {.is_main = true};
-	for(int i = 0; i < c_max_framebuffers; i++) {
-		if(game_renderer->framebuffer_active_arr[i]) { continue; }
-		game_renderer->framebuffers[i] = framebuffer;
-		game_renderer->framebuffer_active_arr[i] = true;
-		break;
-	}
+	framebuffer.game_id = game_renderer->framebuffer_arr.count;
+	int index = game_renderer->framebuffer_arr.add(framebuffer);
+	game_renderer->default_fbo = &game_renderer->framebuffer_arr[index];
+	// for(int i = 0; i < c_max_framebuffers; i++) {
+	// 	if(game_renderer->framebuffer_active_arr[i]) { continue; }
+	// 	game_renderer->framebuffer_arr[i] = framebuffer;
+	// 	game_renderer->framebuffer_active_arr[i] = true;
+	// 	break;
+	// }
 	after_making_framebuffer(framebuffer.game_id, game_renderer);
-
 }
 
 static void add_int_attrib(s_attrib_handler* handler, int count)
@@ -4655,24 +4651,27 @@ static s_recti do_letter_boxing(int base_width, int base_height, int window_widt
 	return result;
 }
 
-static u32 load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
+static s_shader platform_load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
 {
 	if(g_do_embed) {
 		g_to_embed.add(vertex_path);
 		g_to_embed.add(fragment_path);
 	}
 
+	s_shader shader_result = {};
+
 	#ifndef m_debug
 
-	u32 program = load_shader_from_str((char*)embed_data[g_asset_index], (char*)embed_data[g_asset_index + 1]);
-	g_asset_index += 2;
-	return program;
+	shader_result.gl_id = load_shader_from_str((char*)embed_data[g_asset_index], (char*)embed_data[g_asset_index + 1]);
+	g_asset_index += 2; // @TODO(tkap, 04/10/2024): this 2 should be a 1 probably if we switch to 1 file per program instead of .vertex and .fragment
 
 	#else
 
-	return load_shader_from_file(vertex_path, fragment_path, frame_arena);
+	shader_result.gl_id = load_shader_from_file(vertex_path, fragment_path, frame_arena);
 
 	#endif
+
+	return shader_result;
 
 }
 
@@ -4786,9 +4785,9 @@ static s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 	s_texture result = load_texture_from_file(path, GL_NEAREST);
 	#endif
 
-	result.game_id = game_renderer->textures.count;
+	result.game_id = game_renderer->texture_arr.count;
 	result.path = path;
-	game_renderer->textures.add(result);
+	game_renderer->texture_arr.add(result);
 	after_loading_texture(game_renderer);
 	return result;
 }
@@ -4823,22 +4822,6 @@ static s_texture load_texture_from_file(const char* path, u32 filtering)
 
 static void after_loading_texture(s_game_renderer* game_renderer)
 {
-	int old_index = game_renderer->transform_arena_index;
-	int new_index = (game_renderer->transform_arena_index + 1) % 2;
-	int size = sizeof(*game_renderer->transforms) * (e_shader_count * game_renderer->textures.count) + (game_renderer->textures.count);
-
-	s_bucket_array<s_transform>* new_transforms = (s_bucket_array<s_transform>*)la_get_zero(
-		&game_renderer->transform_arenas[new_index], size
-	);
-
-	// @Note(tkap, 08/10/2023): The first time we add a texture, transforms is NULL, so we can't memcpy from it
-	if(game_renderer->transforms) {
-		memcpy(new_transforms, game_renderer->transforms, size);
-	}
-	game_renderer->transforms = new_transforms;
-
-	game_renderer->transform_arenas[old_index].used = 0;
-	game_renderer->transform_arena_index = new_index;
 }
 
 static s_framebuffer* make_framebuffer_with_existing_depth(s_game_renderer* game_renderer, s_v2i size, s_texture depth)
@@ -4872,22 +4855,16 @@ static s_framebuffer* make_framebuffer_with_existing_depth(s_game_renderer* game
 
 	result.texture.size.x = (float)size.x;
 	result.texture.size.y = (float)size.y;
-	result.texture.game_id = game_renderer->textures.count;
+	result.texture.game_id = game_renderer->texture_arr.count;
 	result.texture.comes_from_framebuffer = true;
-	game_renderer->textures.add(result.texture);
+	game_renderer->texture_arr.add(result.texture);
 
-	int index = 0;
-	for(index = 0; index < c_max_framebuffers; index++) {
-		if(game_renderer->framebuffer_active_arr[index]) { continue; }
-		result.game_id = index;
-		game_renderer->framebuffers[index] = result;
-		game_renderer->framebuffer_active_arr[index] = true;
-		break;
-	}
+	result.game_id = game_renderer->framebuffer_arr.count;
+	int index = game_renderer->framebuffer_arr.add(result);
 
 	after_making_framebuffer(result.game_id, game_renderer);
 
-	return &game_renderer->framebuffers[index];
+	return &game_renderer->framebuffer_arr[index];
 }
 
 static s_framebuffer* make_framebuffer(s_game_renderer* game_renderer, s_v2i size)
@@ -4971,8 +4948,8 @@ static s_font* load_font(s_game_renderer* game_renderer, const char* path, int f
 
 	#endif // m_debug
 
-	font.texture.game_id = game_renderer->textures.count;
-	game_renderer->textures.add(font.texture);
+	font.texture.game_id = game_renderer->texture_arr.count;
+	game_renderer->texture_arr.add(font.texture);
 	after_loading_texture(game_renderer);
 	int index = game_renderer->fonts.add(font);
 	return &game_renderer->fonts[index];
@@ -5064,19 +5041,19 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 	return font;
 }
 
-static b8 set_shader_float(const char* uniform_name, float val)
+static b8 set_shader_float(u32 gl_id, const char* uniform_name, float val)
 {
 	// @TODO(tkap, 18/10/2023): Change this when we support multiple shaders (if ever)
-	int location = gl(glGetUniformLocation(g_platform_renderer.programs[e_shader_default], uniform_name));
+	int location = gl(glGetUniformLocation(gl_id, uniform_name));
 	if(location < 0) { return false; }
 	gl(glUniform1f(location, val));
 	return true;
 }
 
-static b8 set_shader_v2(const char* uniform_name, s_v2 val)
+static b8 set_shader_v2(u32 gl_id, const char* uniform_name, s_v2 val)
 {
 	// @TODO(tkap, 18/10/2023): Change this when we support multiple shaders (if ever)
-	int location = gl(glGetUniformLocation(g_platform_renderer.programs[e_shader_default], uniform_name));
+	int location = gl(glGetUniformLocation(gl_id, uniform_name));
 	if(location < 0) { return false; }
 	gl(glUniform2fv(location, 1, &val.x));
 	return true;
@@ -5190,6 +5167,32 @@ static int to_bit(int a)
 {
 	return 1 << a;
 }
+
+static int get_max_render_entry_count(s_game_renderer* gr)
+{
+	int result = (gr->shader_arr.count * gr->texture_arr.count * e_mesh_count) + (gr->texture_arr.count * e_mesh_count) + (e_mesh_count);
+	return result;
+}
+
+static void reset_render_pass(s_game_renderer* gr, s_render_pass* render_pass)
+{
+	int count = get_max_render_entry_count(gr);
+	memset(render_pass->seen_arr, 0, sizeof(*render_pass->seen_arr) * count);
+	render_pass->render_group_arr.count = 0;
+}
+
+// @TODO(tkap, 04/10/2024): currently loading a texture or shader after a render pass will break things
+// we would need to reallocate all render passes. so either do that or dont allow creating textures/shaders after a render pass has been created
+static s_render_pass* make_render_pass(s_game_renderer* gr, s_lin_arena* arena)
+{
+	s_render_pass* render_pass = (s_render_pass*)la_get(arena, sizeof(s_render_pass));
+	int count = get_max_render_entry_count(gr);
+	render_pass->seen_arr = (b8*)la_get(arena, sizeof(b8) * count);
+	render_pass->index_arr = (u8*)la_get(arena, sizeof(u8) * count);
+	reset_render_pass(gr, render_pass);
+	return render_pass;
+}
+
 
 #ifndef m_game
 
@@ -5324,7 +5327,7 @@ static void get_our_leaderboard(int leaderboard_id, t_get_our_leaderboard_callba
 #endif // __EMSCRIPTEN__
 
 
-static void set_depth_testing(e_depth_mode mode)
+static void set_depth_mode(e_depth_mode mode)
 {
 	switch(mode) {
 		case e_depth_mode_no_read_no_write: {
@@ -5411,6 +5414,79 @@ static void set_blend_mode(e_blend_mode mode)
 	}
 }
 
+static void set_fbo_viewport(s_framebuffer* fbo)
+{
+	if(fbo->is_main) {
+		gl(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+		s_recti rect = do_letter_boxing((int)g_base_res.x, (int)g_base_res.y, g_platform_data.window_width, g_platform_data.window_height);
+		gl(glViewport(rect.x, rect.y, rect.width, rect.height));
+	}
+	else {
+		gl(glBindFramebuffer(GL_FRAMEBUFFER, fbo->gpu_id));
+		gl(glViewport(0, 0, (int)fbo->texture.size.x, (int)fbo->texture.size.y));
+	}
+}
+
+static void end_render_pass(s_game_renderer* gr, s_render_pass* render_pass, s_framebuffer* fbo, s_render_pass_data render_pass_data)
+{
+	set_fbo_viewport(fbo);
+
+	set_depth_mode(render_pass_data.depth_mode);
+	set_blend_mode(render_pass_data.blend_mode);
+	set_cull_mode(render_pass_data.cull_mode);
+
+	foreach_val(group_i, group, render_pass->render_group_arr) {
+		assert(group.count > 0);
+		assert(render_pass->seen_arr[get_render_group_index(gr, group.shader_id, group.texture_id, group.mesh_id)]);
+
+		u32 texture_id = gr->texture_arr[group.texture_id].gpu_id;
+		u32 shader_id = gr->shader_arr[group.shader_id].gl_id;
+
+		gl(glUseProgram(shader_id));
+		// @TODO(tkap, 04/10/2024): set time and noise if shader has them
+
+		// @TODO(tkap, 04/10/2024): cache this
+		int location = gl(glGetUniformLocation(shader_id, "view_projection"));
+		gl(glUniformMatrix4fv(location, 1, GL_FALSE, &render_pass_data.view_projection.elements[0][0]));
+
+		gl(glActiveTexture(GL_TEXTURE0));
+		gl(glBindTexture(GL_TEXTURE_2D, texture_id));
+
+		gl(glBindVertexArray(g_platform_renderer.default_vao));
+		gl(glBindBuffer(GL_ARRAY_BUFFER, g_platform_renderer.default_vbo_.gl_id));
+		if(group.count > g_platform_renderer.default_vbo_.max_elements) {
+			g_platform_renderer.default_vbo_.max_elements = group.count;
+			gl(glBufferData(GL_ARRAY_BUFFER, sizeof(s_transform) * group.count, NULL, GL_STREAM_DRAW));
+		}
+		gl(glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(s_transform) * group.count, group.data.data));
+
+		int num_vertices = 0;
+		u32 index_buffer = 0;
+		e_mesh mesh_id = (e_mesh)group.mesh_id;
+		switch(mesh_id) {
+			case e_mesh_rect: {
+				num_vertices = 6;
+				index_buffer = g_platform_renderer.index_buffer_2d;
+			} break;
+
+			case e_mesh_cube: {
+				num_vertices = 36;
+				index_buffer = g_platform_renderer.index_buffer_3d;
+			} break;
+
+			invalid_default_case;
+		}
+
+		// @TODO(tkap, 04/10/2024): smaller type
+		gl(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer));
+		gl(glDrawElementsInstanced(GL_TRIANGLES, num_vertices, GL_UNSIGNED_INT, NULL, group.count));
+	}
+
+	reset_render_pass(gr, render_pass);
+}
+
+
+#if 0
 static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render_pass)
 {
 	s_framebuffer* framebuffer = render_pass.framebuffer;
@@ -5580,12 +5656,11 @@ static void end_render_pass(s_game_renderer* game_renderer, s_render_pass render
 		}
 	}
 }
+#endif
 
 static void clear_framebuffer(s_framebuffer* fbo, s_v4 clear_color, int in_flags)
 {
-	assert(!fbo->is_main);
-	gl(glBindFramebuffer(GL_FRAMEBUFFER, fbo->gpu_id));
-	gl(glViewport(0, 0, (int)fbo->texture.size.x, (int)fbo->texture.size.y));
+	set_fbo_viewport(fbo);
 	gl(glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w));
 	assert(in_flags != 0);
 	int flags = 0;

@@ -3,7 +3,7 @@
 #include "../../src/platform_shared.h"
 #include "variables.h"
 
-#include "platformer.h"
+#include "test.h"
 
 static constexpr s_v2 c_base_res = {800, 800};
 // static constexpr s_v2 c_base_res = {1366, 768};
@@ -86,6 +86,15 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		}
 
 		// set_state(e_state_input_name);
+
+		game->ui_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->ui_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->world_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->world_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->things_to_bloom_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->things_to_bloom_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->background_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
+		g_r->default_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 	}
 
 	switch(game->state) {
@@ -502,11 +511,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 {
 	static_assert(sizeof(s_game) <= c_game_memory);
 
-	g_r->clear_framebuffer(game->fbo_arr[0], zero, c_default_fbo_clear_flags);
-	g_r->clear_framebuffer(game->fbo_arr[1], zero, c_default_fbo_clear_flags);
-	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
-	g_r->clear_framebuffer(game->bloom_fbo, zero, c_default_fbo_clear_flags);
-
 	g_mouse = platform_data->mouse;
 
 	game = (s_game*)game_memory;
@@ -527,6 +531,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	live_variable(&platform_data->vars, c_projectile_speed, 0.0f, 5.0f, true);
 
 	s_m4 ortho = m4_orthographic(0, c_base_res.x, c_base_res.y, 0, -100, 100);
+	s_m4 view = get_camera_view(game->cam);
+	s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 1.0f, 1000.0f);
+	s_m4 view_projection = m4_multiply(projection, view);
 
 	g_delta = (float)platform_data->frame_time;
 	game->render_time += g_delta;
@@ -587,7 +594,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			state->map_selected = ui_end();
-			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 		} break;
 
 		case e_state_play: {
@@ -599,18 +605,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				game->cam.pos += c_map_data[game->curr_map].cam_offset;
 			}
 
-			s_m4 view = get_camera_view(game->cam);
-			s_m4 projection =  m4_perspective(90, c_base_res.x / c_base_res.y, 1.0f, 1000.0f);
-			s_m4 view_projection = m4_multiply(projection, view);
-
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				draw_rect(g_r, c_half_res, 0, c_base_res, make_color(1), {}, {.effect_id = 5});
-				g_r->end_render_pass(
-					g_r, {.dont_write_depth = true, .cam_pos = game->cam.pos, .view_projection = ortho, .framebuffer = game->main_fbo}
-				);
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		background end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			draw_rect(g_r, c_half_res, 0, c_base_res, make_color(1), game->background_render_pass, {}, {.effect_id = 5});
 
 			#ifdef m_debug
 			if(is_key_pressed(g_input, c_right_mouse)) {
@@ -641,14 +636,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					if(tile > 0) {
 						s_v3 pos = v3((float)x * c_play_tile_size, (float)y * c_play_tile_size, 0.0f);
 						if(tile == e_tile_spike) {
-							draw_texture_3d(g_r, pos, v2(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
+							draw_texture_3d(g_r, pos, v2(c_play_tile_size), make_color(1), game->tile_texture_arr[tile], game->world_render_pass0);
 
 							if(game->dev_menu.show_hitboxes) {
-								draw_rect_3d(g_r, pos - v3(0.0f, 0.0f, c_small), v2(c_play_tile_size * c_spike_collision_size_multiplier), make_color(1), {}, {.effect_id = 8});
+								draw_rect_3d(g_r, pos - v3(0.0f, 0.0f, c_small), v2(c_play_tile_size * c_spike_collision_size_multiplier), make_color(1), game->world_render_pass0, {}, {.effect_id = 8});
 							}
 						}
 						else {
-							draw_textured_cube(g_r, pos, v3(c_play_tile_size), make_color(1), game->tile_texture_arr[tile]);
+							draw_textured_cube(g_r, pos, v3(c_play_tile_size), make_color(1), game->tile_texture_arr[tile], game->world_render_pass0);
 						}
 					}
 				}
@@ -659,7 +654,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			foreach_val(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
 				if(jump_refresher.in_cooldown) { continue; }
 				s_v2 pos = v2(jump_refresher.pos) * v2(c_play_tile_size);
-				draw_atlas_3d(g_r, v3(pos, c_player_z), c_jump_refresher_visual_size, make_color(1), game->sheet, v2i(64, 128), c_sprite_size);
+				draw_atlas_3d(g_r, v3(pos, c_player_z), c_jump_refresher_visual_size, make_color(1), game->sheet, v2i(64, 128), c_sprite_size, game->world_render_pass0);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw jump refreshers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -671,7 +666,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					color = make_color(1);
 				}
 				// draw_rect(g_r, pos, 2, v2(game->editor_cam.scale(c_editor_tile_size)), make_color(1, 0, 0), {}, {.origin_offset = c_origin_topleft});
-				draw_texture_3d(g_r, v3(pos, c_player_z), c_save_point_visual_size, color, game->save_point_texture);
+				draw_texture_3d(g_r, v3(pos, c_player_z), c_save_point_visual_size, color, game->save_point_texture, game->world_render_pass0);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw save points end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -703,11 +698,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_v2 pos = lerp(projectile.prev_pos, projectile.pos, interp_dt);
 				// draw_cube(g_r, v3(pos.x, pos.y, c_player_z), c_projectile_size, make_color(1.0f, 1.0f, 0.1f));
 				draw_atlas_3d(
-					g_r, v3(pos, c_player_z - c_small), c_projectile_visual_size, make_color(1), game->sheet, v2i(256, 0), c_sprite_size, {}, {.rotation = v2_angle(projectile.dir)}
+					g_r, v3(pos, c_player_z - c_small), c_projectile_visual_size, make_color(1), game->sheet, v2i(256, 0), c_sprite_size, game->world_render_pass0, {}, {.rotation = v2_angle(projectile.dir)}
 				);
 
 				if(game->dev_menu.show_hitboxes) {
-					draw_rect_3d(g_r, v3(pos, c_player_z - c_small), c_projectile_collision_size, make_color(1), {}, {.effect_id = 8});
+					draw_rect_3d(g_r, v3(pos, c_player_z - c_small), c_projectile_collision_size, make_color(1), game->world_render_pass0, {}, {.effect_id = 8});
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw projectiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -721,7 +716,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						duration = 0.25f;
 						int index = clamp(roundfi(ve->timer / 0.25f * 2), 0, 2);
 						s_v2i index_arr[] = {v2i(64, 0), v2i(128, 0), v2i(192, 0)};
-						draw_atlas_3d(g_r, v3(ve->pos, c_player_z - 0.001f), v2(4), make_color(1), game->sheet, index_arr[index], c_sprite_size);
+						draw_atlas_3d(g_r, v3(ve->pos, c_player_z - 0.001f), v2(4), make_color(1), game->sheet, index_arr[index], c_sprite_size, game->world_render_pass0);
 					} break;
 					invalid_default_case;
 				}
@@ -732,31 +727,26 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		visual effects end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			g_r->end_render_pass(g_r, {.do_depth = true, .do_cull = true, .view_projection = view_projection, .framebuffer = game->main_fbo});
-
-
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hints start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(game->curr_map == 0) {
 
 				float z = c_player_z;
 
-				draw_text_3d(g_r, strlit("What if you shot a rocket and\njumped at the same time?"), v3(300, 2015, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("What if you shot a rocket and\njumped at the same time?"), v3(300, 2015, z), 0.5f, make_color(1), false, game->font, game->world_render_pass1);
 
-				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(286, 2003, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(286, 2003, z), 0.5f, make_color(1), false, game->font, game->world_render_pass1);
 
-				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(246, 1943, z), 0.5f, make_color(1), false, game->font);
-				draw_text_3d(g_r, strlit("It's pogo time!"), v3(250, 1943, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("Hold\nShoot!"), v3(246, 1943, z), 0.5f, make_color(1), false, game->font, game->world_render_pass1);
+				draw_text_3d(g_r, strlit("It's pogo time!"), v3(250, 1943, z), 0.5f, make_color(1), false, game->font, game->world_render_pass1);
 
-				draw_text_3d(g_r, strlit("You can jump mid-air!"), v3(289, 1944, z), 0.5f, make_color(1), false, game->font);
+				draw_text_3d(g_r, strlit("You can jump mid-air!"), v3(289, 1944, z), 0.5f, make_color(1), false, game->font, game->world_render_pass1);
 
 				char* text = "If only there was\n"
 					"a way to get hit by 2\n"
 					"rockets at the same time...\n\n"
 					"I bet that would send\n"
 					"you very high up";
-				draw_text_3d(g_r, strlit(text), v3(223, 1930, z), 0.5f, make_color(1), false, game->font);
-
-				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = view_projection, .framebuffer = game->main_fbo});
+				draw_text_3d(g_r, strlit(text), v3(223, 1930, z), 0.5f, make_color(1), false, game->font, game->world_render_pass1);
 
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hints end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -764,19 +754,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_time_data data = process_time(game->timer);
 				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font);
+				draw_text(g_r, text, v2(0), 10, 32, make_color(1), false, game->font, game->ui_render_pass1);
 			}
 
 			#ifdef m_debug
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw coords start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				draw_text(g_r, format_text("x: %0.1f y: %0.1f", game->player.pos.x, game->player.pos.y), v2(0, 32), 10, 32, make_color(1), false, game->font);
+				draw_text(g_r, format_text("x: %0.1f y: %0.1f", game->player.pos.x, game->player.pos.y), v2(0, 32), 10, 32, make_color(1), false, game->font, game->ui_render_pass1);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw coords end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			#endif // m_debug
-
-			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
-
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -805,19 +792,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				player->animation_timer += g_delta;
 				s_v2 pos = lerp(player->prev_pos, player->pos, interp_dt);
 				s_draw_data draw_data = get_player_draw_data(*player);
-				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), draw_data.texture, draw_data.index, draw_data.sprite_size, {.flip_x = player->flip_x});
+				draw_atlas_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), draw_data.texture, draw_data.index, draw_data.sprite_size, game->things_to_bloom_render_pass0, {.flip_x = player->flip_x});
 				// s_texture texture = get_player_sprite_index(*player);
 				// draw_texture_3d(g_r, v3(pos, c_player_z), c_player_visual_size, make_color(0.9f), texture, {.flip_x = player->flip_x});
 
 				if(game->dev_menu.show_hitboxes) {
-					draw_rect_3d(g_r, v3(pos, c_player_z - c_small), c_player_collision_size, make_color(1), {}, {.effect_id = 8});
+					draw_rect_3d(g_r, v3(pos, c_player_z - c_small), c_player_collision_size, make_color(1), game->world_render_pass0, {}, {.effect_id = 8});
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			g_r->end_render_pass(
-				g_r, {.do_depth = true, .blend_mode = e_blend_mode_normal, .cam_pos = game->cam.pos, .view_projection = view_projection, .framebuffer = game->bloom_fbo}
-			);
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		trail start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -826,7 +809,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_percent_data p = get_percent_data(trail->time, duration);
 					s_v4 color = make_color(0.9f);
 					color.w = p.percent_inv * 0.2f;
-					draw_atlas_3d(g_r, v3(trail->pos, c_player_z), c_player_visual_size, color, trail->draw_data.texture, trail->draw_data.index, trail->draw_data.sprite_size, {.flip_x = trail->flip_x});
+					draw_atlas_3d(g_r, v3(trail->pos, c_player_z), c_player_visual_size, color, trail->draw_data.texture, trail->draw_data.index, trail->draw_data.sprite_size, game->things_to_bloom_render_pass0, {.flip_x = trail->flip_x});
 					// draw_texture_3d(g_r, v3(trail->pos, c_player_z), c_player_visual_size, make_color(0.9f), trail->texture, {.flip_x = trail->flip_x});
 					trail->time += g_delta;
 					if(trail->time >= duration) {
@@ -835,10 +818,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		trail end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			g_r->end_render_pass(
-				g_r, {.blend_mode = e_blend_mode_normal, .cam_pos = game->cam.pos, .view_projection = view_projection, .framebuffer = game->bloom_fbo}
-			);
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -874,14 +853,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					color.w = at_least(0.0f, color.w);
 					float radius = p->radius * (1.0f - percent_done * p->shrink);
 					radius = at_least(0.0f, radius);
-					draw_rect_3d(g_r, p->pos, v2(radius * 2.0f), color, {}, {.flags = e_render_flag_circle});
+					draw_rect_3d(g_r, p->pos, v2(radius * 2.0f), color, game->things_to_bloom_render_pass1, {}, {.flags = e_render_flag_circle});
 					p->timer += (float)platform_data->frame_time;
 					if(percent_done >= 1) {
 						game->particle_arr.remove_and_swap(particle_i--);
 					}
 				}
-
-				g_r->end_render_pass(g_r, {.do_depth = true, .dont_write_depth = true, .blend_mode = e_blend_mode_additive, .cam_pos = game->cam.pos, .view_projection = view_projection, .framebuffer = game->bloom_fbo});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1025,7 +1002,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					selection_size.x += 1;
 					selection_size.y += 1;
 					selection_size *= c_editor_tile_size;
-					draw_empty_rect(g_r, v2(selection_start) * c_editor_tile_size + selection_size * 0.5f, 15, selection_size, 4, make_color(1));
+					draw_empty_rect(g_r, v2(selection_start) * c_editor_tile_size + selection_size * 0.5f, 15, selection_size, 4, make_color(1), game->ui_render_pass0);
 
 				} break;
 				case e_editor_state_place: {
@@ -1064,7 +1041,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							if(!is_index_valid(index)) {
 								color = make_color(1.0f, 0.1f, 0.1f);
 							}
-							draw_texture(g_r, pos, 2, v2(c_editor_tile_size), color, game->tile_texture_arr[copied_tile.tile], {}, {.origin_offset = c_origin_topleft});
+							draw_texture(g_r, pos, 2, v2(c_editor_tile_size), color, game->tile_texture_arr[copied_tile.tile], game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 						}
 					}
 					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw copied tiles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1174,9 +1151,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s8 tile = game->map.tile_arr[y][x];
 					if(tile > 0) {
 						s_v2 pos = v2(x, y) * c_editor_tile_size;
-						draw_texture(g_r, pos, 1, v2(c_editor_tile_size), make_color(1), game->tile_texture_arr[tile], {}, {.origin_offset = c_origin_topleft});
+						draw_texture(g_r, pos, 1, v2(c_editor_tile_size), make_color(1), game->tile_texture_arr[tile], game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 						if(game->editor.selected_tile_arr[y][x]) {
-							draw_empty_rect(g_r, pos + v2(c_editor_tile_size) * 0.5f, 2, v2(c_editor_tile_size * sin2(-game->render_time * 8.0f)), 4, make_color(1));
+							draw_empty_rect(g_r, pos + v2(c_editor_tile_size) * 0.5f, 2, v2(c_editor_tile_size * sin2(-game->render_time * 8.0f)), 4, make_color(1), game->ui_render_pass0);
 						}
 					}
 				}
@@ -1186,14 +1163,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw jump refreshers start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			foreach_val(jump_refresher_i, jump_refresher, game->map.jump_refresher_arr) {
 				s_v2 pos = v2(jump_refresher.pos) * v2(c_editor_tile_size);
-				draw_atlas(g_r, pos, 2, v2(c_editor_tile_size), make_color(1), game->sheet, v2i(64, 128), c_sprite_size, {}, {.origin_offset = c_origin_topleft});
+				draw_atlas(g_r, pos, 2, v2(c_editor_tile_size), make_color(1), game->sheet, v2i(64, 128), c_sprite_size, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw jump refreshers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw save points start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			foreach_val(save_point_i, save_point, game->map.save_point_arr) {
 				s_v2 pos = v2(save_point.pos) * v2(c_editor_tile_size);
-				draw_texture(g_r, pos, 2, v2(c_editor_tile_size), make_color(1), game->save_point_texture, {}, {.origin_offset = c_origin_topleft});
+				draw_texture(g_r, pos, 2, v2(c_editor_tile_size), make_color(1), game->save_point_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw save points end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1201,11 +1178,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_v2 pos = v2(game->map.end_point.pos) * v2(c_editor_tile_size);
 				pos = game->editor_cam.world_to_screen(pos);
-				draw_atlas(g_r, pos, 2, v2(c_editor_tile_size), make_color(1), game->sheet, v2i(0, 64), c_sprite_size, {}, {.origin_offset = c_origin_topleft});
+				draw_atlas(g_r, pos, 2, v2(c_editor_tile_size), make_color(1), game->sheet, v2i(0, 64), c_sprite_size, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end point end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			g_r->end_render_pass(g_r, {.do_depth = true, .view_projection = m4_multiply(ortho, game->editor_cam.get_matrix()), .framebuffer = game->main_fbo});
 
 			{
 
@@ -1215,10 +1190,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 				constexpr float font_size = 24;
 				s_v2 pos = v2(4, 4);
-				draw_text(g_r, format_text("x: %i y: %i", mouse_index.x, mouse_index.y), pos, 10, font_size, make_color(1), false, game->font);
+				draw_text(g_r, format_text("x: %i y: %i", mouse_index.x, mouse_index.y), pos, 10, font_size, make_color(1), false, game->font, game->ui_render_pass1);
 				pos.y += font_size;
-				draw_text(g_r, strlit("Press C to move camera to player"), pos, 10, font_size, make_color(1), false, game->font);
-				g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
+				draw_text(g_r, strlit("Press C to move camera to player"), pos, 10, font_size, make_color(1), false, game->font, game->ui_render_pass1);
 			}
 
 			#endif // m_debug
@@ -1233,18 +1207,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			if(!game->leaderboard_state.received) {
-				draw_text(g_r, strlit("Getting leaderboard..."), c_half_res, 10, 48, make_color(0.66f), true, game->font);
+				draw_text(g_r, strlit("Getting leaderboard..."), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
 			}
 			else if(game->leaderboard_arr.count <= 0) {
-				draw_text(g_r, strlit("No one has beaten this map :("), c_half_res, 10, 48, make_color(0.66f), true, game->font);
+				draw_text(g_r, strlit("No one has beaten this map :("), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
 			}
 
 			if(game->leaderboard_state.coming_from_win) {
 				s_time_data data = process_time((int)round(game->timer * 1000.0) / 1000.0);
 				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-				draw_text(g_r, text, c_half_res * v2(1.0f, 0.2f), 10, 64, make_color(1), true, game->font);
+				draw_text(g_r, text, c_half_res * v2(1.0f, 0.2f), 10, 64, make_color(1), true, game->font, game->ui_render_pass1);
 
-				draw_text(g_r, strlit("Press R to restart"), c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font);
+				draw_text(g_r, strlit("Press R to restart"), c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font, game->ui_render_pass1);
 			}
 
 			constexpr int c_max_visible_entries = 10;
@@ -1263,9 +1237,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				if(entry.nice_name.len > 0) {
 					name = entry.nice_name.data;
 				}
-				draw_text(g_r, format_text("%i %s", rank_number, name), v2(c_base_res.x * 0.1f, pos.y - 24), 10, 32, color, false, game->font);
+				draw_text(g_r, format_text("%i %s", rank_number, name), v2(c_base_res.x * 0.1f, pos.y - 24), 10, 32, color, false, game->font, game->ui_render_pass1);
 				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-				draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font);
+				draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font, game->ui_render_pass1);
 				pos.y += 48;
 			}
 
@@ -1274,8 +1248,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				set_state(e_state_map_select);
 			}
 			ui_end();
-
-			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 
 		} break;
 
@@ -1301,13 +1273,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 
-			draw_text(g_r, strlit("Enter your name"), c_base_res * v2(0.5f, 0.2f), 10, font_size, make_color(1), true, game->font);
+			draw_text(g_r, strlit("Enter your name"), c_base_res * v2(0.5f, 0.2f), 10, font_size, make_color(1), true, game->font, game->ui_render_pass1);
 			if(state->error_str.len > 0) {
-				draw_text(g_r, strlit(state->error_str.data), c_base_res * v2(0.5f, 0.3f), 10, font_size, rgb(0xD77870), true, game->font);
+				draw_text(g_r, strlit(state->error_str.data), c_base_res * v2(0.5f, 0.3f), 10, font_size, rgb(0xD77870), true, game->font, game->ui_render_pass1);
 			}
 
 			if(state->name.str.len > 0) {
-				draw_text(g_r, strlit(state->name.str.data), pos, 10, font_size, make_color(1), true, game->font);
+				draw_text(g_r, strlit(state->name.str.data), pos, 10, font_size, make_color(1), true, game->font, game->ui_render_pass1);
 			}
 
 			s_v2 full_text_size = get_text_size(strlit(state->name.str.data), game->font, font_size);
@@ -1338,10 +1310,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			if(!blink) {
-				draw_rect(g_r, state->name.cursor_visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, {}, {.origin_offset = c_origin_topleft});
+				draw_rect(g_r, state->name.cursor_visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 			}
-
-			g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo});
 		} break;
 
 		invalid_default_case;
@@ -1355,29 +1325,49 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	do_ui(ortho);
 
+	g_r->clear_framebuffer(game->fbo_arr[0], zero, c_default_fbo_clear_flags);
+	g_r->end_render_pass(g_r, game->background_render_pass, game->fbo_arr[0], {.view_projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass0, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_and_write, .view_projection = view_projection});
+	g_r->end_render_pass(g_r, game->things_to_bloom_render_pass0, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = view_projection});
+	g_r->end_render_pass(g_r, game->things_to_bloom_render_pass1, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_additive_no_alpha, .view_projection = view_projection});
+	g_r->end_render_pass(g_r, game->world_render_pass1, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = view_projection});
+	g_r->end_render_pass(g_r, game->ui_render_pass0, game->fbo_arr[0], {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass1, game->fbo_arr[0], {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
+
+	#if 0
 	// @Note(tkap, 08/06/2024): Luminance
 	if(!game->disable_bloom) {
-		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, {.shader = 3});
-		g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[0]});
+		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo, NULL, {.shader = 3});
+		g_r->end_render_pass(g_r, game->render_pass, game->fbo_arr[0], {.view_projection = ortho});
 
 		// @Note(tkap, 08/06/2024): Blur
-		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], {.shader = 4});
-		g_r->end_render_pass(g_r, {.view_projection = ortho, .framebuffer = game->fbo_arr[1]});
+		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], NULL, {.shader = 4});
+		g_r->end_render_pass(g_r, game->render_pass, game->fbo_arr[1], {.view_projection = ortho});
 
 		// @Note(tkap, 08/06/2024): Combine
 		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[1]);
-		g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_additive, .view_projection = ortho, .framebuffer = game->bloom_fbo});
+		g_r->end_render_pass(g_r, game->render_pass, game->bloom_fbo, {.blend_mode = e_blend_mode_additive, .view_projection = ortho});
 	}
 
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->bloom_fbo);
-	g_r->end_render_pass(g_r, {.blend_mode = e_blend_mode_additive, .view_projection = ortho, .framebuffer = game->main_fbo});
+	g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_additive, .view_projection = ortho});
 
 	// start_render_pass(g_r);
 	// draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0]);
 	// g_r->end_render_pass(g_r, {.view_projection = ortho})
 
+	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
+
+	g_r->clear_framebuffer(g_r->default_fbo, zero, c_default_fbo_clear_flags);
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo);
-	g_r->end_render_pass(g_r, {.do_clear = true, .view_projection = ortho});
+	g_r->end_render_pass(g_r, game->render_pass, g_r->default_fbo, {.view_projection = ortho});
+
+	#endif
+
+	g_r->clear_framebuffer(g_r->default_fbo, zero, c_default_fbo_clear_flags);
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->fbo_arr[0], game->ui_render_pass0);
+	g_r->end_render_pass(g_r, game->ui_render_pass0, g_r->default_fbo, {.view_projection = ortho});
 
 }
 
@@ -1393,10 +1383,6 @@ static void do_ui(s_m4 ortho)
 		ui_bool_button(strlit("test"), v2(4, 64), &game->dev_menu.show_hitboxes);
 		game->dev_menu.selected_ui = ui_end();
 	}
-
-	g_r->end_render_pass(
-		g_r, {.blend_mode = e_blend_mode_normal, .view_projection = ortho, .framebuffer = game->main_fbo}
-	);
 }
 
 
@@ -1712,12 +1698,12 @@ static void ui_bool_button(s_len_str id_str, s_v2 pos, b8* ptr)
 	if(selected) {
 		color = brighter(color, 1.5f);
 	}
-	draw_rect(g_r, pos, 0, element_data->size, color, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(g_r, pos, 0, element_data->size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 
 	float font_size = size.y * 0.9f;
 	s_v2 text_pos = center_text_on_rect(pos, element_data->size, font_size, false, true);
 	text_pos.x += 4;
-	draw_text(g_r, id_str, text_pos, 1, font_size, make_color(1), false, game->font);
+	draw_text(g_r, id_str, text_pos, 1, font_size, make_color(1), false, game->font, game->ui_render_pass1);
 	data->element_count += 1;
 }
 
@@ -1771,11 +1757,11 @@ static b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	if(selected) {
 		color = brighter(color, 1.5f);
 	}
-	draw_rect(g_r, pos, 0, element_data->size, color, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(g_r, pos, 0, element_data->size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 
 	s_v2 text_pos = center_text_on_rect(pos, element_data->size, font_size, false, true);
 	text_pos.x += 4;
-	draw_text(g_r, parse_result.text, text_pos, 1, font_size, make_color(1), false, game->font);
+	draw_text(g_r, parse_result.text, text_pos, 1, font_size, make_color(1), false, game->font, game->ui_render_pass1);
 	data->element_count += 1;
 
 	return result;
