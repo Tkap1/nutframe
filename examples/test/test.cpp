@@ -1330,7 +1330,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_r->clear_framebuffer(game->fbo_arr[1], v4(0, 0, 0, 0), c_default_fbo_clear_flags);
 	g_r->clear_framebuffer(game->bloom_fbo, v4(0, 0, 0, 0), c_default_fbo_clear_flags);
 
-	g_r->end_render_pass(g_r, game->background_render_pass, game->main_fbo, {.view_projection = ortho});
+	g_r->end_render_pass(g_r, game->background_render_pass, game->main_fbo, {.cam_pos = game->cam.pos, .view_projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass0, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .view_projection = view_projection});
 
 	g_r->end_render_pass(g_r, game->things_to_bloom_render_pass0, game->bloom_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view_projection = view_projection});

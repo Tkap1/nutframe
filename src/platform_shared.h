@@ -3018,6 +3018,7 @@ struct s_shader
 	int time_location;
 	int mouse_location;
 	int view_projection_location;
+	int cam_pos_location;
 	u32 gl_id;
 };
 
@@ -4660,6 +4661,7 @@ static void when_shader_first_loaded(s_shader* shader)
 	shader->time_location = glGetUniformLocation(shader->gl_id, "time");
 	shader->mouse_location = glGetUniformLocation(shader->gl_id, "mouse_pos");
 	shader->view_projection_location = glGetUniformLocation(shader->gl_id, "view_projection");
+	shader->cam_pos_location = glGetUniformLocation(shader->gl_id, "cam_pos");
 }
 
 static s_shader platform_load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
@@ -5461,10 +5463,13 @@ static void end_render_pass(s_game_renderer* gr, s_render_pass* render_pass, s_f
 			glUniform1f(shader.time_location, (float)gr->total_time);
 		}
 		if(shader.mouse_location >= 0) {
-			glUniform2fv(shader.mouse_location, 2, &g_platform_data.mouse.x);
+			glUniform2fv(shader.mouse_location, 1, &g_platform_data.mouse.x);
 		}
 		if(shader.view_projection_location >= 0) {
 			gl(glUniformMatrix4fv(shader.view_projection_location, 1, GL_FALSE, &render_pass_data.view_projection.elements[0][0]));
+		}
+		if(shader.cam_pos_location >= 0) {
+			gl(glUniform3fv(shader.cam_pos_location, 1, &render_pass_data.cam_pos.x));
 		}
 
 		gl(glActiveTexture(GL_TEXTURE0));
