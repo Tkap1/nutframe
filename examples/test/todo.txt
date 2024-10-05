@@ -7,3 +7,13 @@ if we hold shift or ctrl, we should buy an upgrade x10 or x100??
 
 when player harvests creature, do some animation where the resource automatically goes to the base
 	maybe the resource being harvest automatically should be an upgrade
+
+sounds
+
+if player kills an enemy, chance for a pickup that does something??
+	like +10 resource
+	temporary buff?
+
+win animation instead of instant change to leaderboard
+
+mouse wheel doesnt work in web

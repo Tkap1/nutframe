@@ -911,6 +911,11 @@ struct s_carray
 		elements[b] = temp;
 	}
 
+	t& get_random(s_rng* rng)
+	{
+		return elements[rng->rand_range_ie(0, n)];
+	}
+
 	constexpr int max_elements()
 	{
 		return n;
@@ -5174,14 +5179,26 @@ struct s_time_data
 	int ms;
 };
 
-static s_time_data process_time(f64 time)
+// static s_time_data process_time(f64 time)
+// {
+// 	s_time_data data = {};
+// 	data.minutes = (int)floor(time / 60);
+// 	time -= data.minutes * 60;
+// 	data.seconds = (int)floor(time);
+// 	time -= data.seconds;
+// 	data.ms = (int)floor(time * 1000);
+// 	return data;
+// }
+
+static s_time_data update_count_to_time_data(int update_count, f64 update_delay)
 {
+	f64 seconds = update_count * update_delay;
 	s_time_data data = {};
-	data.minutes = (int)floor(time / 60);
-	time -= data.minutes * 60;
-	data.seconds = (int)floor(time);
-	time -= data.seconds;
-	data.ms = (int)floor(time * 1000);
+	data.minutes = (int)floor(seconds / 60);
+	seconds -= data.minutes * 60;
+	data.seconds = (int)floor(seconds);
+	seconds -= data.seconds;
+	data.ms = (int)floor(seconds * 1000);
 	return data;
 }
 

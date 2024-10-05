@@ -25,7 +25,7 @@ m_dll_export void init_game(s_platform_data* platform_data)
 {
 	platform_data->set_base_resolution((int)c_base_res.x, (int)c_base_res.y);
 	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
-	platform_data->update_delay = 1.0 / c_updates_per_second;
+	platform_data->update_delay = c_update_delay;
 }
 
 m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
@@ -46,6 +46,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png");
 		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png");
 
+		game->creature_death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
+		game->creature_death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
+		game->creature_death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/test/creature_death02.wav", platform_data->frame_arena);
+
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
 		game->fbo_arr[0] = g_r->make_framebuffer(g_r, v2i(c_base_res));
 		game->fbo_arr[1] = g_r->make_framebuffer(g_r, v2i(c_base_res * 0.25f));
@@ -53,34 +57,45 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		game->font = &renderer->fonts[0];
 		platform_data->variables_path = "examples/test/variables.h";
-		game->reset_game = true;
 
 		if(g_platform_data->register_leaderboard_client) {
 			g_platform_data->register_leaderboard_client();
 		}
 
-		// set_state(e_state_input_name);
-
 		game->ui_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->ui_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->world_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->world_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
-		game->background_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->world_render_pass2 = make_render_pass(g_r, &platform_data->permanent_arena);
 		g_r->default_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 
-		game->cam.zoom = 1;
-
-		game->player.pos = c_base_pos;
 		g_r->game_speed_index = 5;
 
-		add_console_command(&platform_data->console, "gold", console_add_resource);
+		set_state_next_frame(e_state_play);
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		initialize end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-	s_creature_arr* creature_arr = &game->creature_arr;
-	s_bot_arr* bot_arr = &game->bot_arr;
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		handle state change start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	if(game->next_state >= 0) {
+		game->state = (e_state)game->next_state;
+		game->next_state = -1;
 
-	game->player.prev_pos = game->player.pos;
+		switch(game->state) {
+			case e_state_play: {
+				memset(&game->play_state, 0, sizeof(game->play_state));
+				game->play_state.cam.zoom = 1;
+				s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y);
+				game->play_state.player.pos = pos;
+				game->play_state.player.prev_pos = pos;
+			} break;
+		}
+	}
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		handle state change end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	s_bot_arr* bot_arr = &game->play_state.bot_arr;
+
+	game->play_state.player.prev_pos = game->play_state.player.pos;
 	memcpy(creature_arr->prev_pos, creature_arr->pos, sizeof(creature_arr->prev_pos));
 	memcpy(bot_arr->prev_pos, bot_arr->pos, sizeof(bot_arr->prev_pos));
 	switch(game->state) {
@@ -88,19 +103,21 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		play state update start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		case e_state_play: {
 
+			s_play_state* state = &game->play_state;
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				f64 dt = platform_data->update_delay;
-				game->spawn_creature_timer += dt;
+				state->spawn_creature_timer += dt;
 				f64 spawn_delay = get_creature_spawn_delay();
-				while(game->spawn_creature_timer >= spawn_delay) {
+				while(state->spawn_creature_timer >= spawn_delay) {
 
-					game->spawn_creature_timer -= spawn_delay;
+					state->spawn_creature_timer -= spawn_delay;
 					s_v2 offset = v2(
 						cosf(game->rng.randf_range(0, tau)) * c_base_res.y,
 						sinf(game->rng.randf_range(0, tau)) * c_base_res.y
 					);
-					s_v2 base = game->rng.rand_bool() ? c_base_pos : game->player.pos;
+					s_v2 base = game->rng.rand_bool() ? c_base_pos : game->play_state.player.pos;
 					s_v2 pos = base + offset;
 
 					int tier = get_creature_spawn_tier();
@@ -117,6 +134,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		update player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
+				s_player* player = &game->play_state.player;
 				s_v2 dir = zero;
 				if(is_key_down(g_input, c_key_a)) {
 					dir.x -= 1;
@@ -131,33 +149,33 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					dir.y += 1;
 				}
 				dir = v2_normalized(dir);
-				game->player.pos += dir * get_player_movement_speed();
+				player->pos += dir * get_player_movement_speed();
 
-				game->player.harvest_timer += 1;
-				if(game->player.harvest_timer >= c_player_harvest_delay) {
+				player->harvest_timer += 1;
+				if(player->harvest_timer >= c_player_harvest_delay) {
 
-					s_get_closest_creature data = get_closest_creature(game->player.pos);
+					s_get_closest_creature data = get_closest_creature(player->pos);
 					int creature = -1;
 					if(data.closest_non_targeted_creature.id > 0 && data.smallest_non_targeted_dist <= get_player_harvest_range()) {
 						creature = get_creature(data.closest_non_targeted_creature);
 						assert(creature >= 0);
-						game->player.target = data.closest_non_targeted_creature;
+						player->target = data.closest_non_targeted_creature;
 					}
 					else if(data.closest_creature.id > 0 && data.smallest_dist <= get_player_harvest_range()) {
 						creature = get_creature(data.closest_creature);
 						assert(creature >= 0);
-						game->player.target = data.closest_creature;
+						player->target = data.closest_creature;
 					}
 					if(creature >= 0) {
 						int player_damage = get_player_damage();
 						b8 killed = damage_creature(creature, player_damage);
 						if(killed) {
-							game->resource_count += get_creature_resource_reward(creature_arr->tier[creature]);
+							state->resource_count += get_creature_resource_reward(creature_arr->tier[creature]);
 						}
-						game->player.harvest_timer = 0;
+						player->harvest_timer = 0;
 					}
 					else {
-						game->player.target = zero;
+						player->target = zero;
 					}
 				}
 			}
@@ -166,7 +184,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		update creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			for_creature_partial(creature) {
 				if(!creature_arr->active[creature]) { continue; }
-				int time_passed = game->update_count - creature_arr->tick_when_last_damaged[creature];
+				int time_passed = state->update_count - creature_arr->tick_when_last_damaged[creature];
 				if(time_passed > 300) {
 					creature_arr->roam_timer[creature] += 1;
 					if(creature_arr->roam_timer[creature] >= c_creature_roam_delay) {
@@ -229,19 +247,49 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							pick_target_for_bot(bot);
 							bot_arr->state[bot] = e_bot_state_going_to_creature;
 							assert(bot_arr->cargo[bot] > 0);
-							game->resource_count += bot_arr->cargo[bot];
-							printf("%i\n", game->resource_count);
+							state->resource_count += bot_arr->cargo[bot];
 						}
 					} break;
 				}
 
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		update bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		check win condition start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				#ifdef m_emscripten
+				constexpr b8 are_we_on_web = true;
+				#else // m_emscripten
+				constexpr b8 are_we_on_web = false;
+				#endif // m_emscripten
+
+				if(state->resource_count >= c_resource_to_win) {
+					if constexpr(are_we_on_web) {
+						if(platform_data->leaderboard_nice_name.len > 0) {
+							set_state_next_frame(e_state_leaderboard);
+							game->leaderboard_state.coming_from_win = true;
+							platform_data->submit_leaderboard_score(
+								game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
+							);
+							game->play_state.update_count_at_win_time = game->play_state.update_count;
+						}
+						else {
+							set_state_next_frame(e_state_input_name);
+						}
+					}
+					else {
+						set_state_next_frame(e_state_leaderboard);
+						game->leaderboard_state.coming_from_win = true;
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check win condition end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			state->update_count += 1;
+
 		} break;
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		play state update end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 	}
-
-	game->update_count += 1;
 }
 
 m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, float interp_dt)
@@ -271,14 +319,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_delta = (float)platform_data->frame_time;
 	game->render_time += g_delta;
 
-	if(g_input->wheel_movement > 0) {
-		game->cam.zoom *= 1.1f;
-	}
+	s_play_state* play_state = &game->play_state;
+	s_camera2d* cam = &play_state->cam;
 
-	else if(g_input->wheel_movement < 0) {
-		game->cam.zoom *= 0.9f;
+	if(g_input->wheel_movement > 0) {
+		cam->zoom *= 1.1f;
 	}
-	game->cam.zoom = clamp(game->cam.zoom, 0.2f, 5.0f);
+	else if(g_input->wheel_movement < 0) {
+		cam->zoom *= 0.9f;
+	}
+	cam->zoom = clamp(cam->zoom, 0.2f, 5.0f);
 
 	#ifdef m_debug
 	if(is_key_pressed(g_input, c_key_add)) {
@@ -288,13 +338,19 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		circular_index_add(&g_r->game_speed_index, -1, array_count(c_game_speed_arr));
 	}
 	#endif // m_debug
+	if(is_key_pressed(g_input, c_key_f1)) {
+		play_state->resource_count = 100000;
+	}
+	if(is_key_pressed(g_input, c_key_f2)) {
+		play_state->resource_count = c_resource_to_win;
+	}
 
-	s_creature_arr* creature_arr = &game->creature_arr;
-	s_bot_arr* bot_arr = &game->bot_arr;
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	s_bot_arr* bot_arr = &game->play_state.bot_arr;
 
 	{
-		s_v2 pos = lerp(game->player.prev_pos, game->player.pos, interp_dt);
-		game->cam.pos = pos - c_base_res * (0.5f / game->cam.zoom);
+		s_v2 pos = lerp(game->play_state.player.prev_pos, game->play_state.player.pos, interp_dt);
+		game->play_state.cam.pos = pos - c_base_res * (0.5f / game->play_state.cam.zoom);
 	}
 
 	switch(game->state) {
@@ -304,8 +360,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				s_v2 min_bounds = game->cam.pos;
-				s_v2 max_bounds = game->cam.pos + c_base_res / game->cam.zoom;
+				s_v2 min_bounds = cam->pos;
+				s_v2 max_bounds = cam->pos + c_base_res / cam->zoom;
 				// s_v2 bound_size = max_bounds - min_bounds;
 				constexpr float tile_size = 256;
 				int start_x = floorfi(min_bounds.x / tile_size);
@@ -333,7 +389,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				s_player p = game->player;
+				s_player p = game->play_state.player;
 				s_v2 pos = lerp(p.prev_pos, p.pos, interp_dt);
 				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), game->placeholder_texture, game->world_render_pass0);
 
@@ -376,7 +432,49 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			draw_text(g_r, format_text("%i", game->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				// if(is_key_down(g_input, c_left_mouse)) {
+				// // if(is_key_pressed(g_input, c_right_mouse)) {
+				// 	do_particles(10, g_mouse, e_layer_particle, {
+				// 		// .shrink = 0.5f,
+				// 		// .slowdown = 1.0f,
+				// 		.duration = 0.33f,
+				// 		.duration_rand = 1,
+				// 		.speed = 128,
+				// 		.speed_rand = 1,
+				// 		// .angle_rand = 1,
+				// 		// .radius = 16.0f,
+				// 		// .radius_rand = 0,
+				// 		.color = v3(0.2f, 0.1f, 0.1f),
+				// 		.color_rand = v3(0.5f, 0.5f, 0.5f),
+				// 	});
+				// }
+
+				foreach_ptr(particle_i, p, game->play_state.particle_arr) {
+					s_v4 color;
+					color.x = p->color.x;
+					color.y = p->color.y;
+					color.z = p->color.z;
+					color.w = 1.0f;
+					float percent_done = at_most(1.0f, p->timer / p->duration);
+					float speed = p->speed * (1.0f - percent_done * p->slowdown);
+					speed = at_least(0.0f, speed);
+					p->pos += p->dir * speed * (float)platform_data->frame_time;
+					color.w *= 1.0f - (percent_done * p->fade);
+					color.w = at_least(0.0f, color.w);
+					float radius = p->radius * (1.0f - percent_done * p->shrink);
+					radius = at_least(0.0f, radius);
+					draw_rect(g_r, p->pos, p->z, v2(radius * 2.0f), color, game->world_render_pass1, {}, {.flags = e_render_flag_circle});
+					p->timer += (float)platform_data->frame_time;
+					if(percent_done >= 1) {
+						game->play_state.particle_arr.remove_and_swap(particle_i--);
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			draw_text(g_r, format_text("%i", play_state->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 
 			constexpr float font_size = 15;
 			constexpr float padding = 8;
@@ -388,12 +486,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 				for_enum(upgrade_i, e_upgrade) {
 					s_upgrade_data data = c_upgrade_data[upgrade_i];
-					int curr_level = game->upgrade_level_arr[upgrade_i];
+					int curr_level = play_state->upgrade_level_arr[upgrade_i];
 					int cost = data.base_cost * (curr_level + 1);
 					b8 purchased = false;
-					b8 over_limit = game->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
+					b8 over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
 					if(!over_limit && ui_button2(format_text(data.name, cost), pos_area_get_advance(&area), {.font_size = font_size})) {
-						if(game->resource_count >= cost) {
+						if(play_state->resource_count >= cost) {
 							switch(upgrade_i) {
 
 								case e_upgrade_buy_bot: {
@@ -431,8 +529,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						}
 					}
 					if(purchased) {
-						game->upgrade_level_arr[upgrade_i] += 1;
-						game->resource_count -= cost;
+						play_state->upgrade_level_arr[upgrade_i] += 1;
+						play_state->resource_count -= cost;
 					}
 				}
 			}
@@ -440,30 +538,39 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			{
 				if(ui_button2(strlit("Telport home"), v2(c_base_res.x - c_base_button_size.x - padding, padding), {.font_size = font_size})) {
-					game->player.pos = c_base_pos;
-					game->player.prev_pos = c_base_pos;
+					s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y);
+					game->play_state.player.pos = pos;
+					game->play_state.player.prev_pos = pos;
 				}
 			}
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		score goal display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_len_str str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
+				s_v2 text_pos = center_text_on_rect(str, game->font, c_base_pos - c_base_size * 0.5f, c_base_size, font_size, true, true);
+				// text_pos.y += font_size * 0.1f;
+				draw_text(g_r, str, text_pos, 0, font_size, make_color(1), false, game->font, game->world_render_pass2);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 		} break;
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		play state draw end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 		case e_state_leaderboard: {
 
-
 			if(is_key_pressed(g_input, c_key_r)) {
-				// set_state(e_state_play); // @TODO(tkap, 05/10/2024):
+				set_state_next_frame(e_state_play);
 			}
 
 			if(!game->leaderboard_state.received) {
 				draw_text(g_r, strlit("Getting leaderboard..."), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
 			}
 			else if(game->leaderboard_arr.count <= 0) {
-				draw_text(g_r, strlit("No one has beaten this map :("), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
+				draw_text(g_r, strlit("No one scores :("), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
 			}
 
 			if(game->leaderboard_state.coming_from_win) {
-				s_time_data data = process_time((int)round(game->timer * 1000.0) / 1000.0);
+				s_time_data data = update_count_to_time_data(game->play_state.update_count_at_win_time, c_update_delay);
 				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 				draw_text(g_r, text, c_half_res * v2(1.0f, 0.2f), 10, 64, make_color(1), true, game->font, game->ui_render_pass1);
 
@@ -474,8 +581,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			s_v2 pos = c_half_res * v2(1.0f, 0.7f);
 			for(int entry_i = 0; entry_i < at_most(c_max_visible_entries + 1, game->leaderboard_arr.count); entry_i++) {
 				s_leaderboard_entry entry = game->leaderboard_arr[entry_i];
-				f64 time = entry.time / 1000.0;
-				s_time_data data = process_time(time);
+				s_time_data data = update_count_to_time_data(entry.time, c_update_delay);
 				s_v4 color = make_color(0.8f);
 				int rank_number = entry_i + 1;
 				if(entry_i == c_max_visible_entries || strcmp(platform_data->leaderboard_public_uid.data, entry.internal_name.data) == 0) {
@@ -493,8 +599,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			ui_start(99);
-			if(ui_button(strlit("Back"), c_base_res * v2(0.85f, 0.92f), {.font_size = 32, .size_x = 90}) || is_key_pressed(g_input, c_key_escape)) {
-				// set_state(e_state_map_select); // @TODO(tkap, 05/10/2024):
+			if(ui_button(strlit("Restart"), c_base_res * v2(0.85f, 0.92f), {.font_size = 32, .size_x = 90}) || is_key_pressed(g_input, c_key_escape)) {
+				set_state_next_frame(e_state_play);
 			}
 			ui_end();
 
@@ -574,11 +680,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	do_ui(ortho);
 
-	s_m4 view_projection = m4_multiply(ortho, game->cam.get_matrix());
+	s_m4 view_projection = m4_multiply(ortho, cam->get_matrix());
 
 	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
 
-	g_r->end_render_pass(g_r, game->world_render_pass0, game->main_fbo, {.view_projection = view_projection});
+	g_r->end_render_pass(g_r, game->world_render_pass0, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .view_projection = view_projection});
+	g_r->end_render_pass(g_r, game->world_render_pass1, game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_additive, .view_projection = view_projection});
+	g_r->end_render_pass(g_r, game->world_render_pass2, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = view_projection});
 	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
 	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
 
@@ -625,17 +733,18 @@ s_m4 s_camera2d::get_matrix()
 	return m;
 }
 
-static void do_particles(int count, s_v3 pos, s_particle_data data)
+func void do_particles(int count, s_v2 pos, int z, s_particle_data data)
 {
 	s_rng* rng = &game->rng;
 	for(int particle_i = 0; particle_i < count; particle_i++) {
 		s_particle p = {};
 		p.pos = pos;
+		p.z = z;
 		p.fade = data.fade;
 		p.shrink = data.shrink;
 		p.duration = data.duration * (1.0f - rng->randf32() * data.duration_rand);
 		// p.dir.xy = v2_from_angle(data.angle + tau * rng->randf32() * data.angle_rand);
-		p.dir = v3_normalized(v3(rng->randf32_11(), rng->randf32_11(), rng->randf32_11()));
+		p.dir = v2_normalized(v2(rng->randf32_11(), rng->randf32_11()));
 		p.speed = data.speed * (1.0f - rng->randf32() * data.speed_rand);
 		p.radius = data.radius * (1.0f - rng->randf32() * data.radius_rand);
 		p.slowdown = data.slowdown;
@@ -643,7 +752,7 @@ static void do_particles(int count, s_v3 pos, s_particle_data data)
 		p.color.x *= (1.0f - rng->randf32() * data.color_rand.x);
 		p.color.y *= (1.0f - rng->randf32() * data.color_rand.y);
 		p.color.z *= (1.0f - rng->randf32() * data.color_rand.z);
-		game->particle_arr.add_checked(p);
+		game->play_state.particle_arr.add_checked(p);
 	}
 }
 
@@ -675,7 +784,7 @@ static void on_leaderboard_received(s_json* json)
 	end:;
 
 	#ifdef m_emscripten
-	g_platform_data->get_our_leaderboard(c_map_data[game->curr_map].leaderboard_id, on_our_leaderboard_received);
+	g_platform_data->get_our_leaderboard(c_leaderboard_id, on_our_leaderboard_received);
 	#endif // m_emscripten
 
 	game->leaderboard_state.received = true;
@@ -902,15 +1011,15 @@ static int ui_end()
 	return data.selected;
 }
 
-
 static void on_set_leaderboard_name(b8 success)
 {
 	if(success) {
-		// set_state(e_state_leaderboard); // @TODO(tkap, 05/10/2024):
+		set_state_next_frame(e_state_leaderboard);
 		game->leaderboard_state.coming_from_win = true;
 		g_platform_data->submit_leaderboard_score(
-			(int)round(game->timer * 1000.0), c_leaderboard_id, on_leaderboard_score_submitted
+			game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
 		);
+		game->play_state.update_count_at_win_time = game->play_state.update_count;
 	}
 	else {
 		game->input_name_state.error_str.from_cstr("Name is already taken!");
@@ -922,8 +1031,8 @@ func int make_entity(b8* active, int* id, s_entity_index_data* index_data, int m
 	for(int i = 0; i < max_entities; i += 1) {
 		if(!active[i]) {
 			active[i] = true;
-			game->next_entity_id += 1;
-			id[i] = game->next_entity_id;
+			game->play_state.next_entity_id += 1;
+			id[i] = game->play_state.next_entity_id;
 			index_data->lowest_index = at_most(i, index_data->lowest_index);
 			index_data->max_index_plus_one = at_least(i + 1, index_data->max_index_plus_one);
 			return i;
@@ -934,7 +1043,7 @@ func int make_entity(b8* active, int* id, s_entity_index_data* index_data, int m
 
 func int make_creature(s_v2 pos, int tier)
 {
-	s_creature_arr* creature_arr = &game->creature_arr;
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 	int entity = make_entity(creature_arr->active, creature_arr->id, &creature_arr->index_data, c_max_creatures);
 	creature_arr->pos[entity] = pos;
 	creature_arr->prev_pos[entity] = pos;
@@ -948,7 +1057,7 @@ func int make_creature(s_v2 pos, int tier)
 
 func int make_bot(s_v2 pos)
 {
-	s_bot_arr* bot_arr = &game->bot_arr;
+	s_bot_arr* bot_arr = &game->play_state.bot_arr;
 	int entity = make_entity(bot_arr->active, bot_arr->id, &bot_arr->index_data, c_max_bots);
 	bot_arr->target[entity] = zero;
 	bot_arr->state[entity] = e_bot_state_going_to_creature;
@@ -961,8 +1070,8 @@ func int make_bot(s_v2 pos)
 
 func void pick_target_for_bot(int bot)
 {
-	s_creature_arr* creature_arr = &game->creature_arr;
-	s_bot_arr* bot_arr = &game->bot_arr;
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	s_bot_arr* bot_arr = &game->play_state.bot_arr;
 	assert(bot_arr->active[bot]);
 
 	s_get_closest_creature data = get_closest_creature(c_base_pos);
@@ -981,20 +1090,29 @@ func int get_creature(s_entity_index index)
 {
 	assert(index.index >= 0);
 	if(index.id <= 0) { return -1; }
-	if(!game->creature_arr.active[index.index]) { return -1; }
+	if(!game->play_state.creature_arr.active[index.index]) { return -1; }
 
-	if(game->creature_arr.id[index.index] == index.id) { return index.index; }
+	if(game->play_state.creature_arr.id[index.index] == index.id) { return index.index; }
 	return -1;
 }
 
 // @Note(tkap, 05/10/2024): Return true if creature died. Return false if creature still alive
 func b8 damage_creature(int creature, int damage)
 {
-	s_creature_arr* creature_arr = &game->creature_arr;
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 	creature_arr->curr_health[creature] -= damage;
-	creature_arr->tick_when_last_damaged[creature] = game->update_count;
+	creature_arr->tick_when_last_damaged[creature] = game->play_state.update_count;
 	if(creature_arr->curr_health[creature] <= 0) {
 		remove_entity(creature, creature_arr->active, &creature_arr->index_data);
+		g_platform_data->play_sound(game->creature_death_sound_arr.get_random(&game->rng));
+		do_particles(32, creature_arr->pos[creature], e_layer_particle, {
+			.duration = 0.33f,
+			.duration_rand = 1,
+			.speed = 128,
+			.speed_rand = 1,
+			.color = v3(0.2f, 0.1f, 0.1f),
+			.color_rand = v3(0.5f, 0.5f, 0.5f),
+		});
 		return true;
 	}
 	return false;
@@ -1014,7 +1132,7 @@ func void remove_entity(int entity, b8* active, s_entity_index_data* index_data)
 
 func s_get_closest_creature get_closest_creature(s_v2 pos)
 {
-	s_creature_arr* creature_arr = &game->creature_arr;
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 
 	s_get_closest_creature data = zero;
 
@@ -1105,58 +1223,67 @@ func s_v2 pos_area_get_advance(s_pos_area* area)
 	return result;
 }
 
-func void console_add_resource(s_console* cn, char* text)
-{
-	game->resource_count += atoi(text);
-}
-
 func int get_player_damage()
 {
-	return 2 + game->upgrade_level_arr[e_upgrade_player_damage];
+	return 2 + game->play_state.upgrade_level_arr[e_upgrade_player_damage];
 }
 
 func int get_bot_damage()
 {
-	return 1 + game->upgrade_level_arr[e_upgrade_bot_damage];
+	return 1 + game->play_state.upgrade_level_arr[e_upgrade_bot_damage];
 }
 
 func float get_player_movement_speed()
 {
-	return c_player_movement_speed + game->upgrade_level_arr[e_upgrade_player_movement_speed];
+	return c_player_movement_speed + game->play_state.upgrade_level_arr[e_upgrade_player_movement_speed];
 }
 
 func float get_bot_movement_speed()
 {
-	return c_bot_movement_speed + game->upgrade_level_arr[e_upgrade_bot_movement_speed];
+	return c_bot_movement_speed + game->play_state.upgrade_level_arr[e_upgrade_bot_movement_speed];
 }
 
 func f64 get_creature_spawn_delay()
 {
-	int increase = game->upgrade_level_arr[e_upgrade_spawn_rate] * 10;
+	int increase = game->play_state.upgrade_level_arr[e_upgrade_spawn_rate] * 10;
 	f64 p = c_spawns_per_second * (1.0 + increase / 100.0);
 	return 1.0 / p;
 }
 
 func int get_creature_spawn_tier()
 {
-	return game->upgrade_level_arr[e_upgrade_creature_tier];
+	return game->play_state.upgrade_level_arr[e_upgrade_creature_tier];
 }
 
 func float get_player_harvest_range()
 {
-	return c_player_harvest_range + game->upgrade_level_arr[e_upgrade_player_harvest_range] * 15;
+	return c_player_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_player_harvest_range] * 15;
 }
 
 func float get_bot_harvest_range()
 {
-	return c_bot_harvest_range + game->upgrade_level_arr[e_upgrade_bot_harvest_range] * 5;
+	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 5;
 }
 
 func int get_creature_resource_reward(int tier)
 {
 	int result = tier + 1;
-	if(game->upgrade_level_arr[e_upgrade_double_harvest] > 0) {
+	if(game->play_state.upgrade_level_arr[e_upgrade_double_harvest] > 0) {
 		result *= 2;
 	}
 	return result;
+}
+
+func void set_state_next_frame(e_state new_state)
+{
+	if(game->next_state >= 0) { return; }
+
+	switch(new_state)	{
+		case e_state_leaderboard: {
+			game->leaderboard_state = zero;
+			game->leaderboard_arr.count = 0;
+		} break;
+	}
+
+	game->next_state = new_state;
 }

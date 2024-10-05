@@ -21,7 +21,7 @@ if !debug!==0 (
 	set comp=!comp! -O3
 ) else (
 	@REM set comp=!comp! -Dm_debug
-	set comp=!comp! -O3
+	set comp=!comp! -O0
 	set comp=!comp! -sSAFE_HEAP=0
 	set comp=!comp! -sASSERTIONS=0
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
@@ -32,13 +32,8 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../shaders/3d_flat.fragment@shaders/3d_flat.fragment
 	set comp=!comp! --preload-file ../shaders/threshold.fragment@shaders/threshold.fragment
 	set comp=!comp! --preload-file ../shaders/blur.fragment@shaders/blur.fragment
-	set comp=!comp! --preload-file ../examples/speedjam5/noise.png@examples/speedjam5/noise.png
-	set comp=!comp! --preload-file ../examples/speedjam5/sheet.png@examples/speedjam5/sheet.png
-	set comp=!comp! --preload-file ../examples/speedjam5/tile_normal.png@examples/speedjam5/tile_normal.png
-	set comp=!comp! --preload-file ../examples/speedjam5/tile_nullify_explosion.png@examples/speedjam5/tile_nullify_explosion.png
-	set comp=!comp! --preload-file ../examples/speedjam5/save_point.png@examples/speedjam5/save_point.png
-	set comp=!comp! --preload-file ../examples/speedjam5/tile_spike.png@examples/speedjam5/tile_spike.png
-	set comp=!comp! --preload-file ../examples/speedjam5/tile_platform.png@examples/speedjam5/tile_platform.png
+	set comp=!comp! --preload-file ../examples/test/noise.png@examples/test/noise.png
+	set comp=!comp! --preload-file ../examples/test/placeholder.png@examples/test/placeholder.png
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
 	set comp=!comp! --preload-file ../assets/checkmark.png@assets/checkmark.png
 	set comp=!comp! --preload-file ../platform_map.map@platform_map.map

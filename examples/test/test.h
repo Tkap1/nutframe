@@ -4,6 +4,7 @@
 #define global static
 
 global constexpr int c_updates_per_second = 60;
+global constexpr f64 c_update_delay = 1.0 / c_updates_per_second;
 global constexpr int c_max_leaderboard_entries = 16;
 global constexpr int c_max_particles = 8192;
 global constexpr s_v2 c_base_button_size = v2(128, 48);
@@ -15,9 +16,10 @@ global constexpr s_v2i c_sprite_size = v2i(64, 64);
 global constexpr int c_max_creatures = 4096;
 global constexpr int c_max_bots = 4096;
 // @TODO(tkap, 05/10/2024): set me
-global constexpr int c_leaderboard_id = -1;
+global constexpr int c_leaderboard_id = 24824;
 global constexpr s_v2 c_base_pos = v2(400, 400);
 global f64 c_spawns_per_second = 0.33;
+global constexpr int c_resource_to_win = 1000000;
 
 enum e_layer
 {
@@ -27,6 +29,7 @@ enum e_layer
 	e_layer_creature,
 	e_layer_bot,
 	e_layer_laser,
+	e_layer_particle,
 };
 
 enum e_upgrade
@@ -106,8 +109,8 @@ typedef struct s_pos_area
 } s_pos_area;
 
 
-#define for_creature_partial(mname) for(int mname = game->creature_arr.index_data.lowest_index; mname < game->creature_arr.index_data.max_index_plus_one; mname += 1)
-#define for_bot_partial(mname) for(int mname = game->bot_arr.index_data.lowest_index; mname < game->bot_arr.index_data.max_index_plus_one; mname += 1)
+#define for_creature_partial(mname) for(int mname = game->play_state.creature_arr.index_data.lowest_index; mname < game->play_state.creature_arr.index_data.max_index_plus_one; mname += 1)
+#define for_bot_partial(mname) for(int mname = game->play_state.bot_arr.index_data.lowest_index; mname < game->play_state.bot_arr.index_data.max_index_plus_one; mname += 1)
 
 struct s_entity_index_data
 {
@@ -185,8 +188,9 @@ struct s_particle
 	float fade;
 	float shrink;
 	float slowdown;
-	s_v3 pos;
-	s_v3 dir;
+	s_v2 pos;
+	s_v2 dir;
+	int z;
 	float radius;
 	float speed;
 	float timer;
@@ -199,13 +203,13 @@ struct s_particle_data
 	float shrink = 1;
 	float fade = 1;
 	float slowdown;
-	float duration;
+	float duration = 0.5f;
 	float duration_rand;
-	float speed;
+	float speed = 64;
 	float speed_rand;
 	float angle;
 	float angle_rand;
-	float radius;
+	float radius = 8;
 	float radius_rand;
 	s_v3 color = {.x = 0.1f, .y = 0.1f, .z = 0.1f};
 	s_v3 color_rand;
@@ -300,31 +304,39 @@ struct s_get_closest_creature
 	s_entity_index closest_creature = zero;
 };
 
+struct s_play_state
+{
+	int next_entity_id;
+	f64 spawn_creature_timer;
+	int resource_count;
+	s_carray<int, e_upgrade_count> upgrade_level_arr;
+	s_sarray<s_particle, c_max_particles> particle_arr;
+	s_creature_arr creature_arr;
+	s_bot_arr bot_arr;
+	s_camera2d cam;
+	s_player player;
+	int update_count;
+	int update_count_at_win_time;
+};
 
 struct s_game
 {
 	b8 initialized;
-	b8 reset_game;
 	e_state state;
 
-	s_carray<int, e_upgrade_count> upgrade_level_arr;
+	int next_state;
 
-	int update_count;
+	s_play_state play_state;
 
-	int next_entity_id;
-
-	f64 spawn_creature_timer;
-	int resource_count;
-
-	s_render_pass* background_render_pass;
 	s_render_pass* world_render_pass0;
 	s_render_pass* world_render_pass1;
+	s_render_pass* world_render_pass2;
 	s_render_pass* ui_render_pass0;
 	s_render_pass* ui_render_pass1;
 
-	s_texture placeholder_texture;
+	s_carray<s_sound*, 3> creature_death_sound_arr;
 
-	s_sarray<s_particle, c_max_particles> particle_arr;
+	s_texture placeholder_texture;
 
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;
@@ -333,14 +345,9 @@ struct s_game
 
 	s_dev_menu dev_menu;
 
-	s_creature_arr creature_arr;
-	s_bot_arr bot_arr;
-
-	f64 timer;
 	float render_time;
 	s_framebuffer* particle_framebuffer;
 	s_framebuffer* text_framebuffer;
-	s_camera2d cam;
 	s_texture sheet;
 	s_texture noise;
 	s_rng rng;
@@ -348,7 +355,6 @@ struct s_game
 	s_framebuffer* main_fbo;
 	s_framebuffer* bloom_fbo;
 	s_carray<s_framebuffer*, 2> fbo_arr;
-	s_player player;
 	s_sarray<s_visual_effect, 128> visual_effect_arr;
 	s_sarray<s_leaderboard_entry, c_max_leaderboard_entries> leaderboard_arr;
 };
@@ -358,7 +364,7 @@ func s_v2i pos_to_index(s_v2 pos, int tile_size);
 func b8 is_index_valid(s_v2i index);
 func b8 index_has_tile(s_v2i index);
 func s_v2 index_to_pos(s_v2i index, int tile_size);
-func void do_particles(int count, s_v3 pos, s_particle_data data);
+func void do_particles(int count, s_v2 pos, int z, s_particle_data data);
 func void on_leaderboard_received(s_json* json);
 func void on_our_leaderboard_received(s_json* json);
 func void after_submitted_leaderboard();
@@ -379,7 +385,6 @@ func s_get_closest_creature get_closest_creature(s_v2 pos);
 func s_pos_area make_pos_area(s_v2 pos, s_v2 size, s_v2 element_size, float spacing, int count, int flags);
 func s_v2 pos_area_get_advance(s_pos_area* area);
 static b8 ui_button2(s_len_str id_str, s_v2 pos, s_ui_optional optional = zero);
-func void console_add_resource(s_console* cn, char* text);
 func int get_player_damage();
 func int get_bot_damage();
 func float get_player_movement_speed();
@@ -389,3 +394,4 @@ func int get_creature_spawn_tier();
 func float get_player_harvest_range();
 func float get_bot_harvest_range();
 func int get_creature_resource_reward(int tier);
+func void set_state_next_frame(e_state new_state);
