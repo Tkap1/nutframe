@@ -169,6 +169,7 @@ struct s_bot_arr
 	int id[c_max_bots];
 	int harvest_timer[c_max_bots];
 	int cargo[c_max_bots];
+	float animation_timer[c_max_bots];
 	s_entity_index target[c_max_bots];
 	s_entity_index laser_target[c_max_bots];
 	e_bot_state state[c_max_bots];
@@ -344,9 +345,9 @@ struct s_game
 	s_carray<s_sound*, 3> creature_death_sound_arr;
 
 	s_texture placeholder_texture;
-	s_texture drone_texture;
 	s_texture base_texture;
 	s_texture ant_texture;
+	s_carray<s_texture, 5> drone_texture_arr;
 
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;

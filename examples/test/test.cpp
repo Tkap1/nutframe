@@ -45,7 +45,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		g_r->set_vsync(true);
 		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png");
 		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png");
-		game->drone_texture = g_r->load_texture(renderer, "examples/test/drone.png");
+		game->drone_texture_arr[0] = g_r->load_texture(renderer, "examples/test/drone000.png");
+		game->drone_texture_arr[1] = g_r->load_texture(renderer, "examples/test/drone006.png");
+		game->drone_texture_arr[2] = g_r->load_texture(renderer, "examples/test/drone012.png");
+		game->drone_texture_arr[3] = g_r->load_texture(renderer, "examples/test/drone018.png");
+		game->drone_texture_arr[4] = g_r->load_texture(renderer, "examples/test/drone024.png");
 		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png");
 		game->ant_texture = g_r->load_texture(renderer, "examples/test/ant.png");
 
@@ -432,9 +436,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_v2 pos = lerp(bot_arr->prev_pos[bot], bot_arr->pos[bot], interp_dt);
 				s_v4 color = make_color(1);
 				if(bot_arr->state[bot] == e_bot_state_going_back_to_base) {
-					color = make_color(1.0f, 0.5f, 0.5f);
+					color = make_color(0.5f, 0.5f, 0.5f);
 				}
-				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, game->drone_texture, game->world_render_pass_bot);
+				bot_arr->animation_timer[bot] += g_delta;
+				int index = roundfi(fmodf(bot_arr->animation_timer[bot] / (0.041666666666666664f * 4), 4));
+				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, game->drone_texture_arr[index], game->world_render_pass_bot);
 
 				int creature = get_creature(bot_arr->laser_target[bot]);
 				if(creature >= 0) {
