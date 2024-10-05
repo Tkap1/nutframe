@@ -16,4 +16,5 @@ if player kills an enemy, chance for a pickup that does something??
 
 win animation instead of instant change to leaderboard
 
-mouse wheel doesnt work in web
+smooth zoom
+smooth camera movement

@@ -1,4 +1,6 @@
 
+layout(origin_upper_left) in vec4 gl_FragCoord;
+
 flat in int v_flags;
 flat in int v_effect_id;
 in float v_mix_weight;
@@ -186,38 +188,19 @@ void main()
 	}
 
 	else if(v_effect_id == 5) {
-		vec2 uv = v_local_uv;
-		vec3 c = vec3(0.0);
 		color.rgb = vec3(0.0);
-		color.a = 1.0;
-		const float size_arr[3] = float[3](0.1, 0.2, 0.3);
-		const float parallax_arr[3] = float[3](0.001, 0.01, 0.02);
-		const vec3 color_arr[3] = vec3[3](
-			vec3(0.1568627450980392, 0.21176470588235294, 0.8431372549019608),
-			vec3(0.44313725490196076, 0.1568627450980392, 0.8431372549019608),
-			vec3(0.1568627450980392, 0.5568627450980392, 0.8431372549019608)
-		);
-		for(int i = 0; i < 3; i += 1) {
-			float fi = float(i);
-			for(int j = 0; j < 20; j += 1) {
-				float fj = float(j);
-				vec2 rand = n22(vec2(fi * 123.0 + fj, fj));
-				vec2 rand2 = n22(vec2(fi * 123.5 + fj * 33.2, fj * 143.3));
-				rand.x -= cam_pos.x * parallax_arr[i] + sin_range(-0.05, 0.05, time * 0.1 + rand2.x * 151.2);
-				rand.y += cam_pos.y * parallax_arr[i] + sin_range(-0.05, 0.05, time * 0.1 + rand2.y * 111.2);
-				rand = fract(rand);
-				rand = (rand - 0.5) * 2.0 + 0.5;
-				float x_dist = abs(rand.x - uv.x);
-				float y_dist = abs(rand.y - uv.y);
-				float size = size_arr[i] * 1.3;
-				if(x_dist < size && y_dist < size) {
-					c = color_arr[i];
-					float d = max(x_dist, y_dist);
-					c *= smoothstep(size, size * 0.5, d);
-					color.rgb += c * 0.2 * sin_range(0.9, 1.0, time);
-				}
-			}
-		}
+		vec2 uv = v_local_uv;
+		float center = 0.5;
+		center += sin(uv.x * 21.2 + time * 20.0) * 0.1;
+		float d = abs(uv.y - center);
+		float s0 = smoothstep(0.2, 0.1, d);
+		float s1 = smoothstep(0.5, 0.2, d);
+		color.rgb += vec3(s0);
+		color += v_color * s1;
+
+		// vec2 p = gl_FragCoord.xy;
+		// d = distance(v_draw_size, p);
+		// color.a *= smoothstep(0.0, 64.0, d);
 	}
 
 	// @Note(tkap, 31/05/2024): Light

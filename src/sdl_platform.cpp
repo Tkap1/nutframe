@@ -289,6 +289,12 @@ static void do_one_frame()
 				g_platform_data.logic_input.char_events.add((char)c);
 				g_platform_data.render_input.char_events.add((char)c);
 			} break;
+
+			case SDL_MOUSEWHEEL: {
+				float movement = (float)e.wheel.y;
+				g_platform_data.logic_input.wheel_movement = movement / 120;
+				g_platform_data.render_input.wheel_movement = movement / 120;
+			} break;
 		}
 	}
 

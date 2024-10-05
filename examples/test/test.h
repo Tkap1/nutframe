@@ -18,8 +18,9 @@ global constexpr int c_max_bots = 4096;
 // @TODO(tkap, 05/10/2024): set me
 global constexpr int c_leaderboard_id = 24824;
 global constexpr s_v2 c_base_pos = v2(400, 400);
-global f64 c_spawns_per_second = 0.33;
+global f64 c_spawns_per_second = 1.5;
 global constexpr int c_resource_to_win = 1000000;
+global constexpr float c_laser_width = 16;
 
 enum e_layer
 {
@@ -55,15 +56,15 @@ struct s_upgrade_data
 };
 
 global constexpr s_upgrade_data c_upgrade_data[] = {
-	{.base_cost = 100, .name = "Buy drone (%i)"},
-	{.base_cost = 50, .name = "+ player damage (%i)"},
+	{.base_cost = 5, .name = "Buy drone (%i)"},
+	{.base_cost = 5, .name = "+ player damage (%i)"},
 	{.base_cost = 50, .name = "+ drone damage (%i)"},
-	{.base_cost = 50, .name = "+ player speed (%i)"},
-	{.base_cost = 300, .name = "+ drone speed (%i)"},
-	{.base_cost = 100, .name = "+ spawn rate (%i)"},
-	{.base_cost = 1000, .name = "+ creature tier (%i)"},
-	{.base_cost = 100, .name = "+ player range (%i)"},
-	{.base_cost = 500, .name = "+ drone range (%i)"},
+	{.base_cost = 10, .name = "+ player speed (%i)"},
+	{.base_cost = 100, .name = "+ drone speed (%i)"},
+	{.base_cost = 20, .name = "+ spawn rate (%i)"},
+	{.base_cost = 100, .name = "+ creature tier (%i)"},
+	{.base_cost = 50, .name = "+ player range (%i)"},
+	{.base_cost = 100, .name = "+ drone range (%i)"},
 	{.base_cost = 100000, .max_upgrades = 1, .name = "x2 harvest (%i)"},
 };
 

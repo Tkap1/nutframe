@@ -189,8 +189,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					creature_arr->roam_timer[creature] += 1;
 					if(creature_arr->roam_timer[creature] >= c_creature_roam_delay) {
 						creature_arr->roam_timer[creature] -= c_creature_roam_delay;
-						float random_angle = game->rng.randf_range(0, tau);
-						creature_arr->target_pos[creature] = creature_arr->pos[creature] + v2_from_angle(random_angle) * c_creature_roam_distance;
+						float angle_to_base = v2_angle(c_base_pos - creature_arr->pos[creature]);
+						angle_to_base += game->rng.randf_range(pi * 0.25f, pi * 0.25f);
+						creature_arr->target_pos[creature] = creature_arr->pos[creature] + v2_from_angle(angle_to_base) * c_creature_roam_distance;
 					}
 				}
 				creature_arr->pos[creature] = go_towards(creature_arr->pos[creature], creature_arr->target_pos[creature], c_creature_speed);
@@ -396,7 +397,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				int creature = get_creature(p.target);
 				if(creature >= 0) {
 					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, 4, make_color(1, 0.25f, 0.25f), game->world_render_pass0);
+					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(1, 0.25f, 0.25f), game->world_render_pass1, {}, {.effect_id = 5});
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -427,7 +428,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				int creature = get_creature(bot_arr->laser_target[bot]);
 				if(creature >= 0) {
 					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, 4, make_color(1, 0, 0), game->world_render_pass0);
+					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(1, 0, 0), game->world_render_pass1, {}, {.effect_id = 5});
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -476,7 +477,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			draw_text(g_r, format_text("%i", play_state->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 
-			constexpr float font_size = 15;
+			constexpr float font_size = 12;
 			constexpr float padding = 8;
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		upgrade buttons start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -1245,7 +1246,7 @@ func float get_bot_movement_speed()
 
 func f64 get_creature_spawn_delay()
 {
-	int increase = game->play_state.upgrade_level_arr[e_upgrade_spawn_rate] * 10;
+	int increase = game->play_state.upgrade_level_arr[e_upgrade_spawn_rate] * 15;
 	f64 p = c_spawns_per_second * (1.0 + increase / 100.0);
 	return 1.0 / p;
 }
@@ -1257,12 +1258,12 @@ func int get_creature_spawn_tier()
 
 func float get_player_harvest_range()
 {
-	return c_player_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_player_harvest_range] * 15;
+	return c_player_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_player_harvest_range] * 35;
 }
 
 func float get_bot_harvest_range()
 {
-	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 5;
+	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 10;
 }
 
 func int get_creature_resource_reward(int tier)
