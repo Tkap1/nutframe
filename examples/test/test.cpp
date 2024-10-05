@@ -200,7 +200,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						creature_arr->roam_timer[creature] -= c_creature_roam_delay;
 						float angle_to_base = v2_angle(c_base_pos - creature_arr->pos[creature]);
 						angle_to_base += pi * 0.25f;
-						creature_arr->target_pos[creature] = creature_arr->pos[creature] + v2_from_angle(angle_to_base) * c_creature_roam_distance;
+						s_v2 dir = v2_from_angle(angle_to_base);
+						creature_arr->target_pos[creature] = creature_arr->pos[creature] + dir * c_creature_roam_distance;
+						creature_arr->flip_x[creature] = dir.x < 0;
 					}
 				}
 				creature_arr->pos[creature] = go_towards(creature_arr->pos[creature], creature_arr->target_pos[creature], c_creature_speed);
@@ -420,7 +422,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					make_color(0.473f, 0.549f, 0.744f), make_color(0.276f, 0.523f, 0.052f), make_color(0.076f, 0.185f, 0.868f), make_color(0.525f, 0.820f, 0.016f),
 				};
 				int color_index = creature_arr->tier[creature] % array_count(color_arr);
-				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size, color_arr[color_index], game->ant_texture, game->world_render_pass0);
+				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size, color_arr[color_index], game->ant_texture, game->world_render_pass0, {.flip_x = creature_arr->flip_x[creature]});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -561,6 +563,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					draw_text(g_r, str, text_pos, 0, 40, make_color(1), false, game->font, game->world_render_pass2);
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lose progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				{
+					draw_rect(g_r, c_base_res * v2(0.33f, 0.025f), 0, v2(c_base_res.x * 0.33f, c_base_res.y * 0.025f), make_color(0.25f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+					float width = count_alive_creatures() / (float)c_num_creatures_to_lose * c_base_res.x * 0.33f;
+					draw_rect(g_r, c_base_res * v2(0.33f, 0.025f), 1, v2(width, c_base_res.y * 0.025f), make_color(0.66f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lose progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			}
 
 		} break;

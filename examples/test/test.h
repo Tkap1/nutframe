@@ -13,15 +13,17 @@ global constexpr s_v2 c_creature_size = v2(64);
 global constexpr s_v2 c_bot_size = v2(64);
 global constexpr s_v2 c_base_size = v2(512);
 global constexpr s_v2i c_sprite_size = v2i(64, 64);
-global constexpr int c_max_creatures = 16384;
+global constexpr int c_max_creatures = 1024;
 global constexpr int c_max_bots = 4096;
 // @TODO(tkap, 05/10/2024): set me
 global constexpr int c_leaderboard_id = 24824;
 global constexpr s_v2 c_base_pos = v2(400, 400);
 global f64 c_spawns_per_second = 1.5;
 global constexpr int c_resource_to_win = 100000;
-global constexpr int c_num_creatures_to_lose = 10;
+global constexpr int c_num_creatures_to_lose = 1000;
 global constexpr float c_laser_width = 16;
+
+static_assert(c_max_creatures > c_num_creatures_to_lose);
 
 enum e_layer
 {
@@ -66,7 +68,7 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 100, .name = "+ creature tier (%i)"},
 	{.base_cost = 50, .name = "+ player range (%i)"},
 	{.base_cost = 100, .name = "+ drone range (%i)"},
-	{.base_cost = 100000, .max_upgrades = 1, .name = "x2 harvest (%i)"},
+	{.base_cost = 10000, .max_upgrades = 1, .name = "x2 harvest (%i)"},
 };
 
 enum e_state
@@ -142,6 +144,7 @@ struct s_creature_arr
 	s_entity_index_data index_data;
 	b8 active[c_max_creatures];
 	b8 targeted[c_max_creatures];
+	b8 flip_x[c_max_creatures];
 	int id[c_max_creatures];
 	int roam_timer[c_max_creatures];
 	int curr_health[c_max_creatures];

@@ -3350,6 +3350,10 @@ static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_
 	t.uv_min = v2(0, 1);
 	t.uv_max = v2(1, 0);
 
+	if(render_data.flip_x) {
+		swap(&t.uv_min.x, &t.uv_max.x);
+	}
+
 	// @Note(tkap, 31/05/2024): Let's use draw_framebuffer for now
 	assert(!texture.comes_from_framebuffer);
 	// if(texture.comes_from_framebuffer) {
@@ -3376,6 +3380,10 @@ static void draw_texture_keep_aspect(s_game_renderer* game_renderer, s_v2 pos, i
 	t.color = color;
 	t.uv_min = v2(0, 1);
 	t.uv_max = v2(1, 0);
+
+	if(render_data.flip_x) {
+		swap(&t.uv_min.x, &t.uv_max.x);
+	}
 
 	// @Note(tkap, 31/05/2024): Let's use draw_framebuffer for now
 	assert(!texture.comes_from_framebuffer);
