@@ -2811,7 +2811,8 @@ struct s_render_pass_data
 	e_blend_mode blend_mode;
 	e_cull_mode cull_mode;
 	s_v3 cam_pos;
-	s_m4 view_projection = m4_identity();
+	s_m4 view = m4_identity();
+	s_m4 projection = m4_identity();
 };
 
 
@@ -3024,6 +3025,9 @@ struct s_shader
 {
 	int time_location;
 	int mouse_location;
+	int view_location;
+	int base_res_location;
+	int projection_location;
 	int view_projection_location;
 	int cam_pos_location;
 	u32 gl_id;
@@ -3330,6 +3334,33 @@ static void draw_empty_rect(s_game_renderer* game_renderer, s_v2 pos, int layer,
 
 static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
+
+	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
+	if(!is_zero(t.rotation)) {
+		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+	}
+	t.model = model;
+	t.flags |= e_render_flag_use_texture;
+	t.pos = v3(pos, -99.0f + layer * 2);
+	t.draw_size = size;
+	t.color = color;
+	t.uv_min = v2(0, 1);
+	t.uv_max = v2(1, 0);
+
+	// @Note(tkap, 31/05/2024): Let's use draw_framebuffer for now
+	assert(!texture.comes_from_framebuffer);
+	// if(texture.comes_from_framebuffer) {
+	// 	swap(&t.uv_min.y, &t.uv_max.y);
+	// }
+	t.mix_color = v41f(1);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, texture.game_id, e_mesh_rect);
+}
+
+static void draw_texture_keep_aspect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_texture texture, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
+{
+	float aspect = texture.size.x / texture.size.y;
+	size.y /= aspect;
 
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
 	model = m4_multiply(model, m4_scale(v3(size, 1)));
@@ -4288,7 +4319,7 @@ static void do_game_layer(
 
 	{
 		s_m4 ortho = m4_orthographic(0, g_base_res.x, g_base_res.y, 0, -100, 100);
-		game_renderer->end_render_pass(game_renderer, game_renderer->default_render_pass, game_renderer->default_fbo, {.view_projection = ortho});
+		game_renderer->end_render_pass(game_renderer, game_renderer->default_render_pass, game_renderer->default_fbo, {.projection = ortho});
 	}
 
 	g_platform_data.render_count += 1;
@@ -4679,6 +4710,9 @@ static void when_shader_first_loaded(s_shader* shader)
 	gl(glUseProgram(shader->gl_id));
 	shader->time_location = glGetUniformLocation(shader->gl_id, "time");
 	shader->mouse_location = glGetUniformLocation(shader->gl_id, "mouse_pos");
+	shader->base_res_location = glGetUniformLocation(shader->gl_id, "u_base_res");
+	shader->view_location = glGetUniformLocation(shader->gl_id, "view");
+	shader->projection_location = glGetUniformLocation(shader->gl_id, "projection");
 	shader->view_projection_location = glGetUniformLocation(shader->gl_id, "view_projection");
 	shader->cam_pos_location = glGetUniformLocation(shader->gl_id, "cam_pos");
 }
@@ -4810,12 +4844,12 @@ static s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 
 	int width, height, num_channels;
 	void* data = stbi_load_from_memory(embed_data[g_asset_index], embed_sizes[g_asset_index], &width, &height, &num_channels, 4);
-	s_texture result = load_texture_from_data(data, width, height, GL_NEAREST, GL_RGBA);
+	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR, GL_RGBA);
 	g_asset_index += 1;
 
 	#else
 
-	s_texture result = load_texture_from_file(path, GL_NEAREST);
+	s_texture result = load_texture_from_file(path, GL_LINEAR);
 	#endif
 
 	result.game_id = game_renderer->texture_arr.count;
@@ -5480,6 +5514,8 @@ static void end_render_pass(s_game_renderer* gr, s_render_pass* render_pass, s_f
 	set_blend_mode(render_pass_data.blend_mode);
 	set_cull_mode(render_pass_data.cull_mode);
 
+	s_m4 view_projection = m4_multiply(render_pass_data.projection, render_pass_data.view);
+
 	foreach_val(group_i, group, render_pass->render_group_arr) {
 		assert(group.count > 0);
 		assert(render_pass->seen_arr[get_render_group_index(gr, group.shader_id, group.texture_id, group.mesh_id)]);
@@ -5496,8 +5532,17 @@ static void end_render_pass(s_game_renderer* gr, s_render_pass* render_pass, s_f
 		if(shader.mouse_location >= 0) {
 			glUniform2fv(shader.mouse_location, 1, &g_platform_data.mouse.x);
 		}
+		if(shader.base_res_location >= 0) {
+			glUniform2fv(shader.base_res_location, 1, &g_base_res.x);
+		}
+		if(shader.view_location >= 0) {
+			gl(glUniformMatrix4fv(shader.view_location, 1, GL_FALSE, &render_pass_data.view.elements[0][0]));
+		}
+		if(shader.projection_location >= 0) {
+			gl(glUniformMatrix4fv(shader.projection_location, 1, GL_FALSE, &render_pass_data.projection.elements[0][0]));
+		}
 		if(shader.view_projection_location >= 0) {
-			gl(glUniformMatrix4fv(shader.view_projection_location, 1, GL_FALSE, &render_pass_data.view_projection.elements[0][0]));
+			gl(glUniformMatrix4fv(shader.view_projection_location, 1, GL_FALSE, &view_projection.elements[0][0]));
 		}
 		if(shader.cam_pos_location >= 0) {
 			gl(glUniform3fv(shader.cam_pos_location, 1, &render_pass_data.cam_pos.x));

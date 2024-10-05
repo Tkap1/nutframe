@@ -1,6 +1,4 @@
 
-layout(origin_upper_left) in vec4 gl_FragCoord;
-
 flat in int v_flags;
 flat in int v_effect_id;
 in float v_mix_weight;
@@ -18,14 +16,12 @@ in vec2 v_local_uv;
 
 out vec4 out_color;
 
-uniform vec2 base_res;
 uniform vec2 window_size;
 uniform float time;
 uniform vec2 player_pos;
 uniform vec2 mouse;
-uniform vec2 snake_pos;
-uniform vec2 ball_rot;
-uniform float snake_apple_time;
+uniform vec2 u_base_res;
+
 
 uniform sampler2D in_texture;
 uniform sampler2D noise;
@@ -75,7 +71,7 @@ bool point_in_rect_topleft(vec2 point, vec2 pos, vec2 size)
 
 vec3 circle(vec2 pos, vec2 uv, float radius)
 {
-	vec2 ar = vec2(1.0, base_res.y / base_res.x);
+	vec2 ar = vec2(1.0, u_base_res.y / u_base_res.x);
 	pos *= ar;
 	uv *= ar;
 	float d = distance(pos, uv);
@@ -114,38 +110,7 @@ void main()
 		color.a *= smoothstep(0.49, 0.45, d);
 	}
 
-	if(v_effect_id == 1)
-	{
-		vec2 uv = v_uv * 2.0 - 1.0;
-		vec2 fuv = uv * 10.0 * range_lerp(sin(time), -1.0, 1.0, 0.9, 1.0);
-		fuv.x += cos(time * 0.3);
-		fuv.y += sin(time * 0.3);
-		vec2 iduv = fuv;
-		vec2 noiseuv = fuv;
-		uv = fract(fuv);
-		// uv *= 2.0 - 1.0;
-		ivec2 ids = ivec2(floor(iduv));
-		vec2 r = n22(vec2(ids));
-		float n = texture(in_texture, noiseuv * 0.5).r;
-		n = min(1.0, n + 0.2);
-		n = pow(n, 0.5);
-		float s1 = smoothstep(1.0, 0.8 * sin2(time * 0.5), uv.x);
-		float s2 = smoothstep(1.0, 0.8, uv.y);
-		color.rgb = vec3(0);
-		color.r += r.x * s1 * s2;
-		color.g += r.y * s1 * s2;
-		color.rgb *= n;
-		color.rgb *= 0.3;
-
-		vec2 snake_normalized = snake_pos / base_res;
-		float d = distance(v_local_uv, snake_normalized);
-		float light = 0.1/(d*d);
-		color.r *= light * 1.0;
-		color.g *= (light + snake_apple_time * 2.0) * 1.0;
-		color.b *= light * 1.0;
-	}
-
-	else if(v_effect_id == 2) {
+	if(v_effect_id == 2) {
 		float r = time;
 		float d1 = distance(v_local_uv, vec2(0.5));
 		color.rgb = v_color.rgb;
@@ -162,7 +127,7 @@ void main()
 
 	else if(v_effect_id == 3) {
 		color.rgb = vec3(0.0);
-		vec2 ar = vec2(1.0, base_res.x / base_res.y);
+		vec2 ar = vec2(1.0, u_base_res.x / u_base_res.y);
 		vec2 uv = v_local_uv;
 
 		for(int layer = 0; layer < 2; layer += 1) {
@@ -198,9 +163,11 @@ void main()
 		color.rgb += vec3(s0);
 		color += v_color * s1;
 
-		// vec2 p = gl_FragCoord.xy;
-		// d = distance(v_draw_size, p);
-		// color.a *= smoothstep(0.0, 64.0, d);
+		vec2 p = vec2(gl_FragCoord.x, u_base_res.y - gl_FragCoord.y);
+		d = distance(v_pos.xy, p);
+		d = min(distance(v_draw_size, p), d);
+		color.a *= smoothstep(0.0, 32.0, d);
+		// color.a *= smoothstep(64.0, 0.0, d);
 	}
 
 	// @Note(tkap, 31/05/2024): Light

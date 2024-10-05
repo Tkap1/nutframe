@@ -34,6 +34,7 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../shaders/blur.fragment@shaders/blur.fragment
 	set comp=!comp! --preload-file ../examples/test/noise.png@examples/test/noise.png
 	set comp=!comp! --preload-file ../examples/test/placeholder.png@examples/test/placeholder.png
+	set comp=!comp! --preload-file ../examples/test/drone.png@examples/test/drone.png
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
 	set comp=!comp! --preload-file ../assets/checkmark.png@assets/checkmark.png
 	set comp=!comp! --preload-file ../platform_map.map@platform_map.map

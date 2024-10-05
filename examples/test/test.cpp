@@ -5,8 +5,8 @@
 
 #include "test.h"
 
-// static constexpr s_v2 c_base_res = {1920, 1080};
-static constexpr s_v2 c_base_res = {1366, 768};
+static constexpr s_v2 c_base_res = {1920, 1080};
+// static constexpr s_v2 c_base_res = {1366, 768};
 static constexpr s_v2 c_half_res = {c_base_res.x * 0.5f, c_base_res.y * 0.5f};
 
 static s_input* g_input;
@@ -45,6 +45,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		g_r->set_vsync(true);
 		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png");
 		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png");
+		game->drone_texture = g_r->load_texture(renderer, "examples/test/drone.png");
 
 		game->creature_death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
 		game->creature_death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
@@ -67,6 +68,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->world_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->world_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->world_render_pass2 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->world_render_pass_bot = make_render_pass(g_r, &platform_data->permanent_arena);
 		g_r->default_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 
 		g_r->game_speed_index = 5;
@@ -103,7 +105,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		play state update start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		case e_state_play: {
 
+
 			s_play_state* state = &game->play_state;
+			// printf("%i, %i\n", count_alive_creatures(), state->update_count);
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -190,7 +194,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					if(creature_arr->roam_timer[creature] >= c_creature_roam_delay) {
 						creature_arr->roam_timer[creature] -= c_creature_roam_delay;
 						float angle_to_base = v2_angle(c_base_pos - creature_arr->pos[creature]);
-						angle_to_base += game->rng.randf_range(pi * 0.25f, pi * 0.25f);
+						angle_to_base += pi * 0.25f;
 						creature_arr->target_pos[creature] = creature_arr->pos[creature] + v2_from_angle(angle_to_base) * c_creature_roam_distance;
 					}
 				}
@@ -397,7 +401,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				int creature = get_creature(p.target);
 				if(creature >= 0) {
 					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(1, 0.25f, 0.25f), game->world_render_pass1, {}, {.effect_id = 5});
+					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(1, 0.1f, 0.1f), game->world_render_pass1, {}, {.effect_id = 5});
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -419,16 +423,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			for_bot_partial(bot) {
 				if(!bot_arr->active[bot]) { continue; }
 				s_v2 pos = lerp(bot_arr->prev_pos[bot], bot_arr->pos[bot], interp_dt);
-				s_v4 color = make_color(0, 1, 0);
+				s_v4 color = make_color(1);
 				if(bot_arr->state[bot] == e_bot_state_going_back_to_base) {
-					color = make_color(0, 0, 1);
+					color = make_color(1.0f, 0.5f, 0.5f);
 				}
-				draw_texture(g_r, pos, e_layer_bot, c_bot_size, color, game->placeholder_texture, game->world_render_pass0);
+				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, game->drone_texture, game->world_render_pass_bot);
 
 				int creature = get_creature(bot_arr->laser_target[bot]);
 				if(creature >= 0) {
 					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(1, 0, 0), game->world_render_pass1, {}, {.effect_id = 5});
+					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(0.1f, 1, 0.1f), game->world_render_pass1, {}, {.effect_id = 5});
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -489,49 +493,37 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_upgrade_data data = c_upgrade_data[upgrade_i];
 					int curr_level = play_state->upgrade_level_arr[upgrade_i];
 					int cost = data.base_cost * (curr_level + 1);
-					b8 purchased = false;
-					b8 over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
-					if(!over_limit && ui_button2(format_text(data.name, cost), pos_area_get_advance(&area), {.font_size = font_size})) {
-						if(play_state->resource_count >= cost) {
-							switch(upgrade_i) {
+					if(ui_button2(format_text(data.name, cost), pos_area_get_advance(&area), {.font_size = font_size})) {
+						int buy_count = 1;
+						if(is_key_down(g_input, c_key_left_ctrl)) {
+							buy_count *= 10;
+							printf("ctrl\n");
+						}
+						if(is_key_down(g_input, c_key_left_shift)) {
+							buy_count *= 100;
+							printf("shift\n");
+						}
+						for(int buy_i = 0; buy_i < buy_count; buy_i += 1) {
+							b8 purchased = false;
+							cost = data.base_cost * (curr_level + 1);
+							b8 over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
+							if(over_limit) { break; }
+							if(cost > play_state->resource_count) { break; }
 
-								case e_upgrade_buy_bot: {
-									int bot = make_bot(c_base_pos);
-									if(bot >= 0) {
-										purchased = true;
-									}
-								} break;
-
-								case e_upgrade_player_damage: {
+							if(upgrade_i == e_upgrade_buy_bot) {
+								int bot = make_bot(c_base_pos);
+								if(bot >= 0) {
 									purchased = true;
-								} break;
-
-								case e_upgrade_bot_damage: {
-									purchased = true;
-								} break;
-
-								case e_upgrade_player_movement_speed: {
-									purchased = true;
-								} break;
-
-								case e_upgrade_bot_movement_speed: {
-									purchased = true;
-								} break;
-
-								case e_upgrade_spawn_rate: {
-									purchased = true;
-								} break;
-
-								case e_upgrade_creature_tier: { purchased = true; } break;
-								case e_upgrade_player_harvest_range: { purchased = true; } break;
-								case e_upgrade_bot_harvest_range: { purchased = true; } break;
-								case e_upgrade_double_harvest: { purchased = true; } break;
+								}
+							}
+							else {
+								purchased = true;
+							}
+							if(purchased) {
+								play_state->upgrade_level_arr[upgrade_i] += 1;
+								play_state->resource_count -= cost;
 							}
 						}
-					}
-					if(purchased) {
-						play_state->upgrade_level_arr[upgrade_i] += 1;
-						play_state->resource_count -= cost;
 					}
 				}
 			}
@@ -681,19 +673,20 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	do_ui(ortho);
 
-	s_m4 view_projection = m4_multiply(ortho, cam->get_matrix());
+	s_m4 view = cam->get_matrix();
 
 	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
 
-	g_r->end_render_pass(g_r, game->world_render_pass0, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .view_projection = view_projection});
-	g_r->end_render_pass(g_r, game->world_render_pass1, game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_additive, .view_projection = view_projection});
-	g_r->end_render_pass(g_r, game->world_render_pass2, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = view_projection});
-	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
-	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view_projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass0, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_bot, game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass1, game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass2, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 	g_r->clear_framebuffer(g_r->default_fbo, zero, c_default_fbo_clear_flags);
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo, game->world_render_pass0);
-	g_r->end_render_pass(g_r, game->world_render_pass0, g_r->default_fbo, {.view_projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass0, g_r->default_fbo, {.projection = ortho});
 
 }
 
@@ -1246,8 +1239,10 @@ func float get_bot_movement_speed()
 
 func f64 get_creature_spawn_delay()
 {
-	int increase = game->play_state.upgrade_level_arr[e_upgrade_spawn_rate] * 15;
-	f64 p = c_spawns_per_second * (1.0 + increase / 100.0);
+	int increase0 = game->play_state.upgrade_level_arr[e_upgrade_spawn_rate] * 15;
+	f64 increase1 = (2.0 / 10800) * game->play_state.update_count;
+	f64 p = c_spawns_per_second * (1.0 + increase0 / 100.0);
+	p *= 1.0 + increase1;
 	return 1.0 / p;
 }
 
@@ -1287,4 +1282,15 @@ func void set_state_next_frame(e_state new_state)
 	}
 
 	game->next_state = new_state;
+}
+
+func int count_alive_creatures()
+{
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	int result = 0;
+	for_creature_partial(creature) {
+		if(!creature_arr->active[creature]) { continue; }
+		result += 1;
+	}
+	return result;
 }

@@ -10,16 +10,17 @@ global constexpr int c_max_particles = 8192;
 global constexpr s_v2 c_base_button_size = v2(128, 48);
 global constexpr s_v2 c_player_size = v2(32);
 global constexpr s_v2 c_creature_size = v2(24);
-global constexpr s_v2 c_bot_size = v2(16);
+global constexpr s_v2 c_bot_size = v2(64);
 global constexpr s_v2 c_base_size = v2(128);
 global constexpr s_v2i c_sprite_size = v2i(64, 64);
-global constexpr int c_max_creatures = 4096;
+global constexpr int c_max_creatures = 16384;
 global constexpr int c_max_bots = 4096;
 // @TODO(tkap, 05/10/2024): set me
 global constexpr int c_leaderboard_id = 24824;
 global constexpr s_v2 c_base_pos = v2(400, 400);
 global f64 c_spawns_per_second = 1.5;
 global constexpr int c_resource_to_win = 1000000;
+global constexpr int c_num_creatures_to_lose = 1000;
 global constexpr float c_laser_width = 16;
 
 enum e_layer
@@ -332,12 +333,14 @@ struct s_game
 	s_render_pass* world_render_pass0;
 	s_render_pass* world_render_pass1;
 	s_render_pass* world_render_pass2;
+	s_render_pass* world_render_pass_bot;
 	s_render_pass* ui_render_pass0;
 	s_render_pass* ui_render_pass1;
 
 	s_carray<s_sound*, 3> creature_death_sound_arr;
 
 	s_texture placeholder_texture;
+	s_texture drone_texture;
 
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;
@@ -396,3 +399,4 @@ func float get_player_harvest_range();
 func float get_bot_harvest_range();
 func int get_creature_resource_reward(int tier);
 func void set_state_next_frame(e_state new_state);
+func int count_alive_creatures();

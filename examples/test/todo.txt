@@ -18,3 +18,8 @@ win animation instead of instant change to leaderboard
 
 smooth zoom
 smooth camera movement
+
+
+make drones sway
+
+shadow under drone?
