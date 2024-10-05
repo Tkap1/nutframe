@@ -112,6 +112,7 @@ X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
 X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers) \
 X(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv) \
 X(PFNGLBLENDFUNCSEPARATEPROC, glBlendFuncSeparate) \
+X(PFNGLGENERATEMIPMAPPROC, glGenerateMipmap) \
 
 #else // __EMSCRIPTEN__
 
@@ -156,6 +157,7 @@ X(PFNGLGETPROGRAMINFOLOGPROC, glGetProgramInfoLog) \
 X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers) \
 X(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv) \
 X(PFNGLBLENDFUNCSEPARATEPROC, glBlendFuncSeparate) \
+X(PFNGLGENERATEMIPMAPPROC, glGenerateMipmap) \
 
 #endif // __EMSCRIPTEN__
 
@@ -4870,6 +4872,7 @@ static s_texture load_texture_from_data(void* data, int width, int height, u32 f
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering));
+	gl(glGenerateMipmap(GL_TEXTURE_2D));
 
 	s_texture texture = {};
 	texture.gpu_id = id;

@@ -46,6 +46,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png");
 		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png");
 		game->drone_texture = g_r->load_texture(renderer, "examples/test/drone.png");
+		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png");
+		game->ant_texture = g_r->load_texture(renderer, "examples/test/ant.png");
 
 		game->creature_death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
 		game->creature_death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
@@ -86,7 +88,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			case e_state_play: {
 				memset(&game->play_state, 0, sizeof(game->play_state));
 				game->play_state.cam.zoom = 1;
-				s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y);
+				s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y * 0.6f);
 				game->play_state.player.pos = pos;
 				game->play_state.player.prev_pos = pos;
 			} break;
@@ -105,9 +107,12 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		play state update start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		case e_state_play: {
 
-
 			s_play_state* state = &game->play_state;
-			// printf("%i, %i\n", count_alive_creatures(), state->update_count);
+			int alive_creatures = count_alive_creatures();
+			if(alive_creatures >= c_num_creatures_to_lose) {
+				game->play_state.defeat = true;
+			}
+			if(game->play_state.defeat) { break; }
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -118,8 +123,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 					state->spawn_creature_timer -= spawn_delay;
 					s_v2 offset = v2(
-						cosf(game->rng.randf_range(0, tau)) * c_base_res.y,
-						sinf(game->rng.randf_range(0, tau)) * c_base_res.y
+						cosf(game->rng.randf_range(0, tau)) * c_base_size.x * 2.0f,
+						sinf(game->rng.randf_range(0, tau)) * c_base_size.x * 2.0f
 					);
 					s_v2 base = game->rng.rand_bool() ? c_base_pos : game->play_state.player.pos;
 					s_v2 pos = base + offset;
@@ -342,13 +347,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	if(is_key_pressed(g_input, c_key_subtract)) {
 		circular_index_add(&g_r->game_speed_index, -1, array_count(c_game_speed_arr));
 	}
-	#endif // m_debug
 	if(is_key_pressed(g_input, c_key_f1)) {
-		play_state->resource_count = 100000;
+		play_state->resource_count = 90000;
 	}
 	if(is_key_pressed(g_input, c_key_f2)) {
 		play_state->resource_count = c_resource_to_win;
 	}
+	#endif // m_debug
 
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 	s_bot_arr* bot_arr = &game->play_state.bot_arr;
@@ -388,7 +393,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw base start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				draw_texture(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->placeholder_texture, game->world_render_pass0);
+				draw_texture_keep_aspect(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->base_texture, game->world_render_pass0);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw base end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -411,11 +416,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				if(!creature_arr->active[creature]) { continue; }
 				s_v2 pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
 				s_v4 color_arr[] = {
-					make_color(0.605f, 0.531f, 0.168f), make_color(0.332f, 0.809f, 0.660f), make_color(0.581f, 0.705f, 0.104f), make_color(0.434f, 0.172f, 0.290f),
+					make_color(1), /*make_color(0.605f, 0.531f, 0.168f),*/ make_color(0.332f, 0.809f, 0.660f), make_color(0.581f, 0.705f, 0.104f), make_color(0.434f, 0.172f, 0.290f),
 					make_color(0.473f, 0.549f, 0.744f), make_color(0.276f, 0.523f, 0.052f), make_color(0.076f, 0.185f, 0.868f), make_color(0.525f, 0.820f, 0.016f),
 				};
 				int color_index = creature_arr->tier[creature] % array_count(color_arr);
-				draw_texture(g_r, pos, e_layer_creature, c_creature_size, color_arr[color_index], game->placeholder_texture, game->world_render_pass0);
+				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size, color_arr[color_index], game->ant_texture, game->world_render_pass0);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -479,72 +484,84 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			draw_text(g_r, format_text("%i", play_state->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+			if(play_state->defeat) {
+				draw_rect(g_r, c_half_res, 0, c_base_res, v4(0.0f, 0.0f, 0.0f, 0.5f), game->ui_render_pass0);
+				draw_text(g_r, strlit("You were overwhelmed!"), c_base_res * v2(0.5f, 0.4f), 0, 64, make_color(1), true, game->font, game->ui_render_pass1);
+				draw_text(g_r, strlit("Press R to restart..."), c_base_res * v2(0.5f, 0.5f), 0, 64, make_color(0.6f), true, game->font, game->ui_render_pass1);
 
-			constexpr float font_size = 12;
-			constexpr float padding = 8;
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		upgrade buttons start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				s_v2 panel_pos = v2(0.0f, c_base_res.y - c_base_button_size.y - padding);
-				s_v2 panel_size = v2(c_base_res.x, c_base_button_size.y + padding);
-				s_pos_area area = make_pos_area(panel_pos, panel_size, c_base_button_size, padding, 1, e_pos_area_flag_center_y);
+				if(is_key_pressed(g_input, c_key_r)) {
+					set_state_next_frame(e_state_play);
+				}
+			}
+			else {
+				draw_text(g_r, format_text("%i", play_state->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 
-				for_enum(upgrade_i, e_upgrade) {
-					s_upgrade_data data = c_upgrade_data[upgrade_i];
-					int curr_level = play_state->upgrade_level_arr[upgrade_i];
-					int cost = data.base_cost * (curr_level + 1);
-					if(ui_button2(format_text(data.name, cost), pos_area_get_advance(&area), {.font_size = font_size})) {
-						int buy_count = 1;
-						if(is_key_down(g_input, c_key_left_ctrl)) {
-							buy_count *= 10;
-							printf("ctrl\n");
-						}
-						if(is_key_down(g_input, c_key_left_shift)) {
-							buy_count *= 100;
-							printf("shift\n");
-						}
-						for(int buy_i = 0; buy_i < buy_count; buy_i += 1) {
-							b8 purchased = false;
-							cost = data.base_cost * (curr_level + 1);
-							b8 over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
-							if(over_limit) { break; }
-							if(cost > play_state->resource_count) { break; }
+				constexpr float font_size = 12;
+				constexpr float padding = 8;
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		upgrade buttons start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				{
+					s_v2 panel_pos = v2(0.0f, c_base_res.y - c_base_button_size.y - padding);
+					s_v2 panel_size = v2(c_base_res.x, c_base_button_size.y + padding);
+					s_pos_area area = make_pos_area(panel_pos, panel_size, c_base_button_size, padding, 1, e_pos_area_flag_center_y);
 
-							if(upgrade_i == e_upgrade_buy_bot) {
-								int bot = make_bot(c_base_pos);
-								if(bot >= 0) {
+					for_enum(upgrade_i, e_upgrade) {
+						s_upgrade_data data = c_upgrade_data[upgrade_i];
+						int curr_level = play_state->upgrade_level_arr[upgrade_i];
+						int cost = data.base_cost * (curr_level + 1);
+						if(ui_button2(format_text(data.name, cost), pos_area_get_advance(&area), {.font_size = font_size})) {
+							int buy_count = 1;
+							if(is_key_down(g_input, c_key_left_ctrl)) {
+								buy_count *= 10;
+								printf("ctrl\n");
+							}
+							if(is_key_down(g_input, c_key_left_shift)) {
+								buy_count *= 100;
+								printf("shift\n");
+							}
+							for(int buy_i = 0; buy_i < buy_count; buy_i += 1) {
+								curr_level = play_state->upgrade_level_arr[upgrade_i];
+								b8 purchased = false;
+								cost = data.base_cost * (curr_level + 1);
+								b8 over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
+								if(over_limit) { break; }
+								if(cost > play_state->resource_count) { break; }
+
+								if(upgrade_i == e_upgrade_buy_bot) {
+									int bot = make_bot(c_base_pos);
+									if(bot >= 0) {
+										purchased = true;
+									}
+								}
+								else {
 									purchased = true;
 								}
-							}
-							else {
-								purchased = true;
-							}
-							if(purchased) {
-								play_state->upgrade_level_arr[upgrade_i] += 1;
-								play_state->resource_count -= cost;
+								if(purchased) {
+									play_state->upgrade_level_arr[upgrade_i] += 1;
+									play_state->resource_count -= cost;
+								}
 							}
 						}
 					}
 				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		upgrade buttons end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		upgrade buttons end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			{
-				if(ui_button2(strlit("Telport home"), v2(c_base_res.x - c_base_button_size.x - padding, padding), {.font_size = font_size})) {
-					s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y);
-					game->play_state.player.pos = pos;
-					game->play_state.player.prev_pos = pos;
+				{
+					if(ui_button2(strlit("Telport home"), v2(c_base_res.x - c_base_button_size.x - padding, padding), {.font_size = font_size})) {
+						s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y);
+						game->play_state.player.pos = pos;
+						game->play_state.player.prev_pos = pos;
+					}
 				}
-			}
 
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		score goal display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				s_len_str str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
-				s_v2 text_pos = center_text_on_rect(str, game->font, c_base_pos - c_base_size * 0.5f, c_base_size, font_size, true, true);
-				// text_pos.y += font_size * 0.1f;
-				draw_text(g_r, str, text_pos, 0, font_size, make_color(1), false, game->font, game->world_render_pass2);
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		score goal display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				{
+					s_len_str str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
+					s_v2 text_pos = center_text_on_rect(str, game->font, c_base_pos - c_base_size * 0.5f, c_base_size, 40, true, true);
+					// text_pos.y += font_size * 0.1f;
+					draw_text(g_r, str, text_pos, 0, 40, make_color(1), false, game->font, game->world_render_pass2);
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 		} break;
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		play state draw end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -677,7 +694,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
 
-	g_r->end_render_pass(g_r, game->world_render_pass0, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass0, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_bot, game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass1, game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass2, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});

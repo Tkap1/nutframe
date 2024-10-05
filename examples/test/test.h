@@ -9,9 +9,9 @@ global constexpr int c_max_leaderboard_entries = 16;
 global constexpr int c_max_particles = 8192;
 global constexpr s_v2 c_base_button_size = v2(128, 48);
 global constexpr s_v2 c_player_size = v2(32);
-global constexpr s_v2 c_creature_size = v2(24);
+global constexpr s_v2 c_creature_size = v2(64);
 global constexpr s_v2 c_bot_size = v2(64);
-global constexpr s_v2 c_base_size = v2(128);
+global constexpr s_v2 c_base_size = v2(512);
 global constexpr s_v2i c_sprite_size = v2i(64, 64);
 global constexpr int c_max_creatures = 16384;
 global constexpr int c_max_bots = 4096;
@@ -19,8 +19,8 @@ global constexpr int c_max_bots = 4096;
 global constexpr int c_leaderboard_id = 24824;
 global constexpr s_v2 c_base_pos = v2(400, 400);
 global f64 c_spawns_per_second = 1.5;
-global constexpr int c_resource_to_win = 1000000;
-global constexpr int c_num_creatures_to_lose = 1000;
+global constexpr int c_resource_to_win = 100000;
+global constexpr int c_num_creatures_to_lose = 10;
 global constexpr float c_laser_width = 16;
 
 enum e_layer
@@ -308,6 +308,7 @@ struct s_get_closest_creature
 
 struct s_play_state
 {
+	b8 defeat;
 	int next_entity_id;
 	f64 spawn_creature_timer;
 	int resource_count;
@@ -341,6 +342,8 @@ struct s_game
 
 	s_texture placeholder_texture;
 	s_texture drone_texture;
+	s_texture base_texture;
+	s_texture ant_texture;
 
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;
