@@ -1,0 +1,39 @@
+
+TINY CREATURES:
+	factorio style thing where you collect these creatures for some reason
+		build bots
+		bots scout around to collect the creatures
+		doing so gives you resources
+		resources allow you to build better bots and/or upgrade them
+		there should creatures that require certain tier of bot so you want to upgrade
+
+		maybe the goal is to get something like 5000 "resource", and that makes it so you can make some kind of alien grow, which is the goal of the game
+			but getting 5000 without upgrading is basically impossible, so that's a reason for you to upgrade your shit
+
+		maybe we also have uprades that increase the tiny create spawn chance
+
+		maybe we have a player that also can gather creatures and can be upgraded? to make it feel less idle
+
+		buttons aka upgrades:
+				buy bot
+				player damage
+				bot harvest damage
+				player speed
+				bot speed
+				enemy spawn rate
+				enemy higher tier spawn
+				player harvest range
+				bot harvest range
+
+				cargo size upgrade?
+
+
+			bot harvest speed?
+			player harvest speed?
+
+			double yield from harvesting creatures? EXPENSIVE
+
+		button to teleport back to base
+
+	you lose if there are to many creatures??
+	some of the creatures could attack your base?

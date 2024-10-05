@@ -1,1 +1,9 @@
 better rng
+
+if a creature is at 1 hp and we get close and attack it, the laser wont show up because we killed it in that update,
+	so when we go into render and we try to find the enemy, we wont get anything because it's dead
+
+if we hold shift or ctrl, we should buy an upgrade x10 or x100??
+
+when player harvests creature, do some animation where the resource automatically goes to the base
+	maybe the resource being harvest automatically should be an upgrade

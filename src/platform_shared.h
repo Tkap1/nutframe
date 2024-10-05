@@ -190,6 +190,8 @@ m_gl_funcs
 #define foreach_val_(a, index_name, element_name, array) foreach_val__(a, index_name, element_name, array)
 #define foreach_val(index_name, element_name, array) foreach_val_(__LINE__, index_name, element_name, array)
 
+#define for_enum(mname, menum) for(menum mname = {}; mname < menum##_count; mname = (menum)(mname + 1))
+
 static constexpr u64 c_max_u64 = UINT64_MAX;
 static constexpr float c_max_f32 = 999999999.0f;
 
@@ -3022,6 +3024,13 @@ struct s_shader
 	u32 gl_id;
 };
 
+
+static constexpr float c_game_speed_arr[] = {
+	0, 0.01f, 0.1f, 0.25f, 0.5f, 1.0f,
+	2.0f, 4.0f, 8.0f, 16.0f, 32.0f,
+};
+
+
 static constexpr int c_max_framebuffers = 8;
 typedef s_texture (*t_load_texture)(s_game_renderer*, const char*);
 typedef s_font* (*t_load_font)(s_game_renderer*, const char*, int, s_lin_arena*);
@@ -3038,6 +3047,8 @@ struct s_game_renderer
 	s_framebuffer* (*make_framebuffer_with_existing_depth)(s_game_renderer*, s_v2i, s_texture);
 	// void (*delete_framebuffer)(s_game_renderer*, s_framebuffer*);
 	f64 total_time;
+
+	int game_speed_index;
 
 	s_texture checkmark_texture;
 
@@ -4057,7 +4068,6 @@ static void do_game_layer(
 	#endif
 )
 {
-
 	#ifdef m_debug
 	if(g_platform_data.update_count <= 0) {
 		add_console_command(&g_platform_data.console, "quit", console_quit);
@@ -4199,12 +4209,16 @@ static void do_game_layer(
 	g_platform_data.vars.count = 0;
 	#endif // m_debug
 
-	g_platform_data.update_time += g_platform_data.frame_time;
-
+	g_platform_data.update_time += g_platform_data.frame_time * c_game_speed_arr[game_renderer->game_speed_index];
 	if(g_platform_data.update_delay <= 0) {
 		g_platform_data.update_delay = 1.0 / 60.0;
 	}
 	f64 delay = g_platform_data.update_delay;
+
+	if(game_renderer->game_speed_index == 0 && is_key_pressed(&g_platform_data.render_input, c_key_right)) {
+		g_platform_data.update_time += delay;
+	}
+
 	f64 time = at_most(0.2, g_platform_data.update_time);
 	while(time > delay || g_platform_data.update_count <= 0) {
 		g_platform_data.update_time -= delay;
@@ -4260,7 +4274,7 @@ static void do_game_layer(
 	}
 
 	#ifdef m_debug
-	update_console(&g_platform_data.console, game_renderer);
+	// update_console(&g_platform_data.console, game_renderer);
 	#endif // m_debug
 
 	float interp_dt = (float)(time / delay);
@@ -5808,12 +5822,14 @@ b8 s_hashmap<key_type, value_type, n>::remove(key_type key)
 	return false;
 }
 
-static s_v2 center_text_on_rect(s_v2 rect_pos, s_v2 rect_size, float font_size, b8 center_x, b8 center_y)
+static s_v2 center_text_on_rect(s_len_str str, s_font* font, s_v2 rect_pos, s_v2 rect_size, float font_size, b8 center_x, b8 center_y)
 {
 	assert(center_x || center_y);
+	s_v2 text_size = get_text_size(str, font, font_size);
 	s_v2 result = rect_pos;
 	if(center_x) {
 		result.x += rect_size.x * 0.5f;
+		result.x -= text_size.x * 0.5f;
 	}
 	if(center_y) {
 		result.y += rect_size.y * 0.5f;
@@ -5965,4 +5981,34 @@ static char* to_cstr(s_len_str str, s_lin_arena* arena)
 	memcpy(result, str.str, str.len);
 	result[str.len] = 0;
 	return result;
+}
+
+static float go_towards(float from, float to, float amount)
+{
+	assert(amount >= 0);
+
+	float result = from;
+	float dist = to - from;
+	int s = (int)sign(dist);
+	result += min(fabsf(dist), amount) * s;
+	return result;
+}
+
+static s_v2 go_towards(s_v2 from, s_v2 to, float amount)
+{
+	assert(amount >= 0);
+
+	s_v2 result = from;
+	s_v2 dir = to - from;
+	s_v2 dir_n = v2_normalized(dir);
+	result.x = go_towards(from.x, to.x, amount * fabsf(dir_n.x));
+	result.y = go_towards(from.y, to.y, amount * fabsf(dir_n.y));
+	return result;
+}
+
+template <typename t>
+static void circular_index_add(t* out_value, int to_add, int count)
+{
+	t result = (t)circular_index(*out_value + to_add, count);
+	*out_value = result;
 }
