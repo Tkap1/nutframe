@@ -39,6 +39,7 @@ static_assert(c_max_creatures > c_num_creatures_to_lose);
 X(background, 0) \
 X(shadow, 1) \
 X(base, 2) \
+X(broken_bot, 3) \
 X(creature, 3) \
 X(bot, 4) \
 X(player, 5) \
@@ -385,6 +386,11 @@ struct s_get_closest_creature
 	s_entity_index closest_creature = zero;
 };
 
+struct s_broken_bot
+{
+	s_v2 pos;
+};
+
 struct s_play_state
 {
 	b8 defeat;
@@ -401,7 +407,9 @@ struct s_play_state
 	int update_count_at_win_time;
 	s_sarray<s_visual_effect, 1024> visual_effect_arr;
 	s_sarray<s_pickup, 128> pickup_arr;
+	s_sarray<s_broken_bot, 128> broken_bot_arr;
 };
+
 
 struct s_game
 {

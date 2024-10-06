@@ -111,9 +111,51 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			case e_state_play: {
 				memset(&game->play_state, 0, sizeof(game->play_state));
 				game->play_state.cam.zoom = 1;
-				s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y * 0.6f);
-				game->play_state.player.pos = pos;
-				game->play_state.player.prev_pos = pos;
+
+				{
+					s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y * 0.6f);
+					game->play_state.player.pos = pos;
+					game->play_state.player.prev_pos = pos;
+				}
+
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn broken bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				{
+					s_bounds bounds = get_map_bounds();
+					// @Note(tkap, 06/10/2024): Left
+					for(int i = 0; i < 2; i += 1) {
+						s_v2 pos = v2(
+							game->rng.randf_range(bounds.min_x, bounds.min_x + 500),
+							game->rng.randf_range(bounds.min_y, bounds.max_y)
+						);
+						game->play_state.broken_bot_arr.add({.pos = pos});
+					}
+					// @Note(tkap, 06/10/2024): Right
+					for(int i = 0; i < 2; i += 1) {
+						s_v2 pos = v2(
+							game->rng.randf_range(bounds.max_x - 500, bounds.max_x),
+							game->rng.randf_range(bounds.min_y, bounds.max_y)
+						);
+						game->play_state.broken_bot_arr.add({.pos = pos});
+					}
+					// @Note(tkap, 06/10/2024): Top
+					for(int i = 0; i < 2; i += 1) {
+						s_v2 pos = v2(
+							game->rng.randf_range(bounds.min_x, bounds.max_x),
+							game->rng.randf_range(bounds.min_y, bounds.min_y + 500)
+						);
+						game->play_state.broken_bot_arr.add({.pos = pos});
+					}
+					// @Note(tkap, 06/10/2024): Bottom
+					for(int i = 0; i < 2; i += 1) {
+						s_v2 pos = v2(
+							game->rng.randf_range(bounds.min_x, bounds.max_x),
+							game->rng.randf_range(bounds.max_y - 500, bounds.max_y)
+						);
+						game->play_state.broken_bot_arr.add({.pos = pos});
+					}
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		spawn broken bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 			} break;
 		}
 	}
@@ -281,6 +323,21 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		collect pickup end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		collect broken bot start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				foreach_val(bot_i, bot, state->broken_bot_arr) {
+					if(rect_collides_rect_center(state->player.pos, c_player_size, bot.pos, c_bot_size)) {
+						int new_bot = make_bot(bot.pos);
+						if(new_bot >= 0) {
+							bot_arr->state[new_bot] = e_bot_state_going_back_to_base;
+						}
+						state->broken_bot_arr.remove_and_swap(bot_i);
+						bot_i -= 1;
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		collect broken bot end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		update creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			for_creature_partial(creature) {
@@ -357,7 +414,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						if(dist < 1) {
 							pick_target_for_bot(bot);
 							bot_arr->state[bot] = e_bot_state_going_to_creature;
-							assert(bot_arr->cargo[bot] > 0);
+							// assert(bot_arr->cargo[bot] > 0);
 							state->resource_count += bot_arr->cargo[bot];
 							bot_arr->cargo[bot] = 0;
 							bot_arr->cargo_count[bot] = 0;
@@ -458,6 +515,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	}
 	if(is_key_pressed(g_input, c_key_f2)) {
 		play_state->resource_count = c_resource_to_win;
+	}
+	if(is_key_pressed(g_input, c_key_r)) {
+		set_state_next_frame(e_state_play);
 	}
 	#endif // m_debug
 
@@ -592,12 +652,24 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				s_texture texture = get_animation_texture(&game->ant_animation, &creature_arr->animation_timer[creature]);
 
-				draw_texture_keep_aspect(g_r, pos, e_layer_creature, get_creature_size(creature), color_arr[color_index], texture,
-				get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight});
+				draw_texture_keep_aspect(
+					g_r, pos, e_layer_creature, get_creature_size(creature), color_arr[color_index], texture,
+					get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight}
+				);
 
 				draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.5f, 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw broken bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				foreach_val(bot_i, bot, game->play_state.broken_bot_arr) {
+					draw_texture_keep_aspect(g_r, bot.pos, e_layer_broken_bot, c_bot_size, make_color(1), game->bot_animation.texture_arr[0],
+						get_render_pass(e_layer_broken_bot)
+					);
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw broken bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			for_bot_partial(bot) {
