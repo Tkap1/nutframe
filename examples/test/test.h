@@ -64,6 +64,7 @@ enum e_upgrade
 	e_upgrade_player_harvest_range,
 	e_upgrade_bot_harvest_range,
 	e_upgrade_double_harvest,
+	e_upgrade_bot_cargo_count,
 	e_upgrade_count,
 };
 
@@ -85,6 +86,7 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 50, .max_upgrades = 40, .name = "+ player range (%i)"},
 	{.base_cost = 100, .name = "+ drone range (%i)"},
 	{.base_cost = 10000, .max_upgrades = 1, .name = "x2 harvest (%i)"},
+	{.base_cost = 100, .max_upgrades = 9, .name = "+ drone cargo (%i)"},
 };
 
 enum e_state
@@ -161,6 +163,7 @@ struct s_creature_arr
 	b8 active[c_max_creatures];
 	b8 targeted[c_max_creatures];
 	b8 flip_x[c_max_creatures];
+	b8 boss[c_max_creatures];
 	int id[c_max_creatures];
 	int roam_timer[c_max_creatures];
 	int curr_health[c_max_creatures];
@@ -185,6 +188,7 @@ struct s_bot_arr
 	int id[c_max_bots];
 	int harvest_timer[c_max_bots];
 	int cargo[c_max_bots];
+	int cargo_count[c_max_bots];
 	float animation_timer[c_max_bots];
 	float tilt_timer[c_max_bots];
 	s_entity_index target[c_max_bots];
@@ -385,7 +389,7 @@ func void ui_bool_button(s_len_str id_str, s_v2 pos, b8* ptr);
 func int ui_end();
 func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional = {});
 func void on_set_leaderboard_name(b8 success);
-func int make_creature(s_v2 pos, int tier);
+func int make_creature(s_v2 pos, int tier, b8 boss);
 func void pick_target_for_bot(int bot);
 func int get_creature(s_entity_index index);
 func int make_bot(s_v2 pos);
@@ -403,9 +407,10 @@ func f64 get_creature_spawn_delay();
 func int get_creature_spawn_tier();
 func float get_player_harvest_range();
 func float get_bot_harvest_range();
-func int get_creature_resource_reward(int tier);
+func int get_creature_resource_reward(int tier, b8 boss);
 func void set_state_next_frame(e_state new_state);
 func int count_alive_creatures();
 func s_render_pass* get_render_pass(e_layer layer);
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness);
 func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness);
+func int get_bot_max_cargo_count();

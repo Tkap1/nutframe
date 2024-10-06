@@ -37,3 +37,5 @@ TINY CREATURES:
 
 	you lose if there are to many creatures??
 	some of the creatures could attack your base?
+
+	boss enemies have a chance to drop a super bot?

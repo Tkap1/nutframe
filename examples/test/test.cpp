@@ -142,7 +142,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					else if(game->rng.chance100(10)) {
 						tier += 1;
 					}
-					make_creature(pos, tier);
+					make_creature(pos, tier, game->rng.chance100(1));
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		spawn creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -185,7 +185,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						int player_damage = get_player_damage();
 						b8 killed = damage_creature(creature, player_damage);
 						if(killed) {
-							state->resource_count += get_creature_resource_reward(creature_arr->tier[creature]);
+							state->resource_count += get_creature_resource_reward(creature_arr->tier[creature], creature_arr->boss[creature]);
 						}
 						player->harvest_timer = 0;
 					}
@@ -247,8 +247,15 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 								int bot_damage = get_bot_damage();
 								b8 killed = damage_creature(creature, bot_damage);
 								if(killed) {
-									bot_arr->state[bot] = e_bot_state_going_back_to_base;
-									bot_arr->cargo[bot] = get_creature_resource_reward(creature_arr->tier[creature]);
+									bot_arr->cargo[bot] += get_creature_resource_reward(creature_arr->tier[creature], creature_arr->boss[creature]);
+									bot_arr->cargo_count[bot] += 1;
+									if(bot_arr->cargo_count[bot] >= get_bot_max_cargo_count()) {
+										bot_arr->state[bot] = e_bot_state_going_back_to_base;
+									}
+									else {
+										bot_arr->state[bot] = e_bot_state_going_to_creature;
+										pick_target_for_bot(bot);
+									}
 								}
 							}
 						}
@@ -266,6 +273,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							bot_arr->state[bot] = e_bot_state_going_to_creature;
 							assert(bot_arr->cargo[bot] > 0);
 							state->resource_count += bot_arr->cargo[bot];
+							bot_arr->cargo[bot] = 0;
+							bot_arr->cargo_count[bot] = 0;
 						}
 					} break;
 				}
@@ -405,7 +414,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw base start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				draw_texture_keep_aspect(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->base_texture, get_render_pass(e_layer_base));
-				draw_light(c_base_pos, c_base_size.x, make_color(1,1,1), 0.0f);
+				draw_light(c_base_pos, c_base_size.x, make_color(0.9f), 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw base end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -422,7 +431,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
 					draw_light(creature_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
 				}
-				draw_light(pos, 256, make_color(1.0f), 0.0f);
+				draw_light(pos, 256, make_color(0.9f), 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -434,13 +443,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					make_color(1), /*make_color(0.605f, 0.531f, 0.168f),*/ make_color(0.332f, 0.809f, 0.660f), make_color(0.581f, 0.705f, 0.104f), make_color(0.434f, 0.172f, 0.290f),
 					make_color(0.473f, 0.549f, 0.744f), make_color(0.276f, 0.523f, 0.052f), make_color(0.076f, 0.185f, 0.868f), make_color(0.525f, 0.820f, 0.016f),
 				};
+				float size_multi = 1;
+				if(creature_arr->boss[creature]) {
+					size_multi = 3;
+				}
+
 				int color_index = creature_arr->tier[creature] % array_count(color_arr);
 				float mix_weight = 1.0f - (play_state->update_count - creature_arr->tick_when_last_damaged[creature]) / 5.0f;
 				mix_weight = clamp(mix_weight, 0.0f, 1.0f);
-				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size, color_arr[color_index], game->ant_texture,
+				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size * size_multi, color_arr[color_index], game->ant_texture,
 				get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight});
 
-				draw_shadow(pos + v2(0, 10), 36, 0.5f, 0.0f);
+				draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.5f, 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -545,8 +559,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_carray<s_row, c_rows> row_arr = zero;
 					row_arr[0].upgrade_count = 3;
 					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range}};
-					row_arr[1].upgrade_count = 4;
-					row_arr[1].upgrade_arr = {{e_upgrade_buy_bot, e_upgrade_bot_damage, e_upgrade_bot_movement_speed, e_upgrade_bot_harvest_range}};
+					row_arr[1].upgrade_count = 5;
+					row_arr[1].upgrade_arr = {{e_upgrade_buy_bot, e_upgrade_bot_damage, e_upgrade_bot_movement_speed, e_upgrade_bot_cargo_count, e_upgrade_bot_harvest_range}};
 					row_arr[2].upgrade_count = 3;
 					row_arr[2].upgrade_arr = {{e_upgrade_spawn_rate, e_upgrade_creature_tier, e_upgrade_double_harvest}};
 					s_v2 panel_pos = v2(0.0f, c_base_res.y - (c_base_button_size.y + padding) * 3);
@@ -1120,7 +1134,7 @@ func int make_entity(b8* active, int* id, s_entity_index_data* index_data, int m
 	return -1;
 }
 
-func int make_creature(s_v2 pos, int tier)
+func int make_creature(s_v2 pos, int tier, b8 boss)
 {
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 	int entity = make_entity(creature_arr->active, creature_arr->id, &creature_arr->index_data, c_max_creatures);
@@ -1131,6 +1145,11 @@ func int make_creature(s_v2 pos, int tier)
 	creature_arr->curr_health[entity] = 20 * (tier + 1);
 	creature_arr->roam_timer[entity] = 0;
 	creature_arr->targeted[entity] = false;
+	creature_arr->boss[entity] = boss;
+
+	if(boss) {
+		creature_arr->curr_health[entity] *= 10;
+	}
 	return entity;
 }
 
@@ -1143,6 +1162,8 @@ func int make_bot(s_v2 pos)
 	bot_arr->pos[entity] = pos;
 	bot_arr->prev_pos[entity] = pos;
 	bot_arr->laser_target[entity] = zero;
+	bot_arr->cargo[entity] = 0;
+	bot_arr->cargo_count[entity] = 0;
 	return entity;
 }
 
@@ -1343,14 +1364,17 @@ func float get_player_harvest_range()
 
 func float get_bot_harvest_range()
 {
-	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 15;
+	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 20;
 }
 
-func int get_creature_resource_reward(int tier)
+func int get_creature_resource_reward(int tier, b8 boss)
 {
 	int result = tier + 1;
 	if(game->play_state.upgrade_level_arr[e_upgrade_double_harvest] > 0) {
 		result *= 2;
+	}
+	if(boss) {
+		result *= 11;
 	}
 	return result;
 }
@@ -1393,4 +1417,9 @@ func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness)
 func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness)
 {
 	draw_circle(g_r, pos, e_layer_shadow, radius, make_color(strength), game->world_render_pass_arr[1], {.shader = 5, .circle_smoothness = smoothness});
+}
+
+func int get_bot_max_cargo_count()
+{
+	return 1 + game->play_state.upgrade_level_arr[e_upgrade_bot_cargo_count];
 }
