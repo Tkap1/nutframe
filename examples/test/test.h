@@ -347,6 +347,7 @@ struct s_game
 	s_carray<s_render_pass*, 7> world_render_pass_arr;
 	s_render_pass* ui_render_pass0;
 	s_render_pass* ui_render_pass1;
+	s_render_pass* light_render_pass;
 
 	s_carray<s_sound*, 3> creature_death_sound_arr;
 
@@ -371,8 +372,7 @@ struct s_game
 	s_rng rng;
 	s_font* font;
 	s_framebuffer* main_fbo;
-	s_framebuffer* bloom_fbo;
-	s_carray<s_framebuffer*, 2> fbo_arr;
+	s_framebuffer* light_fbo;
 	s_sarray<s_visual_effect, 128> visual_effect_arr;
 	s_sarray<s_leaderboard_entry, c_max_leaderboard_entries> leaderboard_arr;
 };
@@ -415,3 +415,4 @@ func int get_creature_resource_reward(int tier);
 func void set_state_next_frame(e_state new_state);
 func int count_alive_creatures();
 func s_render_pass* get_render_pass(e_layer layer);
+func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness);

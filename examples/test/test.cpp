@@ -60,9 +60,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->creature_death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/test/creature_death02.wav", platform_data->frame_arena);
 
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
-		game->fbo_arr[0] = g_r->make_framebuffer(g_r, v2i(c_base_res));
-		game->fbo_arr[1] = g_r->make_framebuffer(g_r, v2i(c_base_res * 0.25f));
-		game->bloom_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
+		game->light_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
 
 		game->font = &renderer->fonts[0];
 		platform_data->variables_path = "examples/test/variables.h";
@@ -76,6 +74,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		}
 		game->ui_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->ui_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->light_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 		g_r->default_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 
 		g_r->game_speed_index = 5;
@@ -376,6 +375,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		play state draw start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		case e_state_play: {
 
+			float laser_light_radius = sin_range(120, 128, game->render_time * 32.0f);
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_v2 min_bounds = cam->pos;
@@ -402,6 +403,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw base start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				draw_texture_keep_aspect(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->base_texture, get_render_pass(e_layer_base));
+				draw_light(c_base_pos, c_base_size.x, make_color(1,1,1), 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw base end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -414,8 +416,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				int creature = get_creature(p.target);
 				if(creature >= 0) {
 					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(1, 0.1f, 0.1f), get_render_pass(e_layer_laser), {}, {.effect_id = 5});
+					s_v4 laser_color = make_color(1, 0.1f, 0.1f);
+					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
+					draw_light(creature_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
 				}
+				draw_light(pos, 256, make_color(1.0f), 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -463,8 +468,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				int creature = get_creature(bot_arr->laser_target[bot]);
 				if(creature >= 0) {
 					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(0.1f, 1, 0.1f), get_render_pass(e_layer_laser), {}, {.effect_id = 5});
+					s_v4 laser_color = make_color(0.1f, 1, 0.1f);
+					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
+					draw_light(creature_pos, laser_light_radius, laser_color, 0.0f);
 				}
+				draw_light(pos, 48, make_color(1.0f), 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -726,6 +734,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	s_m4 view = cam->get_matrix();
 
 	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
+	g_r->clear_framebuffer(game->light_fbo, v4(0.75f, 0.75f, 0.75f, 1.0f), c_default_fbo_clear_flags);
+	// g_r->clear_framebuffer(game->light_fbo, zero, c_default_fbo_clear_flags);
 
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
@@ -734,6 +744,17 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[4], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[5], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[6], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lights start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	{
+		// @Note(tkap, 06/10/2024): Shadows
+		// g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->light_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_multiply, .view = view, .projection = ortho});
+
+		g_r->end_render_pass(g_r, game->light_render_pass, game->light_fbo, {.blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
+		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->light_fbo, game->light_render_pass);
+		g_r->end_render_pass(g_r, game->light_render_pass, game->main_fbo, {.blend_mode = e_blend_mode_multiply, .projection = ortho});
+	}
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lights end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
@@ -1352,4 +1373,9 @@ func int count_alive_creatures()
 func s_render_pass* get_render_pass(e_layer layer)
 {
 	return game->world_render_pass_arr[c_layer_to_render_pass_index_arr[layer]];
+}
+
+func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness)
+{
+	draw_circle(g_r, pos, 0, radius, color, game->light_render_pass, {.shader = 5, .circle_smoothness = smoothness});
 }

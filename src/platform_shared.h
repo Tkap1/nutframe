@@ -4644,6 +4644,10 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 				.vertex_path = "shaders/vertex.vertex",
 				.fragment_path = "shaders/blur.fragment",
 			},
+			{
+				.vertex_path = "shaders/vertex.vertex",
+				.fragment_path = "shaders/light.fragment",
+			},
 		};
 
 		for(int shader_i = 0; shader_i < array_count(c_shader_paths); shader_i++) {
