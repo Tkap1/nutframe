@@ -610,7 +610,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		upgrade buttons end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 				{
-					if(ui_button2(strlit("Telport home"), v2(c_base_res.x - c_base_button_size.x - padding, padding), {.font_size = font_size})) {
+					if(ui_button2(strlit("Telport to base"), v2(c_base_res.x - c_base_button_size.x - padding, padding), {.font_size = font_size})) {
 						s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y);
 						game->play_state.player.pos = pos;
 						game->play_state.player.prev_pos = pos;
