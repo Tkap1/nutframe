@@ -435,7 +435,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					make_color(0.473f, 0.549f, 0.744f), make_color(0.276f, 0.523f, 0.052f), make_color(0.076f, 0.185f, 0.868f), make_color(0.525f, 0.820f, 0.016f),
 				};
 				int color_index = creature_arr->tier[creature] % array_count(color_arr);
-				float mix_weight = 1.0f - (play_state->update_count - creature_arr->tick_when_last_damaged[creature]) / 10.0f;
+				float mix_weight = 1.0f - (play_state->update_count - creature_arr->tick_when_last_damaged[creature]) / 5.0f;
 				mix_weight = clamp(mix_weight, 0.0f, 1.0f);
 				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size, color_arr[color_index], game->ant_texture,
 				get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight});
@@ -1128,7 +1128,7 @@ func int make_creature(s_v2 pos, int tier)
 	creature_arr->prev_pos[entity] = pos;
 	creature_arr->target_pos[entity] = pos;
 	creature_arr->tier[entity] = tier;
-	creature_arr->curr_health[entity] = 10 * (tier + 1);
+	creature_arr->curr_health[entity] = 20 * (tier + 1);
 	creature_arr->roam_timer[entity] = 0;
 	creature_arr->targeted[entity] = false;
 	return entity;

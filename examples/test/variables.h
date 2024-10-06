@@ -5,5 +5,5 @@ static float c_bot_movement_speed = 5.000000f;
 static float c_creature_speed = 4.166667f;
 static float c_bot_harvest_range = 64.000000f;
 static float c_player_harvest_range = 128.000000f;
-static int c_bot_harvest_delay = 20;
-static int c_player_harvest_delay = 15;
+static int c_bot_harvest_delay = 10;
+static int c_player_harvest_delay = 7;
