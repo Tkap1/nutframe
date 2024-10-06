@@ -44,8 +44,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->rng.seed = platform_data->get_random_seed();
 		g_r->set_vsync(true);
 		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png", e_wrap_clamp);
-		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png", e_wrap_repeat);
+		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png", e_wrap_clamp);
 		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png", e_wrap_clamp);
+		game->button_texture = g_r->load_texture(renderer, "examples/test/button.png", e_wrap_clamp);
 
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_wrap_clamp));
@@ -688,9 +689,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_v2 panel_pos = v2(0.0f, c_base_res.y - (c_base_button_size.y + padding) * 3);
 					s_v2 panel_size = v2(c_base_res.x, c_base_button_size.y + padding);
 					s_carray<s_pos_area, c_rows> area_arr;
-					area_arr[0] = make_pos_area(panel_pos, panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
-					area_arr[1] = make_pos_area(panel_pos + v2(0.0f, panel_size.y), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
-					area_arr[2] = make_pos_area(panel_pos + v2(0.0f, panel_size.y * 2), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
+					area_arr[0] = make_pos_area(v2(padding, 0.0f) + panel_pos, panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
+					area_arr[1] = make_pos_area(v2(padding, 0.0f) + panel_pos + v2(0.0f, panel_size.y), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
+					area_arr[2] = make_pos_area(v2(padding, 0.0f) + panel_pos + v2(0.0f, panel_size.y * 2), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
 					b8 played_buy_bot_sound = false;
 					b8 played_upgrade_sound = false;
 					for(int row_i = 0; row_i < c_rows; row_i += 1) {
@@ -1179,7 +1180,7 @@ static b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	return result;
 }
 
-static b8 ui_button2(s_len_str id_str, s_v2 pos, s_ui_optional optional)
+func b8 ui_button2(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 {
 	b8 result = false;
 	s_parse_ui_id parse_result = parse_ui_id(id_str);
@@ -1198,16 +1199,16 @@ static b8 ui_button2(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	}
 
 	b8 hovered = mouse_collides_rect_topleft(g_mouse, pos, size);
-	s_v4 color = make_color(0.5f, 0.1f, 0.1f);
+	s_v4 color = make_color(0.6f);
 
 	if(hovered && is_key_pressed(g_input, c_left_mouse)) {
 		result = true;
 	}
 
 	if(hovered) {
-		color = brighter(color, 1.5f);
+		color = make_color(1);
 	}
-	draw_rect(g_r, pos, 0, size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	draw_texture(g_r, pos, 0, size, color, game->button_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 
 	s_v2 text_pos = center_text_on_rect(id_str, game->font, pos, size, font_size, true, true);
 	text_pos.y += font_size * 0.1f;

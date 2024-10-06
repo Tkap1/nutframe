@@ -424,6 +424,7 @@ struct s_game
 
 	s_texture placeholder_texture;
 	s_texture base_texture;
+	s_texture button_texture;
 
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;
