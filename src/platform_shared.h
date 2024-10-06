@@ -2410,6 +2410,11 @@ static b8 rect_collides_circle_topleft(s_v2 rect_pos, s_v2 rect_size, s_v2 cente
 	return collision;
 }
 
+static b8 rect_collides_circle_center(s_v2 rect_pos, s_v2 rect_size, s_v2 center, float radius)
+{
+	return rect_collides_circle_topleft(rect_pos - rect_size * 0.5f, rect_size, center, radius);
+}
+
 static b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
 {
 	return pos0.x + size0.x > pos1.x && pos0.x < pos1.x + size1.x &&
@@ -6150,4 +6155,76 @@ static s_texture get_animation_texture(s_animation* animation, float* dt)
 	*dt = fmodf(*dt, animation->texture_arr.count / (float)animation->fps);
 	int index = floorfi(*dt * animation->fps);
 	return animation->texture_arr[index];
+}
+
+
+// @Note(tkap, 12/09/2024): Don't keep pointers to elements, because after adding, the pointers could get invalidated
+template <typename T>
+struct s_dynamic_array
+{
+	int count;
+	int max_elements;
+	T* elements;
+
+	T& operator[](int index);
+	int add(T new_element, s_lin_arena* arena);
+};
+
+
+template <typename T>
+T& s_dynamic_array<T>::operator[](int index)
+{
+	assert(index >= 0);
+	assert(index < count);
+	return elements[index];
+}
+
+template <typename T>
+int s_dynamic_array<T>::add(T new_element, s_lin_arena* arena)
+{
+	assert(max_elements > 0);
+	if(count == max_elements) {
+		int old_max_elements = max_elements;
+		int new_max_elements = max_elements * 2;
+		T* temp = (T*)la_get(arena, sizeof(T) * new_max_elements);
+		memcpy(temp, elements, old_max_elements * sizeof(T));
+		elements = temp;
+		max_elements = new_max_elements;
+	}
+	int index = count;
+	elements[count] = new_element;
+	count += 1;
+	return index;
+}
+
+template <typename T>
+static s_dynamic_array<T> make_dynamic_array(int initial_max_elements, s_lin_arena* arena)
+{
+	assert(initial_max_elements > 0);
+	s_dynamic_array<T> result = {};
+	result.elements = (T*)la_get(arena, sizeof(T) * initial_max_elements);
+	result.max_elements = initial_max_elements;
+	return result;
+}
+
+static b8 is_valid_index(int x, int y, int w, int h)
+{
+	return x >= 0 && x < w && y >= 0 && y < h;
+}
+
+struct s_bounds
+{
+	float min_x;
+	float min_y;
+	float max_x;
+	float max_y;
+};
+
+static s_v2 constrain_pos(s_v2 pos, s_bounds bounds)
+{
+	pos.x = at_least(bounds.min_x, pos.x);
+	pos.y = at_least(bounds.min_y, pos.y);
+	pos.x = at_most(bounds.max_x, pos.x);
+	pos.y = at_most(bounds.max_y, pos.y);
+	return pos;
 }

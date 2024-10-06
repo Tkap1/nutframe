@@ -23,6 +23,16 @@ global constexpr int c_resource_to_win = 100000;
 global constexpr int c_num_creatures_to_lose = 1000;
 global constexpr float c_laser_width = 16;
 
+global constexpr int c_cell_area = 4096;
+global constexpr int c_cell_size = 256;
+global constexpr int c_num_cells = c_cell_area / c_cell_size;
+global constexpr s_v2 c_cells_topleft = v2(c_base_pos.x - c_cell_area * 0.5f, c_base_pos.y - c_cell_area * 0.5f);
+
+struct s_cells
+{
+	s_dynamic_array<int> cell_arr[c_num_cells][c_num_cells];
+};
+
 static_assert(c_max_creatures > c_num_creatures_to_lose);
 
 enum e_layer
@@ -113,7 +123,7 @@ struct s_trail
 
 enum e_visual_effect
 {
-	e_visual_effect_projectile_explosion,
+	e_visual_effect_laser,
 };
 
 enum e_pos_area_flag
@@ -146,14 +156,25 @@ struct s_entity_index
 	int id;
 };
 
+struct s_lerp
+{
+	s_v2 prev_pos;
+	s_v2 pos;
+};
+
+struct s_laser_target
+{
+	s_lerp to;
+	s_maybe<s_lerp> from;
+};
 
 struct s_player
 {
 	b8 flip_x;
 	int harvest_timer;
-	s_entity_index target;
 	s_v2 prev_pos;
 	s_v2 pos;
+	s_sarray<s_laser_target, 16> laser_target_arr;
 };
 
 
@@ -201,8 +222,9 @@ struct s_bot_arr
 struct s_visual_effect
 {
 	e_visual_effect type;
-	float timer;
-	s_v2 pos;
+	s_v2 from;
+	s_v2 to;
+	s_v4 color;
 };
 
 struct s_save_point
@@ -330,6 +352,7 @@ struct s_play_state
 	s_player player;
 	int update_count;
 	int update_count_at_win_time;
+	s_sarray<s_visual_effect, 1024> visual_effect_arr;
 };
 
 struct s_game
@@ -370,7 +393,6 @@ struct s_game
 	s_font* font;
 	s_framebuffer* main_fbo;
 	s_framebuffer* light_fbo;
-	s_sarray<s_visual_effect, 128> visual_effect_arr;
 	s_sarray<s_leaderboard_entry, c_max_leaderboard_entries> leaderboard_arr;
 };
 
@@ -414,3 +436,10 @@ func s_render_pass* get_render_pass(e_layer layer);
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness);
 func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness);
 func int get_bot_max_cargo_count();
+func s_v2 get_creature_size(int creature);
+func int get_closest_creature2(s_v2 pos, float radius, s_cells* cells, s_lin_arena* arena, s_sarray<int, 16> blacklist);
+func s_entity_index creature_to_entity_index(int creature);
+func s_dynamic_array<int> query_creatures_circle(s_v2 pos, float radius, s_cells* cells, s_lin_arena* frame_arena);
+func s_v2i get_cell_index(s_v2 pos);
+func s_bounds get_cam_bounds(s_camera2d cam);
+func s_bounds get_map_bounds();

@@ -14,22 +14,11 @@ if player kills an enemy, chance for a pickup that does something??
 	like +10 resource
 	temporary buff?
 
-win animation instead of instant change to leaderboard
-
-smooth zoom
-smooth camera movement
-
-
-we need higher attack speed, kinda cringe
-drone cargo upgrade
-
-higher attack speed higher spawn rate?
- or higher attack speed higher health
-
 
 place a turret down?
 
-make shadows use the main_fbo depth, otherwise they go on top of enemies
-
 polish:
 	make defeat bar shake when it gets close?
+	smooth zoom
+	smooth camera movement
+	win animation instead of instant change to leaderboard

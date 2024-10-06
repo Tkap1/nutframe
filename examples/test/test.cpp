@@ -120,6 +120,23 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			if(game->play_state.defeat) { break; }
 
+			s_cells cells = zero;
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		build cells start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				for_creature_partial(creature) {
+					if(!creature_arr->active[creature]) { continue; }
+					s_v2 pos = creature_arr->pos[creature];
+					s_v2i index = get_cell_index(pos);
+					if(is_valid_index(index.x, index.y, c_num_cells, c_num_cells)) {
+						if(cells.cell_arr[index.y][index.x].max_elements <= 0) {
+							cells.cell_arr[index.y][index.x] = make_dynamic_array<int>(16, platform_data->frame_arena);
+						}
+						cells.cell_arr[index.y][index.x].add(creature, platform_data->frame_arena);
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		build cells end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				f64 dt = platform_data->update_delay;
@@ -134,6 +151,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					);
 					s_v2 base = game->rng.rand_bool() ? c_base_pos : game->play_state.player.pos;
 					s_v2 pos = base + offset;
+					pos = constrain_pos(pos, get_map_bounds());
 
 					int tier = get_creature_spawn_tier();
 					if(game->rng.chance100(1)) {
@@ -165,36 +183,48 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				dir = v2_normalized(dir);
 				player->pos += dir * get_player_movement_speed();
+				{
+					s_bounds bounds = get_map_bounds();
+					player->pos = constrain_pos(player->pos, bounds);
+				}
 
 				player->harvest_timer += 1;
 				if(player->harvest_timer >= c_player_harvest_delay) {
+					player->laser_target_arr.count = 0;
 
-					s_get_closest_creature data = get_closest_creature(player->pos);
-					int creature = -1;
-					if(data.closest_non_targeted_creature.id > 0 && data.smallest_non_targeted_dist <= get_player_harvest_range()) {
-						creature = get_creature(data.closest_non_targeted_creature);
-						assert(creature >= 0);
-						player->target = data.closest_non_targeted_creature;
-					}
-					else if(data.closest_creature.id > 0 && data.smallest_dist <= get_player_harvest_range()) {
-						creature = get_creature(data.closest_creature);
-						assert(creature >= 0);
-						player->target = data.closest_creature;
-					}
-					if(creature >= 0) {
-						int player_damage = get_player_damage();
-						b8 killed = damage_creature(creature, player_damage);
-						if(killed) {
-							state->resource_count += get_creature_resource_reward(creature_arr->tier[creature], creature_arr->boss[creature]);
+					int hits = 1;
+					s_sarray<int, 16> blacklist;
+					s_v2 prev_pos = zero;
+					int previous = -1;
+					for(int hit_i = 0; hit_i < hits; hit_i += 1) {
+						s_v2 query_pos = player->pos;
+						if(previous >= 0) { query_pos = prev_pos; }
+						int creature = get_closest_creature2(query_pos, get_player_harvest_range(), &cells, platform_data->frame_arena, blacklist);
+						if(creature >= 0) {
+							blacklist.add(creature);
+							prev_pos = creature_arr->pos[creature];
+							s_laser_target target = zero;
+							if(previous >= 0) {
+								target.from = maybe(s_lerp{creature_arr->prev_pos[previous], creature_arr->pos[previous]});
+							}
+							target.to = {creature_arr->prev_pos[creature], creature_arr->pos[creature]};
+							player->laser_target_arr.add(target);
+							int player_damage = get_player_damage();
+							b8 killed = damage_creature(creature, player_damage);
+							if(killed) {
+								state->resource_count += get_creature_resource_reward(creature_arr->tier[creature], creature_arr->boss[creature]);
+							}
+							player->harvest_timer = 0;
+							previous = creature;
 						}
-						player->harvest_timer = 0;
-					}
-					else {
-						player->target = zero;
+						else {
+							break;
+						}
 					}
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		update player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		update creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			for_creature_partial(creature) {
@@ -400,7 +430,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				int end_y = ceilfi(max_bounds.y / tile_size);
 				for(int y = start_y; y <= end_y; y += 1) {
 					for(int x = start_x; x <= end_x; x += 1) {
-						s_v4 color = brighter(make_color(0.615, 0.481, 0.069), 0.15f);
+						// s_v4 color = brighter(make_color(0.615, 0.481, 0.069), 0.15f);
+						s_v4 color = brighter(make_color(0.702, 0.548, 0.924), 0.15f);
 						if((x + y) & 1) {
 							color = brighter(color, 0.9f);
 						}
@@ -423,15 +454,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_player p = game->play_state.player;
 				s_v2 pos = lerp(p.prev_pos, p.pos, interp_dt);
 				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), game->placeholder_texture, get_render_pass(e_layer_player));
-
-				int creature = get_creature(p.target);
-				if(creature >= 0) {
-					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					s_v4 laser_color = make_color(1, 0.1f, 0.1f);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
-					draw_light(creature_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
-				}
 				draw_light(pos, 256, make_color(0.9f), 0.0f);
+
+				foreach_val(target_i, target, p.laser_target_arr) {
+					s_v2 from_pos;
+					s_v2 to_pos = lerp(target.to.prev_pos, target.to.pos, interp_dt);
+					if(target.from.valid) {
+						from_pos = lerp(target.from.value.prev_pos, target.from.value.pos, interp_dt);
+					}
+					else {
+						from_pos = pos;
+					}
+					s_v4 laser_color = make_color(1.0f, 0.1f, 0.1f);
+					draw_line(g_r, from_pos, to_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
+					draw_light(to_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
+				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -451,7 +488,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				int color_index = creature_arr->tier[creature] % array_count(color_arr);
 				float mix_weight = 1.0f - (play_state->update_count - creature_arr->tick_when_last_damaged[creature]) / 5.0f;
 				mix_weight = clamp(mix_weight, 0.0f, 1.0f);
-				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size * size_multi, color_arr[color_index], game->ant_texture,
+				draw_texture_keep_aspect(g_r, pos, e_layer_creature, get_creature_size(creature), color_arr[color_index], game->ant_texture,
 				get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight});
 
 				draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.5f, 0.0f);
@@ -491,6 +528,17 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_light(pos, 48, make_color(1.0f), 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			#if 0
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		visual effects start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				foreach_ptr(ve_i, ve, game->play_state.visual_effect_arr) {
+					draw_line(g_r, ve->from, ve->to, e_layer_laser, c_laser_width, ve->color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
+					draw_light(ve->to, laser_light_radius * 1.5f, ve->color, 0.0f);
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		visual effects end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			#endif
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -623,14 +671,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		upgrade buttons end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-				{
-					if(ui_button2(strlit("Telport to base"), v2(c_base_res.x - c_base_button_size.x - padding, padding), {.font_size = font_size})) {
-						s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y);
-						game->play_state.player.pos = pos;
-						game->play_state.player.prev_pos = pos;
-					}
-				}
-
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		score goal display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
 					s_len_str str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
@@ -648,6 +688,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lose progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			}
+
+			// @Note(tkap, 06/10/2024): draw cells
+			#if 0
+			for(int y = 0; y < c_num_cells; y += 1) {
+				for(int x = 0; x < c_num_cells; x += 1) {
+					draw_rect(g_r, c_cells_topleft + v2(x, y) * c_cell_size, e_layer_base, v2(c_cell_size), make_color(((x+y)&1)?0.4f:0.2f), get_render_pass(e_layer_base), {}, {.origin_offset = c_origin_topleft});
+				}
+			}
+			#endif
 
 		} break;
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		play state draw end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1257,6 +1306,49 @@ func s_get_closest_creature get_closest_creature(s_v2 pos)
 	return data;
 }
 
+func int get_closest_creature2(s_v2 pos, float radius, s_cells* cells, s_lin_arena* arena, s_sarray<int, 16> blacklist)
+{
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+
+	float smallest_dist = 99999999.0f;
+	int closest_creature = -1;
+	s_dynamic_array<int> query_arr = query_creatures_circle(pos, radius, cells, arena);
+	foreach_val(query_i, query, query_arr) {
+		assert(creature_arr->active[query]);
+		if(blacklist.contains(query)) { continue; }
+		float dist = v2_distance(pos, creature_arr->pos[query]);
+		if(dist < smallest_dist) {
+			smallest_dist = dist;
+			closest_creature = query;
+		}
+	}
+	return closest_creature;
+}
+
+func s_dynamic_array<int> query_creatures_circle(s_v2 pos, float radius, s_cells* cells, s_lin_arena* frame_arena)
+{
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	s_dynamic_array<int> result = make_dynamic_array<int>(16, frame_arena);
+	s_v2i min_index = get_cell_index(pos - v2(radius));
+	s_v2i max_index = get_cell_index(pos + v2(radius));
+
+	for(int y = min_index.y; y <= max_index.y; y += 1) {
+		for(int x = min_index.x; x <= max_index.x; x += 1) {
+			if(!is_valid_index(x, y, c_num_cells, c_num_cells)) { continue; }
+			if(cells->cell_arr[y][x].count > 0) {
+				foreach_val(creature_i, creature, cells->cell_arr[y][x]) {
+					if(!creature_arr->active[creature]) { continue; }
+					if(rect_collides_circle_center(creature_arr->pos[creature], get_creature_size(creature), pos, radius)) {
+						result.add(creature, frame_arena);
+					}
+				}
+			}
+		}
+	}
+	return result;
+}
+
+
 func s_v2 get_center(s_v2 pos, s_v2 size)
 {
 	pos.x += size.x * 0.5f;
@@ -1422,4 +1514,46 @@ func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness)
 func int get_bot_max_cargo_count()
 {
 	return 1 + game->play_state.upgrade_level_arr[e_upgrade_bot_cargo_count];
+}
+
+func s_v2 get_creature_size(int creature)
+{
+	float multi = game->play_state.creature_arr.boss[creature] ? 3.0f : 1.0f;
+	return c_creature_size * multi;
+}
+
+func s_entity_index creature_to_entity_index(int creature)
+{
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	assert(creature_arr->active[creature]);
+	return {.index = creature, .id = creature_arr->id[creature]};
+}
+
+func s_v2i get_cell_index(s_v2 pos)
+{
+	int x_index = floorfi((pos.x - c_cells_topleft.x) / c_cell_size);
+	int y_index = floorfi((pos.y - c_cells_topleft.y) / c_cell_size);
+	return v2i(x_index, y_index);
+}
+
+func s_bounds get_map_bounds()
+{
+	s_bounds bounds = zero;
+	bounds.min_x = c_base_pos.x - c_cell_area * 0.5f;
+	bounds.min_y = c_base_pos.y - c_cell_area * 0.5f;
+	bounds.max_x = c_base_pos.x + c_cell_area * 0.5f;
+	bounds.max_y = c_base_pos.y + c_cell_area * 0.5f;
+	bounds.max_x -= 1;
+	bounds.max_y -= 1;
+	return bounds;
+}
+
+func s_bounds get_cam_bounds(s_camera2d cam)
+{
+	s_bounds bounds = zero;
+	bounds.min_x = cam.pos.x;
+	bounds.min_y = cam.pos.y;
+	bounds.max_x = cam.pos.x + c_base_res.x / cam.zoom;
+	bounds.max_y = cam.pos.y + c_base_res.y / cam.zoom;
+	return bounds;
 }
