@@ -880,6 +880,7 @@ enum e_blend_mode
 	e_blend_mode_additive,
 	e_blend_mode_premultiply_alpha,
 	e_blend_mode_multiply,
+	e_blend_mode_multiply_inv,
 	e_blend_mode_normal,
 	e_blend_mode_additive_no_alpha,
 };
@@ -5530,6 +5531,11 @@ static void set_blend_mode(e_blend_mode mode)
 		case e_blend_mode_multiply: {
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+		} break;
+		case e_blend_mode_multiply_inv: {
+			glEnable(GL_BLEND);
+			// glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+			glBlendFuncSeparate(GL_ZERO, GL_ONE_MINUS_SRC_COLOR, GL_ZERO, GL_ONE);
 		} break;
 		case e_blend_mode_normal: {
 			glEnable(GL_BLEND);

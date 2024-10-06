@@ -416,3 +416,4 @@ func void set_state_next_frame(e_state new_state);
 func int count_alive_creatures();
 func s_render_pass* get_render_pass(e_layer layer);
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness);
+func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness);

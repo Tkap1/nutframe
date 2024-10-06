@@ -438,7 +438,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size, color_arr[color_index], game->ant_texture,
 				get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight});
 
-				draw_circle(g_r, pos + v2(0, 10), 0, 36, v4(0, 0, 0, 0.5f), get_render_pass(e_layer_shadow), {.circle_smoothness = 0.0f});
+				draw_shadow(pos + v2(0, 10), 36, 0.5f, 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -463,7 +463,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				float tilt = bot_arr->tilt_timer[bot] * 0.25f;
 				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, texture, get_render_pass(e_layer_bot), {}, {.rotation = tilt});
 
-				draw_circle(g_r, pos + v2(0, 100), 0, 32, v4(0, 0, 0, 0.5f), get_render_pass(e_layer_shadow), {.circle_smoothness = 0.0f});
+				draw_shadow(pos + v2(0, 100), 32, 0.5f, 0.0f);
 
 				int creature = get_creature(bot_arr->laser_target[bot]);
 				if(creature >= 0) {
@@ -735,10 +735,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
 	g_r->clear_framebuffer(game->light_fbo, v4(0.75f, 0.75f, 0.75f, 1.0f), c_default_fbo_clear_flags);
-	// g_r->clear_framebuffer(game->light_fbo, zero, c_default_fbo_clear_flags);
 
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[2], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[3], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[4], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
@@ -748,7 +746,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lights start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
 		// @Note(tkap, 06/10/2024): Shadows
-		// g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->light_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_multiply, .view = view, .projection = ortho});
+		g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->light_fbo, {.blend_mode = e_blend_mode_multiply_inv, .view = view, .projection = ortho});
 
 		g_r->end_render_pass(g_r, game->light_render_pass, game->light_fbo, {.blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
 		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->light_fbo, game->light_render_pass);
@@ -1378,4 +1376,9 @@ func s_render_pass* get_render_pass(e_layer layer)
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness)
 {
 	draw_circle(g_r, pos, 0, radius, color, game->light_render_pass, {.shader = 5, .circle_smoothness = smoothness});
+}
+
+func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness)
+{
+	draw_circle(g_r, pos, 0, radius, make_color(strength), game->world_render_pass_arr[1], {.shader = 5, .circle_smoothness = smoothness});
 }
