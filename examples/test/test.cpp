@@ -50,6 +50,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->tile_texture = g_r->load_texture(renderer, "examples/test/tile.png", e_wrap_clamp);
 		game->rock_texture_arr[0] = g_r->load_texture(renderer, "examples/test/rock01.png", e_wrap_clamp);
 		game->rock_texture_arr[1] = g_r->load_texture(renderer, "examples/test/rock02.png", e_wrap_clamp);
+		game->broken_bot_texture = g_r->load_texture(renderer, "examples/test/broken_bot.png", e_wrap_clamp);
 
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_wrap_clamp));
@@ -127,7 +128,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							game->rng.randf_range(bounds.min_x, bounds.min_x + 500),
 							game->rng.randf_range(bounds.min_y, bounds.max_y)
 						);
-						game->play_state.broken_bot_arr.add({.pos = pos});
+						game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
 					}
 					// @Note(tkap, 06/10/2024): Right
 					for(int i = 0; i < 2; i += 1) {
@@ -135,7 +136,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							game->rng.randf_range(bounds.max_x - 500, bounds.max_x),
 							game->rng.randf_range(bounds.min_y, bounds.max_y)
 						);
-						game->play_state.broken_bot_arr.add({.pos = pos});
+						game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
 					}
 					// @Note(tkap, 06/10/2024): Top
 					for(int i = 0; i < 2; i += 1) {
@@ -143,7 +144,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							game->rng.randf_range(bounds.min_x, bounds.max_x),
 							game->rng.randf_range(bounds.min_y, bounds.min_y + 500)
 						);
-						game->play_state.broken_bot_arr.add({.pos = pos});
+						game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
 					}
 					// @Note(tkap, 06/10/2024): Bottom
 					for(int i = 0; i < 2; i += 1) {
@@ -151,7 +152,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							game->rng.randf_range(bounds.min_x, bounds.max_x),
 							game->rng.randf_range(bounds.max_y - 500, bounds.max_y)
 						);
-						game->play_state.broken_bot_arr.add({.pos = pos});
+						game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		spawn broken bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -664,9 +665,25 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw broken bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				foreach_val(bot_i, bot, game->play_state.broken_bot_arr) {
-					draw_texture_keep_aspect(g_r, bot.pos, e_layer_broken_bot, c_bot_size, make_color(1), game->bot_animation.texture_arr[0],
-						get_render_pass(e_layer_broken_bot)
+					draw_texture_keep_aspect(g_r, bot.pos, e_layer_broken_bot, c_bot_size, make_color(1), game->broken_bot_texture,
+						get_render_pass(e_layer_broken_bot), {}, {.rotation = bot.rotation}
 					);
+					draw_shadow(bot.pos + v2(0, 10), 36, 0.5f, 0.0f);
+
+					do_particles(1, bot.pos, e_layer_particle, false, {
+						.shrink = 3,
+						.slowdown = 1,
+						.duration = 3,
+						.duration_rand = 0.5f,
+						.speed = 200,
+						.speed_rand = 1,
+						.angle = -pi * 0.5f,
+						.angle_rand = 0.2f,
+						.radius = 8,
+						.color = v3(0.5f, 0.1f, 0.1f),
+						.color_rand = v3(0.1f, 0.1f, 0.1f),
+				});
+
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw broken bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1078,8 +1095,8 @@ func void do_particles(int count, s_v2 pos, int z, b8 attached_to_player, s_part
 		p.fade = data.fade;
 		p.shrink = data.shrink;
 		p.duration = data.duration * (1.0f - rng->randf32() * data.duration_rand);
-		// p.dir.xy = v2_from_angle(data.angle + tau * rng->randf32() * data.angle_rand);
-		p.dir = v2_normalized(v2(rng->randf32_11(), rng->randf32_11()));
+		float random_angle = rng->randf_range(-pi, pi) * data.angle_rand;
+		p.dir = v2_from_angle(data.angle + random_angle);
 		p.speed = data.speed * (1.0f - rng->randf32() * data.speed_rand);
 		p.radius = data.radius * (1.0f - rng->randf32() * data.radius_rand);
 		p.slowdown = data.slowdown;

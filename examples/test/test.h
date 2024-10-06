@@ -282,7 +282,7 @@ struct s_particle_data
 	float speed = 64;
 	float speed_rand;
 	float angle;
-	float angle_rand;
+	float angle_rand = 1;
 	float radius = 8;
 	float radius_rand;
 	s_v3 color = {.x = 0.1f, .y = 0.1f, .z = 0.1f};
@@ -388,6 +388,7 @@ struct s_get_closest_creature
 
 struct s_broken_bot
 {
+	float rotation;
 	s_v2 pos;
 };
 
@@ -437,6 +438,7 @@ struct s_game
 	s_texture base_texture;
 	s_texture button_texture;
 	s_texture tile_texture;
+	s_texture broken_bot_texture;
 	s_carray<s_texture, 2> rock_texture_arr;
 
 	s_leaderboard_state leaderboard_state;
