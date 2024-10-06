@@ -40,6 +40,11 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../examples/test/drone012.png@examples/test/drone012.png
 	set comp=!comp! --preload-file ../examples/test/drone018.png@examples/test/drone018.png
 	set comp=!comp! --preload-file ../examples/test/drone024.png@examples/test/drone024.png
+	set comp=!comp! --preload-file ../examples/test/ant000.png@examples/test/ant000.png
+	set comp=!comp! --preload-file ../examples/test/ant006.png@examples/test/ant006.png
+	set comp=!comp! --preload-file ../examples/test/ant012.png@examples/test/ant012.png
+	set comp=!comp! --preload-file ../examples/test/ant018.png@examples/test/ant018.png
+	set comp=!comp! --preload-file ../examples/test/ant024.png@examples/test/ant024.png
 	set comp=!comp! --preload-file ../examples/test/base.png@examples/test/base.png
 	set comp=!comp! --preload-file ../examples/test/ant.png@examples/test/ant.png
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf

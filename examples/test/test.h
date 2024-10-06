@@ -204,6 +204,7 @@ struct s_creature_arr
 	int curr_health[c_max_creatures];
 	int tier[c_max_creatures];
 	int tick_when_last_damaged[c_max_creatures];
+	float animation_timer[c_max_creatures];
 	s_v2 prev_pos[c_max_creatures];
 	s_v2 pos[c_max_creatures];
 	s_v2 target_pos[c_max_creatures];
@@ -419,10 +420,10 @@ struct s_game
 	s_sound* upgrade_sound;
 
 	s_animation bot_animation;
+	s_animation ant_animation;
 
 	s_texture placeholder_texture;
 	s_texture base_texture;
-	s_texture ant_texture;
 
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;

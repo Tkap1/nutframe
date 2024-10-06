@@ -46,7 +46,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png", e_wrap_clamp);
 		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png", e_wrap_repeat);
 		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png", e_wrap_clamp);
-		game->ant_texture = g_r->load_texture(renderer, "examples/test/ant.png", e_wrap_clamp);
 
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_wrap_clamp));
@@ -54,6 +53,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone018.png", e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone024.png", e_wrap_clamp));
 		game->bot_animation.fps = 12;
+
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant000.png", e_wrap_clamp));
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant006.png", e_wrap_clamp));
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant012.png", e_wrap_clamp));
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant018.png", e_wrap_clamp));
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant024.png", e_wrap_clamp));
+		game->ant_animation.fps = 8;
 
 		game->creature_death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
 		game->creature_death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
@@ -536,7 +542,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				int color_index = creature_arr->tier[creature] % array_count(color_arr);
 				float mix_weight = 1.0f - (play_state->update_count - creature_arr->tick_when_last_damaged[creature]) / 5.0f;
 				mix_weight = clamp(mix_weight, 0.0f, 1.0f);
-				draw_texture_keep_aspect(g_r, pos, e_layer_creature, get_creature_size(creature), color_arr[color_index], game->ant_texture,
+
+				b8 moving = v2_distance(creature_arr->target_pos[creature], creature_arr->pos[creature]) > 1;
+				if(moving) {
+					creature_arr->animation_timer[creature] += g_delta;
+				}
+				s_texture texture = get_animation_texture(&game->ant_animation, &creature_arr->animation_timer[creature]);
+
+				draw_texture_keep_aspect(g_r, pos, e_layer_creature, get_creature_size(creature), color_arr[color_index], texture,
 				get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight});
 
 				draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.5f, 0.0f);
@@ -1259,6 +1272,7 @@ func int make_creature(s_v2 pos, int tier, b8 boss)
 	creature_arr->roam_timer[entity] = 0;
 	creature_arr->targeted[entity] = false;
 	creature_arr->boss[entity] = boss;
+	creature_arr->animation_timer[entity] = 0;
 
 	if(boss) {
 		creature_arr->curr_health[entity] *= 10;
@@ -1664,7 +1678,7 @@ func void make_pickup(s_v2 pos, e_pickup type)
 
 func void add_buff(s_player* player, e_pickup pickup)
 {
-	player->buff_arr[pickup].ticks_left += 500;
+	player->buff_arr[pickup].ticks_left = 500;
 }
 
 func b8 has_buff(e_pickup type)

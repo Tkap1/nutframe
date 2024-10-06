@@ -6152,6 +6152,7 @@ static void add_texture(s_animation* animation, s_texture texture)
 
 static s_texture get_animation_texture(s_animation* animation, float* dt)
 {
+	assert(animation->fps > 0);
 	*dt = fmodf(*dt, animation->texture_arr.count / (float)animation->fps);
 	int index = floorfi(*dt * animation->fps);
 	return animation->texture_arr[index];
