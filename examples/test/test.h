@@ -343,6 +343,8 @@ struct s_game
 	s_render_pass* light_render_pass;
 
 	s_carray<s_sound*, 3> creature_death_sound_arr;
+	s_sound* buy_bot_sound;
+	s_sound* upgrade_sound;
 
 	s_animation bot_animation;
 

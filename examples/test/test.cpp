@@ -58,6 +58,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->creature_death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
 		game->creature_death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
 		game->creature_death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/test/creature_death02.wav", platform_data->frame_arena);
+		game->buy_bot_sound = platform_data->load_sound(platform_data, "examples/test/buy_bot.wav", platform_data->frame_arena);
+		game->upgrade_sound = platform_data->load_sound(platform_data, "examples/test/upgrade.wav", platform_data->frame_arena);
 
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
 		game->light_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
@@ -553,6 +555,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					area_arr[0] = make_pos_area(panel_pos, panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
 					area_arr[1] = make_pos_area(panel_pos + v2(0.0f, panel_size.y), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
 					area_arr[2] = make_pos_area(panel_pos + v2(0.0f, panel_size.y * 2), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
+					b8 played_buy_bot_sound = false;
+					b8 played_upgrade_sound = false;
 					for(int row_i = 0; row_i < c_rows; row_i += 1) {
 						s_row row = row_arr[row_i];
 						for(int upgrade_i = 0; upgrade_i < row.upgrade_count; upgrade_i += 1) {
@@ -581,10 +585,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 										int bot = make_bot(c_base_pos);
 										if(bot >= 0) {
 											purchased = true;
+											if(!played_buy_bot_sound) {
+												g_platform_data->play_sound(game->buy_bot_sound);
+												played_buy_bot_sound = true;
+											}
 										}
 									}
 									else {
 										purchased = true;
+										if(!played_upgrade_sound) {
+											g_platform_data->play_sound(game->upgrade_sound);
+											played_upgrade_sound = true;
+										}
 									}
 									if(purchased) {
 										play_state->upgrade_level_arr[upgrade_id] += 1;
