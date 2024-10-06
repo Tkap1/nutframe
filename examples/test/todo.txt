@@ -20,10 +20,6 @@ smooth zoom
 smooth camera movement
 
 
-make drones sway
-
-shadow under drone?
-
 we need higher attack speed, kinda cringe
 drone cargo upgrade
 
@@ -32,3 +28,8 @@ higher attack speed higher spawn rate?
 
 
 place a turret down?
+
+make shadows use the main_fbo depth, otherwise they go on top of enemies
+
+polish:
+	make defeat bar shake when it gets close?

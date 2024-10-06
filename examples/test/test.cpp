@@ -530,47 +530,66 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			else {
 				draw_text(g_r, format_text("%i", play_state->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 
-				constexpr float font_size = 12;
+				constexpr float font_size = 20;
 				constexpr float padding = 8;
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		upgrade buttons start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
-					s_v2 panel_pos = v2(0.0f, c_base_res.y - c_base_button_size.y - padding);
+					constexpr int c_rows = 3;
+					struct s_row
+					{
+						int upgrade_count;
+						s_carray<e_upgrade, e_upgrade_count> upgrade_arr;
+					};
+					s_carray<s_row, c_rows> row_arr = zero;
+					row_arr[0].upgrade_count = 3;
+					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range}};
+					row_arr[1].upgrade_count = 4;
+					row_arr[1].upgrade_arr = {{e_upgrade_buy_bot, e_upgrade_bot_damage, e_upgrade_bot_movement_speed, e_upgrade_bot_harvest_range}};
+					row_arr[2].upgrade_count = 3;
+					row_arr[2].upgrade_arr = {{e_upgrade_spawn_rate, e_upgrade_creature_tier, e_upgrade_double_harvest}};
+					s_v2 panel_pos = v2(0.0f, c_base_res.y - (c_base_button_size.y + padding) * 3);
 					s_v2 panel_size = v2(c_base_res.x, c_base_button_size.y + padding);
-					s_pos_area area = make_pos_area(panel_pos, panel_size, c_base_button_size, padding, 1, e_pos_area_flag_center_y);
+					s_carray<s_pos_area, c_rows> area_arr;
+					area_arr[0] = make_pos_area(panel_pos, panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
+					area_arr[1] = make_pos_area(panel_pos + v2(0.0f, panel_size.y), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
+					area_arr[2] = make_pos_area(panel_pos + v2(0.0f, panel_size.y * 2), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
+					for(int row_i = 0; row_i < c_rows; row_i += 1) {
+						s_row row = row_arr[row_i];
+						for(int upgrade_i = 0; upgrade_i < row.upgrade_count; upgrade_i += 1) {
+							e_upgrade upgrade_id = row.upgrade_arr[upgrade_i];
+							s_upgrade_data data = c_upgrade_data[upgrade_id];
+							int curr_level = play_state->upgrade_level_arr[upgrade_id];
+							int cost = data.base_cost * (curr_level + 1);
+							b8 over_limit = play_state->upgrade_level_arr[upgrade_id] >= data.max_upgrades;
+							if(!over_limit && ui_button2(format_text(data.name, cost), pos_area_get_advance(&area_arr[row_i]), {.font_size = font_size})) {
+								int buy_count = 1;
+								if(is_key_down(g_input, c_key_left_ctrl)) {
+									buy_count *= 10;
+								}
+								if(is_key_down(g_input, c_key_left_shift)) {
+									buy_count *= 100;
+								}
+								for(int buy_i = 0; buy_i < buy_count; buy_i += 1) {
+									curr_level = play_state->upgrade_level_arr[upgrade_id];
+									b8 purchased = false;
+									cost = data.base_cost * (curr_level + 1);
+									over_limit = play_state->upgrade_level_arr[upgrade_id] >= data.max_upgrades;
+									if(over_limit) { break; }
+									if(cost > play_state->resource_count) { break; }
 
-					for_enum(upgrade_i, e_upgrade) {
-						s_upgrade_data data = c_upgrade_data[upgrade_i];
-						int curr_level = play_state->upgrade_level_arr[upgrade_i];
-						int cost = data.base_cost * (curr_level + 1);
-						b8 over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
-						if(!over_limit && ui_button2(format_text(data.name, cost), pos_area_get_advance(&area), {.font_size = font_size})) {
-							int buy_count = 1;
-							if(is_key_down(g_input, c_key_left_ctrl)) {
-								buy_count *= 10;
-							}
-							if(is_key_down(g_input, c_key_left_shift)) {
-								buy_count *= 100;
-							}
-							for(int buy_i = 0; buy_i < buy_count; buy_i += 1) {
-								curr_level = play_state->upgrade_level_arr[upgrade_i];
-								b8 purchased = false;
-								cost = data.base_cost * (curr_level + 1);
-								over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
-								if(over_limit) { break; }
-								if(cost > play_state->resource_count) { break; }
-
-								if(upgrade_i == e_upgrade_buy_bot) {
-									int bot = make_bot(c_base_pos);
-									if(bot >= 0) {
+									if(upgrade_id == e_upgrade_buy_bot) {
+										int bot = make_bot(c_base_pos);
+										if(bot >= 0) {
+											purchased = true;
+										}
+									}
+									else {
 										purchased = true;
 									}
-								}
-								else {
-									purchased = true;
-								}
-								if(purchased) {
-									play_state->upgrade_level_arr[upgrade_i] += 1;
-									play_state->resource_count -= cost;
+									if(purchased) {
+										play_state->upgrade_level_arr[upgrade_id] += 1;
+										play_state->resource_count -= cost;
+									}
 								}
 							}
 						}

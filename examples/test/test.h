@@ -7,7 +7,7 @@ global constexpr int c_updates_per_second = 60;
 global constexpr f64 c_update_delay = 1.0 / c_updates_per_second;
 global constexpr int c_max_leaderboard_entries = 16;
 global constexpr int c_max_particles = 8192;
-global constexpr s_v2 c_base_button_size = v2(128, 48);
+global constexpr s_v2 c_base_button_size = v2(256, 32);
 global constexpr s_v2 c_player_size = v2(32);
 global constexpr s_v2 c_creature_size = v2(64);
 global constexpr s_v2 c_bot_size = v2(64);
@@ -75,7 +75,7 @@ struct s_upgrade_data
 };
 
 global constexpr s_upgrade_data c_upgrade_data[] = {
-	{.base_cost = 5, .name = "Buy drone (%i)"},
+	{.base_cost = 5, .name = "+ drone (%i)"},
 	{.base_cost = 5, .name = "+ player damage (%i)"},
 	{.base_cost = 50, .name = "+ drone damage (%i)"},
 	{.base_cost = 10, .name = "+ player speed (%i)"},
