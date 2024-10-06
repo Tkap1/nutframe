@@ -8,7 +8,7 @@ global constexpr f64 c_update_delay = 1.0 / c_updates_per_second;
 global constexpr int c_max_leaderboard_entries = 16;
 global constexpr int c_max_particles = 8192;
 global constexpr s_v2 c_base_button_size = v2(256, 32);
-global constexpr s_v2 c_player_size = v2(32);
+global constexpr s_v2 c_player_size = v2(128);
 global constexpr s_v2 c_creature_size = v2(64);
 global constexpr s_v2 c_bot_size = v2(64);
 global constexpr s_v2 c_base_size = v2(512);
@@ -35,32 +35,33 @@ struct s_cells
 
 static_assert(c_max_creatures > c_num_creatures_to_lose);
 
+#define m_layer \
+X(background, 0) \
+X(shadow, 1) \
+X(base, 2) \
+X(creature, 3) \
+X(bot, 4) \
+X(player, 5) \
+X(laser, 6) \
+X(particle, 6) \
+X(text, 7)
+
+#define X(name, index) e_layer_##name,
+
 enum e_layer
 {
-	e_layer_background,
-	e_layer_shadow,
-	e_layer_base,
-	e_layer_player,
-	e_layer_creature,
-	e_layer_bot,
-	e_layer_laser,
-	e_layer_particle,
-	e_layer_text,
+	m_layer
 	e_layer_count,
 };
 
+#undef X
+
+#define X(name, index) index,
 constexpr int c_layer_to_render_pass_index_arr[] = {
-	0,
-	1,
-	2,
-	2,
-	3,
-	4,
-	5,
-	5,
-	6,
+	m_layer
 };
 static_assert(array_count(c_layer_to_render_pass_index_arr) == e_layer_count);
+#undef X
 
 enum e_upgrade
 {
@@ -185,6 +186,7 @@ struct s_player
 {
 	b8 flip_x;
 	int harvest_timer;
+	float animation_timer;
 	s_v2 prev_pos;
 	s_v2 pos;
 	s_sarray<s_laser_target, c_max_player_hits * c_max_player_hits> laser_target_arr;
@@ -410,7 +412,7 @@ struct s_game
 
 	s_play_state play_state;
 
-	s_carray<s_render_pass*, 7> world_render_pass_arr;
+	s_carray<s_render_pass*, 8> world_render_pass_arr;
 	s_render_pass* ui_render_pass0;
 	s_render_pass* ui_render_pass1;
 	s_render_pass* light_render_pass;
@@ -421,6 +423,7 @@ struct s_game
 
 	s_animation bot_animation;
 	s_animation ant_animation;
+	s_animation player_animation;
 
 	s_texture placeholder_texture;
 	s_texture base_texture;

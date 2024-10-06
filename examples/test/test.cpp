@@ -62,6 +62,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant024.png", e_wrap_clamp));
 		game->ant_animation.fps = 8;
 
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player000.png", e_wrap_clamp));
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player006.png", e_wrap_clamp));
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player012.png", e_wrap_clamp));
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player018.png", e_wrap_clamp));
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player024.png", e_wrap_clamp));
+		game->player_animation.fps = 12;
+
 		game->creature_death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
 		game->creature_death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
 		game->creature_death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/test/creature_death02.wav", platform_data->frame_arena);
@@ -189,6 +196,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					dir.y += 1;
 				}
 				dir = v2_normalized(dir);
+				if(!floats_equal(dir.x, 0.0f)) {
+					player->flip_x = dir.x > 0;
+				}
 				player->pos += dir * get_player_movement_speed();
 				{
 					s_bounds bounds = get_map_bounds();
@@ -494,12 +504,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				s_player p = game->play_state.player;
-				s_v2 pos = lerp(p.prev_pos, p.pos, interp_dt);
-				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), game->placeholder_texture, get_render_pass(e_layer_player));
+				s_player* p = &game->play_state.player;
+				s_v2 pos = lerp(p->prev_pos, p->pos, interp_dt);
+				p->animation_timer += g_delta;
+				s_texture texture = get_animation_texture(&game->player_animation, &p->animation_timer);
+				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), texture, get_render_pass(e_layer_player), {.flip_x = p->flip_x});
 				draw_light(pos, 256, make_color(0.9f), 0.0f);
 
-				foreach_val(target_i, target, p.laser_target_arr) {
+				draw_shadow(pos + v2(0, 32), 128, 1.0f, 0.1f);
+
+				foreach_val(target_i, target, p->laser_target_arr) {
 					s_v2 from_pos;
 					s_v2 to_pos = lerp(target.to.prev_pos, target.to.pos, interp_dt);
 					if(target.from.valid) {
@@ -901,8 +915,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[2], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[3], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[4], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[5], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[6], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[5], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[6], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[7], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lights start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
