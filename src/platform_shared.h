@@ -5466,14 +5466,17 @@ static void set_depth_mode(e_depth_mode mode)
 		} break;
 		case e_depth_mode_read_and_write: {
 			glEnable(GL_DEPTH_TEST);
+			glDepthFunc(GL_LESS);
 			glDepthMask(GL_TRUE);
 		} break;
 		case e_depth_mode_read_no_write: {
 			glEnable(GL_DEPTH_TEST);
+			glDepthFunc(GL_LESS);
 			glDepthMask(GL_FALSE);
 		} break;
 		case e_depth_mode_no_read_yes_write: {
-			glDisable(GL_DEPTH_TEST);
+			glEnable(GL_DEPTH_TEST);
+			glDepthFunc(GL_ALWAYS);
 			glDepthMask(GL_TRUE);
 		} break;
 		invalid_default_case;

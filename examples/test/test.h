@@ -292,13 +292,6 @@ struct s_ui
 	s_sarray<s_ui_data, 16> data_stack;
 };
 
-struct s_dev_menu
-{
-	b8 active;
-	int selected_ui;
-	b8 show_hitboxes;
-};
-
 struct s_leaderboard_state
 {
 	b8 coming_from_win;
@@ -362,8 +355,6 @@ struct s_game
 
 	s_ui ui;
 
-	s_dev_menu dev_menu;
-
 	float render_time;
 	s_framebuffer* particle_framebuffer;
 	s_framebuffer* text_framebuffer;
@@ -390,7 +381,6 @@ func void on_leaderboard_score_submitted();
 func void ui_start(int selected);
 func void ui_bool_button(s_len_str id_str, s_v2 pos, b8* ptr);
 func int ui_end();
-func void do_ui(s_m4 ortho);
 func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional = {});
 func void on_set_leaderboard_name(b8 success);
 func int make_creature(s_v2 pos, int tier);

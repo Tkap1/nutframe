@@ -60,7 +60,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->creature_death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/test/creature_death02.wav", platform_data->frame_arena);
 
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
-		game->light_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
+		game->light_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
 
 		game->font = &renderer->fonts[0];
 		platform_data->variables_path = "examples/test/variables.h";
@@ -742,18 +742,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		invalid_default_case;
 	}
 
-	#ifdef m_debug
-	if(is_key_pressed(g_input, c_key_f5)) {
-		game->dev_menu.active = !game->dev_menu.active;
-	}
-	#endif // m_debug
-
-	do_ui(ortho);
-
 	s_m4 view = cam->get_matrix();
 
 	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
-	g_r->clear_framebuffer(game->light_fbo, v4(0.75f, 0.75f, 0.75f, 1.0f), c_default_fbo_clear_flags);
+	g_r->clear_framebuffer(game->light_fbo, v4(0.75f, 0.75f, 0.75f, 1.0f), e_fbo_clear_color);
 
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[2], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
@@ -765,7 +757,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lights start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
 		// @Note(tkap, 06/10/2024): Shadows
-		g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->light_fbo, {.blend_mode = e_blend_mode_multiply_inv, .view = view, .projection = ortho});
+		g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->light_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_multiply_inv, .view = view, .projection = ortho});
 
 		g_r->end_render_pass(g_r, game->light_render_pass, game->light_fbo, {.blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
 		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->light_fbo, game->light_render_pass);
@@ -785,17 +777,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 #ifdef m_build_dll
 }
 #endif // m_build_dll
-
-static void do_ui(s_m4 ortho)
-{
-	if(game->dev_menu.active) {
-		ui_start(game->dev_menu.selected_ui);
-		ui_bool_button(strlit("Show hitboxes"), v2(4, 4), &game->dev_menu.show_hitboxes);
-		ui_bool_button(strlit("test"), v2(4, 64), &game->dev_menu.show_hitboxes);
-		game->dev_menu.selected_ui = ui_end();
-	}
-}
-
 
 static s_v2i pos_to_index(s_v2 pos, int tile_size)
 {
@@ -1399,5 +1380,5 @@ func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness)
 
 func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness)
 {
-	draw_circle(g_r, pos, 0, radius, make_color(strength), game->world_render_pass_arr[1], {.shader = 5, .circle_smoothness = smoothness});
+	draw_circle(g_r, pos, e_layer_shadow, radius, make_color(strength), game->world_render_pass_arr[1], {.shader = 5, .circle_smoothness = smoothness});
 }
