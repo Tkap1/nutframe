@@ -281,24 +281,39 @@ union s_m4
 	s_v4 v[4];
 };
 
+
 struct s_rng
 {
-	u32 seed;
+	u64 seed;
 
+	#pragma warning(push, 0)
+	// @Note(tkap, 12/06/2024): https://www.pcg-random.org/download.html
+
+	#ifdef __clang__
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Weverything"
+	#pragma clang diagnostic ignored "-Wall"
+	#pragma clang diagnostic ignored "-Wextra"
+	#endif // __clang__
 	u32 randu()
 	{
-		seed = seed * 2147001325 + 715136305;
-		return 0x31415926 ^ ((seed >> 16) + (seed << 16));
+		uint64_t oldstate = seed;
+		// Advance internal state
+		seed = oldstate * 6364136223846793005ULL + 1;
+		// Calculate output function (XSH RR), uses old state for max ILP
+		uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
+		uint32_t rot = oldstate >> 59u;
+		return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
 	}
+	#ifdef __clang__
+	#pragma clang diagnostic pop
+	#endif // __clang__
+	#pragma warning(pop)
 
-	b8 rand_bool()
+	f64 randf64()
 	{
-		return randu() & 1;
-	}
-
-	f64 randf()
-	{
-		return (f64)randu() / (f64)4294967295;
+		f64 result = (f64)randu() / (f64)4294967295;
+		return result;
 	}
 
 	float randf32()
@@ -306,9 +321,9 @@ struct s_rng
 		return (float)randu() / (float)4294967295;
 	}
 
-	f64 randf2()
+	f64 randf64_11()
 	{
-		return randf() * 2 - 1;
+		return randf64() * 2 - 1;
 	}
 
 	float randf32_11()
@@ -318,7 +333,7 @@ struct s_rng
 
 	u64 randu64()
 	{
-		return (u64)(randf() * (f64)c_max_u64);
+		return (u64)(randf64() * (f64)c_max_u64);
 	}
 
 
@@ -332,7 +347,7 @@ struct s_rng
 			max = temp;
 		}
 
-		return min + ((int)(randu() % (max - min + 1)));
+		return min + (randu() % (max - min + 1));
 	}
 
 	// min inclusive, max exclusive
@@ -345,7 +360,7 @@ struct s_rng
 			max = temp;
 		}
 
-		return min + ((int)(randu() % (max - min)));
+		return min + (randu() % (max - min));
 	}
 
 	float randf_range(float min_val, float max_val)
@@ -357,16 +372,49 @@ struct s_rng
 			max_val = temp;
 		}
 
-		float r = (float)randf();
+		float r = randf32();
 		return min_val + (max_val - min_val) * r;
 	}
 
-	b8 chance100(int chance)
+	b8 chance100(float chance)
 	{
-		return rand_range_ii(1, 100) <= chance;
+		assert(chance >= 0);
+		// @Note(tkap, 15/06/2023): This assert is probably not worth having because of our debug stat menu thing. We will easily go above 100%
+		// when testing, so this will get in the way. We do not want to pay the price of clamping only for debug reasons.
+		// assert(chance <= 100);
+		b8 result = chance / 100 >= randf64();
+		return result;
 	}
 
+	b8 chance1(f64 chance)
+	{
+		assert(chance >= 0);
+		return chance >= randf64();
+	}
+
+	b8 rand_bool()
+	{
+		return (b8)(randu() & 1);
+	}
+
+	int while_chance1(float chance)
+	{
+		int result = 0;
+		while(chance1(chance)) {
+			result += 1;
+		}
+		return result;
+	}
 };
+
+static s_rng make_rng(u64 seed)
+{
+	s_rng rng = {};
+	rng.randu();
+	rng.seed += seed;
+	rng.randu();
+	return rng;
+}
 
 template <typename T, int N>
 struct s_sarray
@@ -2529,8 +2577,8 @@ static s_v2 v2_rand_0_to_1(s_rng* rng)
 static s_v2 v2_rand_minus_1_to_1(s_rng* rng)
 {
 	return v2(
-		(float)rng->randf2(),
-		(float)rng->randf2()
+		(float)rng->randf32_11(),
+		(float)rng->randf32_11()
 	);
 }
 

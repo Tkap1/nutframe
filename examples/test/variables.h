@@ -7,3 +7,5 @@ static float c_bot_harvest_range = 64.000000f;
 static float c_player_harvest_range = 96.000000f;
 static int c_bot_harvest_delay = 10;
 static int c_player_harvest_delay = 7;
+static float c_tile_rand_min = 0.845238f;
+static float c_tile_rand_max = 0.690476f;

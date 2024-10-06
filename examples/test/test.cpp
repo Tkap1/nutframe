@@ -41,12 +41,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		initialize start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	if(!game->initialized) {
 		game->initialized = true;
-		game->rng.seed = platform_data->get_random_seed();
+		game->rng = make_rng(platform_data->get_random_seed());
 		g_r->set_vsync(true);
 		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png", e_wrap_clamp);
 		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png", e_wrap_clamp);
 		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png", e_wrap_clamp);
 		game->button_texture = g_r->load_texture(renderer, "examples/test/button.png", e_wrap_clamp);
+		game->tile_texture = g_r->load_texture(renderer, "examples/test/tile.png", e_wrap_clamp);
 
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_wrap_clamp));
@@ -424,6 +425,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	live_variable(&platform_data->vars, c_player_harvest_range, 0.0f, 256.0f, true);
 	live_variable(&platform_data->vars, c_bot_harvest_delay, 0, 100, true);
 	live_variable(&platform_data->vars, c_player_harvest_delay, 0, 100, true);
+	live_variable(&platform_data->vars, c_tile_rand_min, 0.0f, 1.0f, true);
+	live_variable(&platform_data->vars, c_tile_rand_max, 0.0f, 1.0f, true);
 
 	s_m4 ortho = m4_orthographic(0, c_base_res.x, c_base_res.y, 0, -100, 100);
 
@@ -483,13 +486,19 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				int end_y = ceilfi(max_bounds.y / tile_size);
 				for(int y = start_y; y <= end_y; y += 1) {
 					for(int x = start_x; x <= end_x; x += 1) {
+						s_rng rng = make_rng(x + y * 256);
+						int x_dist = abs(roundfi(c_base_pos.x / tile_size) - x);
+						int y_dist = abs(roundfi(c_base_pos.y / tile_size) - y);
+						int dist = x_dist + y_dist;
 						// s_v4 color = brighter(make_color(0.615, 0.481, 0.069), 0.15f);
-						s_v4 color = brighter(make_color(0.702, 0.548, 0.924), 0.15f);
-						if((x + y) & 1) {
-							color = brighter(color, 0.9f);
-						}
+						// s_v4 color = brighter(make_color(0.702, 0.548, 0.924), 0.15f);
+						float bright = rng.randf_range(c_tile_rand_min, c_tile_rand_max);
+						// s_v4 color = make_color(rng.randf_range(c_tile_rand_min, c_tile_rand_max));
+						bright *= 1.0f - (dist / 30.0f);
+						s_v4 color = make_color(bright);
 						s_v2 pos = v2(x, y) * tile_size;
-						draw_rect(g_r, pos, e_layer_background, v2(tile_size), color, get_render_pass(e_layer_background));
+						// draw_rect(g_r, pos, e_layer_background, v2(tile_size), color, get_render_pass(e_layer_background));
+						draw_texture(g_r, pos, e_layer_background, v2(tile_size), color, game->tile_texture, get_render_pass(e_layer_background), {.flip_x = rng.rand_bool()});
 					}
 				}
 			}
@@ -1361,7 +1370,7 @@ func b8 damage_creature(int creature, int damage)
 			.color_rand = v3(0.1f, 0.1f, 0.1f),
 		});
 
-		int chance = 2;
+		float chance = 2;
 		if(creature_arr->boss[creature]) {
 			chance = 20;
 		}
