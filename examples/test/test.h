@@ -27,6 +27,7 @@ global constexpr int c_num_cells = c_cell_area / c_cell_size;
 global constexpr s_v2 c_cells_topleft = v2(c_base_pos.x - c_cell_area * 0.5f, c_base_pos.y - c_cell_area * 0.5f);
 global constexpr int c_max_player_hits = 16;
 global constexpr s_v2 c_pickup_size = v2(64);
+global constexpr float c_tile_size = 256;
 
 struct s_cells
 {
@@ -439,6 +440,7 @@ struct s_game
 	s_texture button_texture;
 	s_texture tile_texture;
 	s_texture broken_bot_texture;
+	s_texture crater_texture;
 	s_carray<s_texture, 2> rock_texture_arr;
 
 	s_leaderboard_state leaderboard_state;
