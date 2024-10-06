@@ -27,6 +27,7 @@ global constexpr int c_cell_size = 256;
 global constexpr int c_num_cells = c_cell_area / c_cell_size;
 global constexpr s_v2 c_cells_topleft = v2(c_base_pos.x - c_cell_area * 0.5f, c_base_pos.y - c_cell_area * 0.5f);
 global constexpr int c_max_player_hits = 16;
+global constexpr s_v2 c_pickup_size = v2(64);
 
 struct s_cells
 {
@@ -101,6 +102,18 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain (%i)"},
 };
 
+enum e_pickup
+{
+	e_pickup_chain_and_range,
+	e_pickup_count,
+};
+
+struct s_pickup
+{
+	e_pickup type;
+	s_v2 pos;
+};
+
 enum e_state
 {
 	e_state_play,
@@ -114,13 +127,6 @@ struct s_leaderboard_entry
 	int time;
 	s_str<32> nice_name;
 	s_str<32> internal_name;
-};
-
-struct s_trail
-{
-	b8 flip_x;
-	float time;
-	s_v2 pos;
 };
 
 enum e_visual_effect
@@ -170,6 +176,11 @@ struct s_laser_target
 	s_maybe<s_lerp> from;
 };
 
+struct s_buff
+{
+	int ticks_left;
+};
+
 struct s_player
 {
 	b8 flip_x;
@@ -177,6 +188,7 @@ struct s_player
 	s_v2 prev_pos;
 	s_v2 pos;
 	s_sarray<s_laser_target, c_max_player_hits> laser_target_arr;
+	s_carray<s_buff, e_pickup_count> buff_arr;
 };
 
 
@@ -236,6 +248,7 @@ struct s_save_point
 
 struct s_particle
 {
+	b8 attached_to_player;
 	float fade;
 	float shrink;
 	float slowdown;
@@ -247,6 +260,12 @@ struct s_particle
 	float timer;
 	float duration;
 	s_v3 color;
+};
+
+struct s_particle_multiplier
+{
+	float radius = 1;
+	float speed = 1;
 };
 
 struct s_particle_data
@@ -264,6 +283,19 @@ struct s_particle_data
 	float radius_rand;
 	s_v3 color = {.x = 0.1f, .y = 0.1f, .z = 0.1f};
 	s_v3 color_rand;
+};
+
+global constexpr s_particle_data c_buff_particle_data_arr[] = {
+	{
+		.slowdown = 1,
+		.duration = 0.5f,
+		.duration_rand = 1,
+		.speed = 128,
+		.speed_rand = 1,
+		.radius = 4,
+		.color = v3(0.367f, 0.826f, 0.506f),
+		.color_rand = v3(0.5f, 0.5f, 0.5f),
+	}
 };
 
 struct s_camera2d
@@ -355,6 +387,7 @@ struct s_play_state
 	int update_count;
 	int update_count_at_win_time;
 	s_sarray<s_visual_effect, 1024> visual_effect_arr;
+	s_sarray<s_pickup, 128> pickup_arr;
 };
 
 struct s_game
@@ -403,7 +436,7 @@ func s_v2i pos_to_index(s_v2 pos, int tile_size);
 func b8 is_index_valid(s_v2i index);
 func b8 index_has_tile(s_v2i index);
 func s_v2 index_to_pos(s_v2i index, int tile_size);
-func void do_particles(int count, s_v2 pos, int z, s_particle_data data);
+func void do_particles(int count, s_v2 pos, int z, b8 attached_to_player, s_particle_data data);
 func void on_leaderboard_received(s_json* json);
 func void on_our_leaderboard_received(s_json* json);
 func void after_submitted_leaderboard();
@@ -446,3 +479,7 @@ func s_v2i get_cell_index(s_v2 pos);
 func s_bounds get_cam_bounds(s_camera2d cam);
 func s_bounds get_map_bounds();
 func int get_player_hits();
+func void make_pickup(s_v2 pos, e_pickup type);
+func void add_buff(s_player* player, e_pickup pickup);
+func b8 has_buff(e_pickup type);
+func s_particle_data multiply_particle_data(s_particle_data data, s_particle_multiplier multi);

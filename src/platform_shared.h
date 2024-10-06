@@ -6228,3 +6228,9 @@ static s_v2 constrain_pos(s_v2 pos, s_bounds bounds)
 	pos.y = at_most(bounds.max_y, pos.y);
 	return pos;
 }
+
+template <typename t>
+static void at_least_add(t* val, t to_add, t limit)
+{
+	*val = at_least(limit, *val + to_add);
+}

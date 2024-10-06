@@ -225,6 +225,27 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		update player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		update buffs start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_player* p = &state->player;
+				for_enum(buff_i, e_pickup) {
+					at_least_add(&p->buff_arr[buff_i].ticks_left, -1, 0);
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		update buffs end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		collect pickup start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				foreach_val(pickup_i, pickup, state->pickup_arr) {
+					if(rect_collides_rect_center(state->player.pos, c_player_size, pickup.pos, c_pickup_size)) {
+						add_buff(&state->player, pickup.type);
+						state->pickup_arr.remove_and_swap(pickup_i);
+						pickup_i -= 1;
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		collect pickup end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		update creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			for_creature_partial(creature) {
@@ -472,6 +493,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player buff visuals start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_player p = game->play_state.player;
+				s_v2 pos = lerp(p.prev_pos, p.pos, interp_dt);
+				for_enum(pickup_i, e_pickup) {
+					if(has_buff(pickup_i)) {
+						do_particles(8, pos, e_layer_particle, true, multiply_particle_data(c_buff_particle_data_arr[pickup_i], {.radius = 3, .speed = 3}));
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		player buff visuals end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			for_creature_partial(creature) {
 				if(!creature_arr->active[creature]) { continue; }
@@ -529,6 +562,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw pickups start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				foreach_val(pickup_i, pickup, game->play_state.pickup_arr) {
+					do_particles(8, pickup.pos, e_layer_particle, false, c_buff_particle_data_arr[pickup.type]);
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw pickups end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 			#if 0
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		visual effects start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -573,10 +614,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					color.w = at_least(0.0f, color.w);
 					float radius = p->radius * (1.0f - percent_done * p->shrink);
 					radius = at_least(0.0f, radius);
-					draw_circle(g_r, p->pos, p->z, radius, color, get_render_pass(e_layer_particle));
+					s_v2 offset = zero;
+					if(p->attached_to_player) {
+						offset = lerp(game->play_state.player.prev_pos, game->play_state.player.pos, interp_dt);
+					}
+					draw_circle(g_r, offset + p->pos, p->z, radius, color, get_render_pass(e_layer_particle));
 					p->timer += (float)platform_data->frame_time;
 					if(percent_done >= 1) {
-						game->play_state.particle_arr.remove_and_swap(particle_i--);
+						game->play_state.particle_arr.remove_and_swap(particle_i);
+						particle_i -= 1;
 					}
 				}
 			}
@@ -875,12 +921,15 @@ s_m4 s_camera2d::get_matrix()
 	return m;
 }
 
-func void do_particles(int count, s_v2 pos, int z, s_particle_data data)
+func void do_particles(int count, s_v2 pos, int z, b8 attached_to_player, s_particle_data data)
 {
 	s_rng* rng = &game->rng;
 	for(int particle_i = 0; particle_i < count; particle_i++) {
 		s_particle p = {};
-		p.pos = pos;
+		p.attached_to_player = attached_to_player;
+		if(!attached_to_player) {
+			p.pos = pos;
+		}
 		p.z = z;
 		p.fade = data.fade;
 		p.shrink = data.shrink;
@@ -1254,14 +1303,24 @@ func b8 damage_creature(int creature, int damage)
 	if(creature_arr->curr_health[creature] <= 0) {
 		remove_entity(creature, creature_arr->active, &creature_arr->index_data);
 		g_platform_data->play_sound(game->creature_death_sound_arr.get_random(&game->rng));
-		do_particles(32, creature_arr->pos[creature], e_layer_particle, {
-			.duration = 0.33f,
+
+		do_particles(64, creature_arr->pos[creature], e_layer_particle, false, {
+			.shrink = 3,
+			.slowdown = 4,
+			.duration = 1.33f,
 			.duration_rand = 1,
-			.speed = 128,
+			.speed = 256,
 			.speed_rand = 1,
+			.radius = 16,
 			.color = v3(0.2f, 0.1f, 0.1f),
-			.color_rand = v3(0.5f, 0.5f, 0.5f),
+			.color_rand = v3(0.1f, 0.1f, 0.1f),
 		});
+
+		if(game->rng.chance100(10)) {
+			make_pickup(creature_arr->pos[creature], (e_pickup)game->rng.rand_range_ie(0, e_pickup_count));
+		}
+
+
 		return true;
 	}
 	return false;
@@ -1427,7 +1486,8 @@ func int get_bot_damage()
 
 func float get_player_movement_speed()
 {
-	return c_player_movement_speed + game->play_state.upgrade_level_arr[e_upgrade_player_movement_speed];
+	float result = c_player_movement_speed + game->play_state.upgrade_level_arr[e_upgrade_player_movement_speed];
+	return result;
 }
 
 func float get_bot_movement_speed()
@@ -1451,7 +1511,11 @@ func int get_creature_spawn_tier()
 
 func float get_player_harvest_range()
 {
-	return c_player_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_player_harvest_range] * 35;
+	float result = c_player_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_player_harvest_range] * 35;
+	if(has_buff(e_pickup_chain_and_range)) {
+		result += 100;
+	}
+	return result;
 }
 
 func float get_bot_harvest_range()
@@ -1561,5 +1625,33 @@ func s_bounds get_cam_bounds(s_camera2d cam)
 func int get_player_hits()
 {
 	int result = 1 + game->play_state.upgrade_level_arr[e_upgrade_player_chain];
+	if(has_buff(e_pickup_chain_and_range)) {
+		result += 4;
+	}
 	return at_most(c_max_player_hits, result);
+}
+
+func void make_pickup(s_v2 pos, e_pickup type)
+{
+	s_pickup pickup = zero;
+	pickup.pos = pos;
+	pickup.type = type;
+	game->play_state.pickup_arr.add_checked(pickup);
+}
+
+func void add_buff(s_player* player, e_pickup pickup)
+{
+	player->buff_arr[pickup].ticks_left += 500;
+}
+
+func b8 has_buff(e_pickup type)
+{
+	return game->play_state.player.buff_arr[type].ticks_left > 0;
+}
+
+func s_particle_data multiply_particle_data(s_particle_data data, s_particle_multiplier multi)
+{
+	data.radius *= multi.radius;
+	data.speed *= multi.speed;
+	return data;
 }
