@@ -15,7 +15,6 @@ global constexpr s_v2 c_base_size = v2(512);
 global constexpr s_v2i c_sprite_size = v2i(64, 64);
 global constexpr int c_max_creatures = 1024;
 global constexpr int c_max_bots = 4096;
-// @TODO(tkap, 05/10/2024): set me
 global constexpr int c_leaderboard_id = 24824;
 global constexpr s_v2 c_base_pos = v2(400, 400);
 global f64 c_spawns_per_second = 1.5;
@@ -105,6 +104,7 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 enum e_pickup
 {
 	e_pickup_chain_and_range,
+	e_pickup_multi_target_and_range,
 	e_pickup_count,
 };
 
@@ -187,7 +187,7 @@ struct s_player
 	int harvest_timer;
 	s_v2 prev_pos;
 	s_v2 pos;
-	s_sarray<s_laser_target, c_max_player_hits> laser_target_arr;
+	s_sarray<s_laser_target, c_max_player_hits * c_max_player_hits> laser_target_arr;
 	s_carray<s_buff, e_pickup_count> buff_arr;
 };
 
@@ -295,7 +295,17 @@ global constexpr s_particle_data c_buff_particle_data_arr[] = {
 		.radius = 4,
 		.color = v3(0.367f, 0.826f, 0.506f),
 		.color_rand = v3(0.5f, 0.5f, 0.5f),
-	}
+	},
+	{
+		.slowdown = 1,
+		.duration = 0.5f,
+		.duration_rand = 1,
+		.speed = 128,
+		.speed_rand = 1,
+		.radius = 4,
+		.color = v3(0.889f, 0.538f, 0.617f),
+		.color_rand = v3(0.5f, 0.5f, 0.5f),
+	},
 };
 
 struct s_camera2d
@@ -483,3 +493,4 @@ func void make_pickup(s_v2 pos, e_pickup type);
 func void add_buff(s_player* player, e_pickup pickup);
 func b8 has_buff(e_pickup type);
 func s_particle_data multiply_particle_data(s_particle_data data, s_particle_multiplier multi);
+func int get_player_multi_target();

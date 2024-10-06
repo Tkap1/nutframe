@@ -192,33 +192,48 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				if(player->harvest_timer >= c_player_harvest_delay) {
 					player->laser_target_arr.count = 0;
 
+					s_sarray<int, c_max_player_hits> target_arr;
+					float harvest_range = get_player_harvest_range();
+					int multi_target = get_player_multi_target();
 					int hits = get_player_hits();
-					s_sarray<int, c_max_player_hits> blacklist;
-					s_v2 prev_pos = zero;
-					int previous = -1;
-					for(int hit_i = 0; hit_i < hits; hit_i += 1) {
+					int player_damage = get_player_damage();
+
+					for(int multi_target_i = 0; multi_target_i < multi_target; multi_target_i += 1) {
+						int multi_target_creature = get_closest_creature2(player->pos, harvest_range, &cells, platform_data->frame_arena, target_arr);
+						if(multi_target_creature < 0) { break; }
+						target_arr.add(multi_target_creature);
+					}
+
+					foreach_val(target_i, target, target_arr) {
+						int curr_target = target;
+						s_v2 prev_pos = zero;
+						int previous = -1;
+						s_sarray<int, c_max_player_hits> blacklist;
 						s_v2 query_pos = player->pos;
-						if(previous >= 0) { query_pos = prev_pos; }
-						int creature = get_closest_creature2(query_pos, get_player_harvest_range(), &cells, platform_data->frame_arena, blacklist);
-						if(creature >= 0) {
-							blacklist.add(creature);
-							prev_pos = creature_arr->pos[creature];
-							s_laser_target target = zero;
+						if(!creature_arr->active[curr_target]) { continue; }
+
+						for(int hit_i = 0; hit_i < hits; hit_i += 1) {
+							s_laser_target laser_target = zero;
+							if(previous >= 0) { query_pos = prev_pos; }
+							prev_pos = creature_arr->pos[curr_target];
+							blacklist.add(curr_target);
+
+							// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add laser start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 							if(previous >= 0) {
-								target.from = maybe(s_lerp{creature_arr->prev_pos[previous], creature_arr->pos[previous]});
+								laser_target.from = maybe(s_lerp{creature_arr->prev_pos[previous], creature_arr->pos[previous]});
 							}
-							target.to = {creature_arr->prev_pos[creature], creature_arr->pos[creature]};
-							player->laser_target_arr.add(target);
-							int player_damage = get_player_damage();
-							b8 killed = damage_creature(creature, player_damage);
+							laser_target.to = {creature_arr->prev_pos[curr_target], creature_arr->pos[curr_target]};
+							player->laser_target_arr.add(laser_target);
+							b8 killed = damage_creature(curr_target, player_damage);
 							if(killed) {
-								state->resource_count += get_creature_resource_reward(creature_arr->tier[creature], creature_arr->boss[creature]);
+								state->resource_count += get_creature_resource_reward(creature_arr->tier[curr_target], creature_arr->boss[curr_target]);
 							}
+							// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add laser end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 							player->harvest_timer = 0;
-							previous = creature;
-						}
-						else {
-							break;
+							previous = curr_target;
+
+							curr_target = get_closest_creature2(creature_arr->pos[curr_target], harvest_range, &cells, platform_data->frame_arena, blacklist);
+							if(curr_target < 0) { break; }
 						}
 					}
 				}
@@ -1316,7 +1331,12 @@ func b8 damage_creature(int creature, int damage)
 			.color_rand = v3(0.1f, 0.1f, 0.1f),
 		});
 
-		if(game->rng.chance100(10)) {
+		int chance = 2;
+		if(creature_arr->boss[creature]) {
+			chance = 20;
+		}
+
+		if(game->rng.chance100(chance)) {
 			make_pickup(creature_arr->pos[creature], (e_pickup)game->rng.rand_range_ie(0, e_pickup_count));
 		}
 
@@ -1515,6 +1535,9 @@ func float get_player_harvest_range()
 	if(has_buff(e_pickup_chain_and_range)) {
 		result += 100;
 	}
+	if(has_buff(e_pickup_multi_target_and_range)) {
+		result += 100;
+	}
 	return result;
 }
 
@@ -1654,4 +1677,13 @@ func s_particle_data multiply_particle_data(s_particle_data data, s_particle_mul
 	data.radius *= multi.radius;
 	data.speed *= multi.speed;
 	return data;
+}
+
+func int get_player_multi_target()
+{
+	int result = 1;
+	if(has_buff(e_pickup_multi_target_and_range)) {
+		result += 4;
+	}
+	return result;
 }
