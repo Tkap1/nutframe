@@ -429,6 +429,7 @@ struct s_game
 	s_texture base_texture;
 	s_texture button_texture;
 	s_texture tile_texture;
+	s_carray<s_texture, 2> rock_texture_arr;
 
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;

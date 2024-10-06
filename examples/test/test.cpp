@@ -48,6 +48,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png", e_wrap_clamp);
 		game->button_texture = g_r->load_texture(renderer, "examples/test/button.png", e_wrap_clamp);
 		game->tile_texture = g_r->load_texture(renderer, "examples/test/tile.png", e_wrap_clamp);
+		game->rock_texture_arr[0] = g_r->load_texture(renderer, "examples/test/rock01.png", e_wrap_clamp);
+		game->rock_texture_arr[1] = g_r->load_texture(renderer, "examples/test/rock02.png", e_wrap_clamp);
 
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_wrap_clamp));
@@ -504,6 +506,23 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw background end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			#if 0
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		doodads start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_rng rng = make_rng(0);
+				s_bounds bounds = get_map_bounds();
+				for(int i = 0; i < 64; i += 1) {
+					int index = rng.randu() % 2;
+					s_v2 pos = v2(
+						rng.randf_range(bounds.min_x, bounds.max_x),
+						rng.randf_range(bounds.min_y, bounds.max_y)
+					);
+					draw_texture_keep_aspect(g_r, pos, e_layer_background + 1, v2(64), make_color(1), game->rock_texture_arr[index], get_render_pass(e_layer_background), {.flip_x = rng.rand_bool()});
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		doodads end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			#endif
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw base start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				draw_texture_keep_aspect(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->base_texture, get_render_pass(e_layer_base));
@@ -920,7 +939,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
 	g_r->clear_framebuffer(game->light_fbo, v4(0.75f, 0.75f, 0.75f, 1.0f), e_fbo_clear_color);
 
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[2], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[3], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[4], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
