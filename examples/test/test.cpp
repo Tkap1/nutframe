@@ -45,13 +45,15 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		g_r->set_vsync(true);
 		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png");
 		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png");
-		game->drone_texture_arr[0] = g_r->load_texture(renderer, "examples/test/drone000.png");
-		game->drone_texture_arr[1] = g_r->load_texture(renderer, "examples/test/drone006.png");
-		game->drone_texture_arr[2] = g_r->load_texture(renderer, "examples/test/drone012.png");
-		game->drone_texture_arr[3] = g_r->load_texture(renderer, "examples/test/drone018.png");
-		game->drone_texture_arr[4] = g_r->load_texture(renderer, "examples/test/drone024.png");
 		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png");
 		game->ant_texture = g_r->load_texture(renderer, "examples/test/ant.png");
+
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png"));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png"));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone012.png"));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone018.png"));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone024.png"));
+		game->bot_animation.fps = 12;
 
 		game->creature_death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
 		game->creature_death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
@@ -296,6 +298,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					else {
 						set_state_next_frame(e_state_leaderboard);
 						game->leaderboard_state.coming_from_win = true;
+						game->play_state.update_count_at_win_time = game->play_state.update_count;
 					}
 				}
 			}
@@ -438,9 +441,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				if(bot_arr->state[bot] == e_bot_state_going_back_to_base) {
 					color = make_color(0.5f, 0.5f, 0.5f);
 				}
+
 				bot_arr->animation_timer[bot] += g_delta;
-				int index = roundfi(fmodf(bot_arr->animation_timer[bot] / (0.041666666666666664f * 4), 4));
-				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, game->drone_texture_arr[index], game->world_render_pass_bot);
+				s_texture texture = get_animation_texture(&game->bot_animation, &bot_arr->animation_timer[bot]);
+				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, texture, game->world_render_pass_bot);
 
 				int creature = get_creature(bot_arr->laser_target[bot]);
 				if(creature >= 0) {
@@ -516,21 +520,20 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						s_upgrade_data data = c_upgrade_data[upgrade_i];
 						int curr_level = play_state->upgrade_level_arr[upgrade_i];
 						int cost = data.base_cost * (curr_level + 1);
-						if(ui_button2(format_text(data.name, cost), pos_area_get_advance(&area), {.font_size = font_size})) {
+						b8 over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
+						if(!over_limit && ui_button2(format_text(data.name, cost), pos_area_get_advance(&area), {.font_size = font_size})) {
 							int buy_count = 1;
 							if(is_key_down(g_input, c_key_left_ctrl)) {
 								buy_count *= 10;
-								printf("ctrl\n");
 							}
 							if(is_key_down(g_input, c_key_left_shift)) {
 								buy_count *= 100;
-								printf("shift\n");
 							}
 							for(int buy_i = 0; buy_i < buy_count; buy_i += 1) {
 								curr_level = play_state->upgrade_level_arr[upgrade_i];
 								b8 purchased = false;
 								cost = data.base_cost * (curr_level + 1);
-								b8 over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
+								over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
 								if(over_limit) { break; }
 								if(cost > play_state->resource_count) { break; }
 
@@ -600,7 +603,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 				draw_text(g_r, text, c_half_res * v2(1.0f, 0.2f), 10, 64, make_color(1), true, game->font, game->ui_render_pass1);
 
-				draw_text(g_r, strlit("Press R to restart"), c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font, game->ui_render_pass1);
+				draw_text(g_r, strlit("Press R to restart..."), c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font, game->ui_render_pass1);
 			}
 
 			constexpr int c_max_visible_entries = 10;
@@ -625,7 +628,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			ui_start(99);
-			if(ui_button(strlit("Restart"), c_base_res * v2(0.85f, 0.92f), {.font_size = 32, .size_x = 90}) || is_key_pressed(g_input, c_key_escape)) {
+			if(ui_button(strlit("Restart"), c_base_res * v2(0.85f, 0.92f), {.font_size = 32, .size_x = 120}) || is_key_pressed(g_input, c_key_escape)) {
 				set_state_next_frame(e_state_play);
 			}
 			ui_end();
@@ -1291,7 +1294,7 @@ func float get_player_harvest_range()
 
 func float get_bot_harvest_range()
 {
-	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 10;
+	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 15;
 }
 
 func int get_creature_resource_reward(int tier)

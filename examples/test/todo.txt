@@ -23,3 +23,6 @@ smooth camera movement
 make drones sway
 
 shadow under drone?
+
+we need higher attack speed, kinda cringe
+drone cargo upgrade

@@ -6085,3 +6085,21 @@ static void circular_index_add(t* out_value, int to_add, int count)
 	t result = (t)circular_index(*out_value + to_add, count);
 	*out_value = result;
 }
+
+struct s_animation
+{
+	s_sarray<s_texture, 16> texture_arr;
+	int fps;
+};
+
+static void add_texture(s_animation* animation, s_texture texture)
+{
+	animation->texture_arr.add(texture);
+}
+
+static s_texture get_animation_texture(s_animation* animation, float* dt)
+{
+	*dt = fmodf(*dt, animation->texture_arr.count / (float)animation->fps);
+	int index = floorfi(*dt * animation->fps);
+	return animation->texture_arr[index];
+}

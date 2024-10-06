@@ -344,10 +344,11 @@ struct s_game
 
 	s_carray<s_sound*, 3> creature_death_sound_arr;
 
+	s_animation bot_animation;
+
 	s_texture placeholder_texture;
 	s_texture base_texture;
 	s_texture ant_texture;
-	s_carray<s_texture, 5> drone_texture_arr;
 
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;
