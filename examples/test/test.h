@@ -22,11 +22,11 @@ global f64 c_spawns_per_second = 1.5;
 global constexpr int c_resource_to_win = 100000;
 global constexpr int c_num_creatures_to_lose = 1000;
 global constexpr float c_laser_width = 16;
-
 global constexpr int c_cell_area = 4096;
 global constexpr int c_cell_size = 256;
 global constexpr int c_num_cells = c_cell_area / c_cell_size;
 global constexpr s_v2 c_cells_topleft = v2(c_base_pos.x - c_cell_area * 0.5f, c_base_pos.y - c_cell_area * 0.5f);
+global constexpr int c_max_player_hits = 16;
 
 struct s_cells
 {
@@ -75,6 +75,7 @@ enum e_upgrade
 	e_upgrade_bot_harvest_range,
 	e_upgrade_double_harvest,
 	e_upgrade_bot_cargo_count,
+	e_upgrade_player_chain,
 	e_upgrade_count,
 };
 
@@ -97,6 +98,7 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 100, .name = "+ drone range (%i)"},
 	{.base_cost = 10000, .max_upgrades = 1, .name = "x2 harvest (%i)"},
 	{.base_cost = 100, .max_upgrades = 9, .name = "+ drone cargo (%i)"},
+	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain (%i)"},
 };
 
 enum e_state
@@ -174,7 +176,7 @@ struct s_player
 	int harvest_timer;
 	s_v2 prev_pos;
 	s_v2 pos;
-	s_sarray<s_laser_target, 16> laser_target_arr;
+	s_sarray<s_laser_target, c_max_player_hits> laser_target_arr;
 };
 
 
@@ -437,9 +439,10 @@ func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness);
 func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness);
 func int get_bot_max_cargo_count();
 func s_v2 get_creature_size(int creature);
-func int get_closest_creature2(s_v2 pos, float radius, s_cells* cells, s_lin_arena* arena, s_sarray<int, 16> blacklist);
+func int get_closest_creature2(s_v2 pos, float radius, s_cells* cells, s_lin_arena* arena, s_sarray<int, c_max_player_hits> blacklist);
 func s_entity_index creature_to_entity_index(int creature);
 func s_dynamic_array<int> query_creatures_circle(s_v2 pos, float radius, s_cells* cells, s_lin_arena* frame_arena);
 func s_v2i get_cell_index(s_v2 pos);
 func s_bounds get_cam_bounds(s_camera2d cam);
 func s_bounds get_map_bounds();
+func int get_player_hits();

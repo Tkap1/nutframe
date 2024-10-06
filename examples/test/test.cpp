@@ -192,8 +192,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				if(player->harvest_timer >= c_player_harvest_delay) {
 					player->laser_target_arr.count = 0;
 
-					int hits = 1;
-					s_sarray<int, 16> blacklist;
+					int hits = get_player_hits();
+					s_sarray<int, c_max_player_hits> blacklist;
 					s_v2 prev_pos = zero;
 					int previous = -1;
 					for(int hit_i = 0; hit_i < hits; hit_i += 1) {
@@ -605,8 +605,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						s_carray<e_upgrade, e_upgrade_count> upgrade_arr;
 					};
 					s_carray<s_row, c_rows> row_arr = zero;
-					row_arr[0].upgrade_count = 3;
-					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range}};
+					row_arr[0].upgrade_count = 4;
+					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range, e_upgrade_player_chain}};
 					row_arr[1].upgrade_count = 5;
 					row_arr[1].upgrade_arr = {{e_upgrade_buy_bot, e_upgrade_bot_damage, e_upgrade_bot_movement_speed, e_upgrade_bot_cargo_count, e_upgrade_bot_harvest_range}};
 					row_arr[2].upgrade_count = 3;
@@ -1306,7 +1306,7 @@ func s_get_closest_creature get_closest_creature(s_v2 pos)
 	return data;
 }
 
-func int get_closest_creature2(s_v2 pos, float radius, s_cells* cells, s_lin_arena* arena, s_sarray<int, 16> blacklist)
+func int get_closest_creature2(s_v2 pos, float radius, s_cells* cells, s_lin_arena* arena, s_sarray<int, c_max_player_hits> blacklist)
 {
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 
@@ -1556,4 +1556,10 @@ func s_bounds get_cam_bounds(s_camera2d cam)
 	bounds.max_x = cam.pos.x + c_base_res.x / cam.zoom;
 	bounds.max_y = cam.pos.y + c_base_res.y / cam.zoom;
 	return bounds;
+}
+
+func int get_player_hits()
+{
+	int result = 1 + game->play_state.upgrade_level_arr[e_upgrade_player_chain];
+	return at_most(c_max_player_hits, result);
 }
