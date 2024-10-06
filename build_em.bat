@@ -34,7 +34,11 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../shaders/blur.fragment@shaders/blur.fragment
 	set comp=!comp! --preload-file ../examples/test/noise.png@examples/test/noise.png
 	set comp=!comp! --preload-file ../examples/test/placeholder.png@examples/test/placeholder.png
-	set comp=!comp! --preload-file ../examples/test/drone.png@examples/test/drone.png
+	set comp=!comp! --preload-file ../examples/test/drone000.png@examples/test/drone000.png
+	set comp=!comp! --preload-file ../examples/test/drone006.png@examples/test/drone006.png
+	set comp=!comp! --preload-file ../examples/test/drone012.png@examples/test/drone012.png
+	set comp=!comp! --preload-file ../examples/test/drone018.png@examples/test/drone018.png
+	set comp=!comp! --preload-file ../examples/test/drone024.png@examples/test/drone024.png
 	set comp=!comp! --preload-file ../examples/test/base.png@examples/test/base.png
 	set comp=!comp! --preload-file ../examples/test/ant.png@examples/test/ant.png
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf

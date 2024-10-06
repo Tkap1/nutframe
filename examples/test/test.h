@@ -28,13 +28,29 @@ static_assert(c_max_creatures > c_num_creatures_to_lose);
 enum e_layer
 {
 	e_layer_background,
+	e_layer_shadow,
 	e_layer_base,
 	e_layer_player,
 	e_layer_creature,
 	e_layer_bot,
 	e_layer_laser,
 	e_layer_particle,
+	e_layer_text,
+	e_layer_count,
 };
+
+constexpr int c_layer_to_render_pass_index_arr[] = {
+	0,
+	1,
+	2,
+	2,
+	3,
+	4,
+	5,
+	5,
+	6,
+};
+static_assert(array_count(c_layer_to_render_pass_index_arr) == e_layer_count);
 
 enum e_upgrade
 {
@@ -170,6 +186,7 @@ struct s_bot_arr
 	int harvest_timer[c_max_bots];
 	int cargo[c_max_bots];
 	float animation_timer[c_max_bots];
+	float tilt_timer[c_max_bots];
 	s_entity_index target[c_max_bots];
 	s_entity_index laser_target[c_max_bots];
 	e_bot_state state[c_max_bots];
@@ -251,14 +268,6 @@ struct s_camera2d
 	s_m4 get_matrix();
 };
 
-struct s_projectile
-{
-	int timer;
-	s_v2 prev_pos;
-	s_v2 pos;
-	s_v2 dir;
-};
-
 struct s_ui_data
 {
 	int element_count;
@@ -335,10 +344,7 @@ struct s_game
 
 	s_play_state play_state;
 
-	s_render_pass* world_render_pass0;
-	s_render_pass* world_render_pass1;
-	s_render_pass* world_render_pass2;
-	s_render_pass* world_render_pass_bot;
+	s_carray<s_render_pass*, 7> world_render_pass_arr;
 	s_render_pass* ui_render_pass0;
 	s_render_pass* ui_render_pass1;
 
@@ -408,3 +414,4 @@ func float get_bot_harvest_range();
 func int get_creature_resource_reward(int tier);
 func void set_state_next_frame(e_state new_state);
 func int count_alive_creatures();
+func s_render_pass* get_render_pass(e_layer layer);

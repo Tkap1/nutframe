@@ -169,6 +169,12 @@ m_gl_funcs
 
 #endif // ifndef m_game
 
+enum e_wrap
+{
+	e_wrap_repeat,
+	e_wrap_clamp,
+};
+
 #define assert(cond) do { if(!(cond)) { on_failed_assert(#cond, __FILE__, __LINE__); } } while(0)
 #define unreferenced(thing) (void)thing;
 #define check(cond) do { if(!(cond)) { error(false); }} while(0)
@@ -835,7 +841,6 @@ static constexpr int c_default_fbo_clear_flags = e_fbo_clear_color | e_fbo_clear
 #include "embed.h"
 #endif // m_debug
 #endif // m_game
-
 
 struct s_ray
 {
@@ -1913,8 +1918,8 @@ static u32 load_shader_from_file(const char* vertex_path, const char* fragment_p
 static void after_making_framebuffer(int index, s_game_renderer* game_renderer);
 static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
 static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
-static s_texture load_texture(s_game_renderer* game_renderer, const char* path);
-static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering, int format);
+static s_texture load_texture(s_game_renderer* game_renderer, const char* path, e_wrap wrap_mode);
+static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering, int format, int wrap_mode);
 static s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena);
 static void reset_ui();
 
@@ -2875,6 +2880,7 @@ struct s_render_data
 {
 	b8 flip_x;
 	int shader;
+	float circle_smoothness = 0.45f;
 };
 
 enum e_var_type
@@ -3043,7 +3049,7 @@ static constexpr float c_game_speed_arr[] = {
 
 
 static constexpr int c_max_framebuffers = 8;
-typedef s_texture (*t_load_texture)(s_game_renderer*, const char*);
+typedef s_texture (*t_load_texture)(s_game_renderer*, const char*, e_wrap);
 typedef s_font* (*t_load_font)(s_game_renderer*, const char*, int, s_lin_arena*);
 struct s_game_renderer
 {
@@ -3222,10 +3228,10 @@ static void draw_generic(s_game_renderer* gr, void* data, s_render_pass* render_
 static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
-	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	t.model = model;
 
 	t.pos = v3(pos, -99.0f + layer * 2);
@@ -3237,13 +3243,33 @@ static void draw_rect(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 
 	draw_generic(game_renderer, &t, render_pass, render_data.shader, 0, e_mesh_rect);
 }
 
-static void draw_rect_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
+static void draw_circle(s_game_renderer* game_renderer, s_v2 pos, int layer, float radius, s_v4 color, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
-	s_m4 model = m4_translate(pos);
-	model = m4_multiply(model, m4_scale(v3(size, 1)));
+	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
+	model = m4_multiply(model, m4_scale(v3(radius * 2, radius * 2, 1)));
+	t.model = model;
+
+	t.pos = v3(pos, -99.0f + layer * 2);
+	t.flags |= e_render_flag_circle;
+	t.draw_size.x = radius * 2;
+	t.draw_size.y = render_data.circle_smoothness;
+	t.color = color;
+	t.uv_min = v2(0, 0);
+	t.uv_max = v2(1, 1);
+	t.mix_color = v41f(1);
+	draw_generic(game_renderer, &t, render_pass, render_data.shader, 0, e_mesh_rect);
+}
+
+static void draw_rect_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s_v4 color, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
+{
+	s_m4 model = m4_translate(pos);
+	if(!is_zero(t.rotation)) {
+		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+	}
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	t.model = model;
 
 	t.draw_size = size;
@@ -3338,10 +3364,10 @@ static void draw_texture(s_game_renderer* game_renderer, s_v2 pos, int layer, s_
 {
 
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
-	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	t.model = model;
 	t.flags |= e_render_flag_use_texture;
 	t.pos = v3(pos, -99.0f + layer * 2);
@@ -3369,10 +3395,10 @@ static void draw_texture_keep_aspect(s_game_renderer* game_renderer, s_v2 pos, i
 	size.y /= aspect;
 
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
-	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	t.model = model;
 	t.flags |= e_render_flag_use_texture;
 	t.pos = v3(pos, -99.0f + layer * 2);
@@ -3397,10 +3423,10 @@ static void draw_texture_keep_aspect(s_game_renderer* game_renderer, s_v2 pos, i
 static void draw_framebuffer(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2 size, s_v4 color, s_framebuffer* framebuffer, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
-	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	t.model = model;
 	t.flags |= e_render_flag_use_texture;
 	t.pos = v3(pos, -99.0f + layer * 2);
@@ -3416,10 +3442,10 @@ static void draw_atlas(s_game_renderer* game_renderer, s_v2 pos, int layer, s_v2
 {
 
 	s_m4 model = m4_translate(v3(pos, -99.0f + layer * 2));
-	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	t.model = model;
 
 	t.flags |= e_render_flag_use_texture;
@@ -3453,10 +3479,10 @@ static void draw_atlas_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s
 	if(render_data.shader == 0) { render_data.shader = 2; }
 
 	s_m4 model = m4_translate(pos);
-	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	if(!is_zero(t.rotation)) {
 		model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
 	}
+	model = m4_multiply(model, m4_scale(v3(size, 1)));
 	t.model = model;
 	t.flags |= e_render_flag_use_texture;
 	t.pos = pos;
@@ -3698,7 +3724,7 @@ static void add_msg_to_console_(s_console* cn, s_len_str text)
 #ifndef m_game
 static s_shader platform_load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
 static b8 check_for_shader_errors(u32 id, char* out_error);
-static s_texture load_texture_from_file(const char* path, u32 filtering);
+static s_texture load_texture_from_file(const char* path, u32 filtering, int wrap_mode);
 static void after_loading_texture(s_game_renderer* game_renderer);
 
 static void set_base_resolution(int width, int height)
@@ -4632,7 +4658,7 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 
 
 	// @Fixme(tkap, 20/10/2023): path
-	game_renderer->checkmark_texture = load_texture(game_renderer, "assets/checkmark.png");
+	game_renderer->checkmark_texture = load_texture(game_renderer, "assets/checkmark.png", e_wrap_clamp);
 
 	load_font(game_renderer, "assets/consola.ttf", 128, arena);
 
@@ -4844,22 +4870,31 @@ static b8 check_for_shader_errors(u32 id, char* out_error)
 	return true;
 }
 
-static s_texture load_texture(s_game_renderer* game_renderer, const char* path)
+static s_texture load_texture(s_game_renderer* game_renderer, const char* path, e_wrap in_wrap_mode)
 {
 	if(g_do_embed) {
 		g_to_embed.add(path);
 	}
 
+	int wrap_mode = 0;
+	if(in_wrap_mode == e_wrap_repeat) {
+		wrap_mode = GL_REPEAT;
+	}
+	else if(in_wrap_mode == e_wrap_clamp) {
+		wrap_mode = GL_CLAMP_TO_EDGE;
+	}
+	invalid_else;
+
 	#ifndef m_debug
 
 	int width, height, num_channels;
 	void* data = stbi_load_from_memory(embed_data[g_asset_index], embed_sizes[g_asset_index], &width, &height, &num_channels, 4);
-	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR, GL_RGBA);
+	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR, GL_RGBA, wrap_mode);
 	g_asset_index += 1;
 
 	#else
 
-	s_texture result = load_texture_from_file(path, GL_LINEAR);
+	s_texture result = load_texture_from_file(path, GL_LINEAR, wrap_mode);
 	#endif
 
 	result.game_id = game_renderer->texture_arr.count;
@@ -4869,15 +4904,15 @@ static s_texture load_texture(s_game_renderer* game_renderer, const char* path)
 	return result;
 }
 
-static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering, int format)
+static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering, int format, int wrap_mode)
 {
 	assert(data);
 	u32 id;
 	gl(glGenTextures(1, &id));
 	gl(glBindTexture(GL_TEXTURE_2D, id));
 	gl(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data));
-	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_mode));
+	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap_mode));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering));
 	gl(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering));
 	gl(glGenerateMipmap(GL_TEXTURE_2D));
@@ -4888,12 +4923,12 @@ static s_texture load_texture_from_data(void* data, int width, int height, u32 f
 	return texture;
 }
 
-static s_texture load_texture_from_file(const char* path, u32 filtering)
+static s_texture load_texture_from_file(const char* path, u32 filtering, int wrap_mode)
 {
 	int width, height, num_channels;
 	void* data = stbi_load(path, &width, &height, &num_channels, 4);
 	assert(data);
-	s_texture texture = load_texture_from_data(data, width, height, filtering, GL_RGBA);
+	s_texture texture = load_texture_from_data(data, width, height, filtering, GL_RGBA, wrap_mode);
 	stbi_image_free(data);
 	return texture;
 }
@@ -5114,7 +5149,7 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 		stbtt_FreeBitmap(bitmap_arr[bitmap_i], NULL);
 	}
 
-	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR, m_gl_single_channel);
+	font.texture = load_texture_from_data(gl_bitmap, total_width, total_height, GL_LINEAR, m_gl_single_channel, GL_REPEAT);
 
 	return font;
 }

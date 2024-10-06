@@ -337,7 +337,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 								break;
 							}
 							gl(glDeleteTextures(1, &texture.gpu_id));
-							s_texture new_texture = load_texture_from_data(data, width, height, GL_LINEAR, GL_RGBA);
+							// @TODO(tkap, 06/10/2024): The wrap mode is broken here. We should the wrap mode when we initially load the texture and pass it here
+							s_texture new_texture = load_texture_from_data(data, width, height, GL_LINEAR, GL_RGBA, GL_CLAMP_TO_EDGE);
 							new_texture.game_id = texture_i;
 							new_texture.path = file_path;
 							stbi_image_free(data);

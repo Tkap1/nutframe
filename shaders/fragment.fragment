@@ -106,8 +106,9 @@ void main()
 	}
 
 	if((v_flags & 4) != 0) {
+		float smoothness = v_draw_size.y;
 		float d = distance(v_local_uv, vec2(0.5));
-		color.a *= smoothstep(0.49, 0.45, d);
+		color.a *= smoothstep(0.49, smoothness, d);
 	}
 
 	if(v_effect_id == 2) {

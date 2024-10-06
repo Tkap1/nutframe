@@ -43,16 +43,16 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->initialized = true;
 		game->rng.seed = platform_data->get_random_seed();
 		g_r->set_vsync(true);
-		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png");
-		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png");
-		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png");
-		game->ant_texture = g_r->load_texture(renderer, "examples/test/ant.png");
+		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png", e_wrap_clamp);
+		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png", e_wrap_repeat);
+		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png", e_wrap_clamp);
+		game->ant_texture = g_r->load_texture(renderer, "examples/test/ant.png", e_wrap_clamp);
 
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png"));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png"));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone012.png"));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone018.png"));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone024.png"));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_wrap_clamp));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_wrap_clamp));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone012.png", e_wrap_clamp));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone018.png", e_wrap_clamp));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone024.png", e_wrap_clamp));
 		game->bot_animation.fps = 12;
 
 		game->creature_death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
@@ -71,12 +71,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			g_platform_data->register_leaderboard_client();
 		}
 
+		for(int i = 0; i < game->world_render_pass_arr.max_elements(); i += 1) {
+			game->world_render_pass_arr[i] = make_render_pass(g_r, &platform_data->permanent_arena);
+		}
 		game->ui_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->ui_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
-		game->world_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
-		game->world_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
-		game->world_render_pass2 = make_render_pass(g_r, &platform_data->permanent_arena);
-		game->world_render_pass_bot = make_render_pass(g_r, &platform_data->permanent_arena);
 		g_r->default_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 
 		g_r->game_speed_index = 5;
@@ -394,7 +393,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							color = brighter(color, 0.9f);
 						}
 						s_v2 pos = v2(x, y) * tile_size;
-						draw_rect(g_r, pos, e_layer_background, v2(tile_size), color, game->world_render_pass0);
+						draw_rect(g_r, pos, e_layer_background, v2(tile_size), color, get_render_pass(e_layer_background));
 					}
 				}
 			}
@@ -402,7 +401,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw base start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				draw_texture_keep_aspect(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->base_texture, game->world_render_pass0);
+				draw_texture_keep_aspect(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->base_texture, get_render_pass(e_layer_base));
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw base end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -410,12 +409,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_player p = game->play_state.player;
 				s_v2 pos = lerp(p.prev_pos, p.pos, interp_dt);
-				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), game->placeholder_texture, game->world_render_pass0);
+				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), game->placeholder_texture, get_render_pass(e_layer_player));
 
 				int creature = get_creature(p.target);
 				if(creature >= 0) {
 					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(1, 0.1f, 0.1f), game->world_render_pass1, {}, {.effect_id = 5});
+					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(1, 0.1f, 0.1f), get_render_pass(e_layer_laser), {}, {.effect_id = 5});
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -429,7 +428,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					make_color(0.473f, 0.549f, 0.744f), make_color(0.276f, 0.523f, 0.052f), make_color(0.076f, 0.185f, 0.868f), make_color(0.525f, 0.820f, 0.016f),
 				};
 				int color_index = creature_arr->tier[creature] % array_count(color_arr);
-				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size, color_arr[color_index], game->ant_texture, game->world_render_pass0, {.flip_x = creature_arr->flip_x[creature]});
+				float mix_weight = 1.0f - (play_state->update_count - creature_arr->tick_when_last_damaged[creature]) / 10.0f;
+				mix_weight = clamp(mix_weight, 0.0f, 1.0f);
+				draw_texture_keep_aspect(g_r, pos, e_layer_creature, c_creature_size, color_arr[color_index], game->ant_texture,
+				get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight});
+
+				draw_circle(g_r, pos + v2(0, 10), 0, 36, v4(0, 0, 0, 0.5f), get_render_pass(e_layer_shadow), {.circle_smoothness = 0.0f});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -442,14 +446,24 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					color = make_color(0.5f, 0.5f, 0.5f);
 				}
 
+				if(bot_arr->state[bot] == e_bot_state_harvesting_creature) {
+					bot_arr->tilt_timer[bot] = go_towards(bot_arr->tilt_timer[bot], 0.0f, g_delta);
+				}
+				else {
+					bot_arr->tilt_timer[bot] = sinf(game->render_time * 4);
+				}
+
 				bot_arr->animation_timer[bot] += g_delta;
 				s_texture texture = get_animation_texture(&game->bot_animation, &bot_arr->animation_timer[bot]);
-				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, texture, game->world_render_pass_bot);
+				float tilt = bot_arr->tilt_timer[bot] * 0.25f;
+				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, texture, get_render_pass(e_layer_bot), {}, {.rotation = tilt});
+
+				draw_circle(g_r, pos + v2(0, 100), 0, 32, v4(0, 0, 0, 0.5f), get_render_pass(e_layer_shadow), {.circle_smoothness = 0.0f});
 
 				int creature = get_creature(bot_arr->laser_target[bot]);
 				if(creature >= 0) {
 					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(0.1f, 1, 0.1f), game->world_render_pass1, {}, {.effect_id = 5});
+					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, make_color(0.1f, 1, 0.1f), get_render_pass(e_layer_laser), {}, {.effect_id = 5});
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -487,7 +501,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					color.w = at_least(0.0f, color.w);
 					float radius = p->radius * (1.0f - percent_done * p->shrink);
 					radius = at_least(0.0f, radius);
-					draw_rect(g_r, p->pos, p->z, v2(radius * 2.0f), color, game->world_render_pass1, {}, {.flags = e_render_flag_circle});
+					draw_circle(g_r, p->pos, p->z, radius, color, get_render_pass(e_layer_particle));
 					p->timer += (float)platform_data->frame_time;
 					if(percent_done >= 1) {
 						game->play_state.particle_arr.remove_and_swap(particle_i--);
@@ -569,7 +583,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_len_str str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
 					s_v2 text_pos = center_text_on_rect(str, game->font, c_base_pos - c_base_size * 0.5f, c_base_size, 40, true, true);
 					// text_pos.y += font_size * 0.1f;
-					draw_text(g_r, str, text_pos, 0, 40, make_color(1), false, game->font, game->world_render_pass2);
+					draw_text(g_r, str, text_pos, 0, 40, make_color(1), false, game->font, get_render_pass(e_layer_text));
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -713,16 +727,20 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
 
-	g_r->end_render_pass(g_r, game->world_render_pass0, game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_bot, game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass1, game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass2, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[2], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[3], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[4], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[5], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[6], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+
 	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 	g_r->clear_framebuffer(g_r->default_fbo, zero, c_default_fbo_clear_flags);
-	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo, game->world_render_pass0);
-	g_r->end_render_pass(g_r, game->world_render_pass0, g_r->default_fbo, {.projection = ortho});
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo, game->world_render_pass_arr[0]);
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], g_r->default_fbo, {.projection = ortho});
 
 }
 
@@ -1329,4 +1347,9 @@ func int count_alive_creatures()
 		result += 1;
 	}
 	return result;
+}
+
+func s_render_pass* get_render_pass(e_layer layer)
+{
+	return game->world_render_pass_arr[c_layer_to_render_pass_index_arr[layer]];
 }
