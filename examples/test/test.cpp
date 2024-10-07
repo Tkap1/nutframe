@@ -1448,7 +1448,7 @@ func void pick_target_for_bot(int bot)
 	s_bot_arr* bot_arr = &game->play_state.bot_arr;
 	assert(bot_arr->active[bot]);
 
-	s_get_closest_creature data = get_closest_creature(c_base_pos);
+	s_get_closest_creature data = get_closest_creature(bot_arr->pos[bot]);
 
 	if(data.closest_non_targeted_creature.id > 0) {
 		bot_arr->target[bot] = data.closest_non_targeted_creature;
