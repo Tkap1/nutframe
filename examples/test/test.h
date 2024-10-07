@@ -31,6 +31,7 @@ global constexpr float c_tile_size = 256;
 global constexpr int c_max_craters = 64;
 global constexpr int c_dash_duration = 20;
 global constexpr int c_dash_cooldown = 50;
+global constexpr float c_dash_speed = 24;
 
 struct s_cells
 {

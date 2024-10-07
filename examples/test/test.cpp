@@ -247,7 +247,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				s_v2 dir = zero;
 
 				if(player->dashing) {
-					dir = player->dash_dir * 24;
+					dir = player->dash_dir * c_dash_speed * (1.0f + get_player_movement_speed() / 20);
 					player->active_dash_timer += 1;
 					if(player->active_dash_timer >= c_dash_duration) {
 						player->dashing = false;
@@ -654,7 +654,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_player* p = &game->play_state.player;
 				s_v2 pos = lerp(p->prev_pos, p->pos, interp_dt);
-				p->animation_timer += g_delta;
+				if(!p->dashing) {
+					p->animation_timer += g_delta;
+				}
 				s_texture texture = get_animation_texture(&game->player_animation, &p->animation_timer);
 				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), texture, get_render_pass(e_layer_player), {.flip_x = p->flip_x});
 				draw_light(pos, 256, make_color(0.9f), 0.0f);
