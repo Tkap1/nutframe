@@ -1307,6 +1307,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 
+			draw_text(g_r, strlit("Victory!"), c_base_res * v2(0.5f, 0.1f), 10, font_size, make_color(1), true, game->font, game->ui_render_pass1);
 			draw_text(g_r, strlit("Enter your name"), c_base_res * v2(0.5f, 0.2f), 10, font_size, make_color(1), true, game->font, game->ui_render_pass1);
 			if(state->error_str.len > 0) {
 				draw_text(g_r, strlit(state->error_str.data), c_base_res * v2(0.5f, 0.3f), 10, font_size, rgb(0xD77870), true, game->font, game->ui_render_pass1);
