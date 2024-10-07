@@ -45,8 +45,14 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../examples/test/ant012.png@examples/test/ant012.png
 	set comp=!comp! --preload-file ../examples/test/ant018.png@examples/test/ant018.png
 	set comp=!comp! --preload-file ../examples/test/ant024.png@examples/test/ant024.png
+	set comp=!comp! --preload-file ../examples/test/player000.png@examples/test/player000.png
+	set comp=!comp! --preload-file ../examples/test/player006.png@examples/test/player006.png
+	set comp=!comp! --preload-file ../examples/test/player012.png@examples/test/player012.png
+	set comp=!comp! --preload-file ../examples/test/player018.png@examples/test/player018.png
+	set comp=!comp! --preload-file ../examples/test/player024.png@examples/test/player024.png
 	set comp=!comp! --preload-file ../examples/test/base.png@examples/test/base.png
-	set comp=!comp! --preload-file ../examples/test/ant.png@examples/test/ant.png
+	set comp=!comp! --preload-file ../examples/test/crater.png@examples/test/crater.png
+	set comp=!comp! --preload-file ../examples/test/tile.png@examples/test/tile.png
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
 	set comp=!comp! --preload-file ../assets/checkmark.png@assets/checkmark.png
 	set comp=!comp! --preload-file ../platform_map.map@platform_map.map

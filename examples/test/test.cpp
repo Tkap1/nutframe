@@ -48,6 +48,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png", e_wrap_clamp);
 		game->button_texture = g_r->load_texture(renderer, "examples/test/button.png", e_wrap_clamp);
 		game->tile_texture = g_r->load_texture(renderer, "examples/test/tile.png", e_wrap_clamp);
+		game->crater_texture = g_r->load_texture(renderer, "examples/test/crater.png", e_wrap_clamp);
 		game->rock_texture_arr[0] = g_r->load_texture(renderer, "examples/test/rock01.png", e_wrap_clamp);
 		game->rock_texture_arr[1] = g_r->load_texture(renderer, "examples/test/rock02.png", e_wrap_clamp);
 		game->broken_bot_texture = g_r->load_texture(renderer, "examples/test/broken_bot.png", e_wrap_clamp);
@@ -156,6 +157,20 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		spawn broken bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		setup craters start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				{
+					s_rng rng = make_rng(0);
+					s_bounds map_bounds = get_map_bounds();
+					for(int crater_i = 0; crater_i < c_max_craters; crater_i += 1) {
+						game->play_state.crater_pos_arr[crater_i] = v2(
+							rng.randf_range(map_bounds.min_x, map_bounds.max_x) + 64,
+							rng.randf_range(map_bounds.min_y, map_bounds.max_y) - 64
+						);
+						game->play_state.crater_size_arr[crater_i] = rng.randf_range(96, 136);
+					}
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		setup craters end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			} break;
 		}
@@ -512,7 +527,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		circular_index_add(&g_r->game_speed_index, -1, array_count(c_game_speed_arr));
 	}
 	if(is_key_pressed(g_input, c_key_f1)) {
-		play_state->resource_count = 90000;
+		play_state->resource_count = floorfi(c_resource_to_win * 0.9f);
 	}
 	if(is_key_pressed(g_input, c_key_f2)) {
 		play_state->resource_count = c_resource_to_win;
@@ -537,35 +552,51 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			float laser_light_radius = sin_range(120, 128, game->render_time * 32.0f);
 
+			s_carray2<float, 256, 256> brightness_arr = zero;
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				s_v2 min_bounds = cam->pos;
-				s_v2 max_bounds = cam->pos + c_base_res / cam->zoom;
-				// s_v2 bound_size = max_bounds - min_bounds;
-				constexpr float tile_size = 256;
-				int start_x = floorfi(min_bounds.x / tile_size);
-				int start_y = floorfi(min_bounds.y / tile_size);
-				int end_x = ceilfi(max_bounds.x / tile_size);
-				int end_y = ceilfi(max_bounds.y / tile_size);
+				s_bounds bounds = get_cam_bounds_snap_to_tile_size(*cam);
+				int start_x = floorfi(bounds.min_x / c_tile_size);
+				int start_y = floorfi(bounds.min_y / c_tile_size);
+				int end_x = ceilfi(bounds.max_x / c_tile_size);
+				int end_y = ceilfi(bounds.max_y / c_tile_size);
 				for(int y = start_y; y <= end_y; y += 1) {
 					for(int x = start_x; x <= end_x; x += 1) {
 						s_rng rng = make_rng(x + y * 256);
-						int x_dist = abs(roundfi(c_base_pos.x / tile_size) - x);
-						int y_dist = abs(roundfi(c_base_pos.y / tile_size) - y);
+						int x_dist = abs(roundfi(c_base_pos.x / c_tile_size) - x);
+						int y_dist = abs(roundfi(c_base_pos.y / c_tile_size) - y);
 						int dist = x_dist + y_dist;
-						// s_v4 color = brighter(make_color(0.615, 0.481, 0.069), 0.15f);
-						// s_v4 color = brighter(make_color(0.702, 0.548, 0.924), 0.15f);
 						float bright = rng.randf_range(c_tile_rand_min, c_tile_rand_max);
-						// s_v4 color = make_color(rng.randf_range(c_tile_rand_min, c_tile_rand_max));
 						bright *= 1.0f - (dist / 30.0f);
 						s_v4 color = make_color(bright);
-						s_v2 pos = v2(x, y) * tile_size;
-						// draw_rect(g_r, pos, e_layer_background, v2(tile_size), color, get_render_pass(e_layer_background));
-						draw_texture(g_r, pos, e_layer_background, v2(tile_size), color, game->tile_texture, get_render_pass(e_layer_background), {.flip_x = rng.rand_bool()});
+						brightness_arr[y - start_y][x - start_x] = bright;
+						s_v2 pos = v2(x, y) * c_tile_size;
+						draw_texture(g_r, pos, e_layer_background, v2(c_tile_size), color, game->tile_texture, get_render_pass(e_layer_background), {.flip_x = rng.rand_bool()}, {.origin_offset = c_origin_topleft});
 					}
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw background end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		doodads start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_bounds cam_bounds = get_cam_bounds_snap_to_tile_size(game->play_state.cam);
+				for(int crater_i = 0; crater_i < c_max_craters; crater_i += 1) {
+					s_v2 pos = game->play_state.crater_pos_arr[crater_i];
+					float size = game->play_state.crater_size_arr[crater_i];
+					s_v2 p = v2(
+						pos.x - cam_bounds.min_x,
+						pos.y - cam_bounds.min_y
+					);
+					int x = floorfi(p.x / c_tile_size);
+					int y = floorfi(p.y / c_tile_size);
+					if(is_valid_index(x, y, 256, 256)) {
+						float brightness = at_most(1.0f, brightness_arr[y][x] * 1.1f);
+						draw_texture_keep_aspect(g_r, pos, e_layer_background + 1, v2(size), make_color(brightness), game->crater_texture, get_render_pass(e_layer_background));
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		doodads end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			#if 0
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		doodads start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -1789,6 +1820,29 @@ func s_bounds get_cam_bounds(s_camera2d cam)
 	bounds.min_y = cam.pos.y;
 	bounds.max_x = cam.pos.x + c_base_res.x / cam.zoom;
 	bounds.max_y = cam.pos.y + c_base_res.y / cam.zoom;
+	return bounds;
+}
+
+func s_bounds get_cam_bounds_snap_to_tile_size(s_camera2d cam)
+{
+	s_bounds bounds = zero;
+	bounds.min_x = cam.pos.x;
+	bounds.min_y = cam.pos.y;
+	bounds.max_x = cam.pos.x + c_base_res.x / cam.zoom;
+	bounds.max_y = cam.pos.y + c_base_res.y / cam.zoom;
+
+	float x_diff = fmodf(bounds.min_x, c_tile_size);
+	float y_diff = fmodf(bounds.min_y, c_tile_size);
+	if(x_diff < 0) {
+		x_diff = c_tile_size + x_diff;
+	}
+	if(y_diff < 0) {
+		y_diff = c_tile_size + y_diff;
+	}
+	bounds.min_x -= x_diff;
+	bounds.max_x -= x_diff;
+	bounds.min_y -= y_diff;
+	bounds.max_y -= y_diff;
 	return bounds;
 }
 

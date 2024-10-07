@@ -18,7 +18,7 @@ global constexpr int c_max_bots = 4096;
 global constexpr int c_leaderboard_id = 24824;
 global constexpr s_v2 c_base_pos = v2(400, 400);
 global f64 c_spawns_per_second = 1.5;
-global constexpr int c_resource_to_win = 100000;
+global constexpr int c_resource_to_win = 50000;
 global constexpr int c_num_creatures_to_lose = 1000;
 global constexpr float c_laser_width = 16;
 global constexpr int c_cell_area = 4096;
@@ -28,6 +28,7 @@ global constexpr s_v2 c_cells_topleft = v2(c_base_pos.x - c_cell_area * 0.5f, c_
 global constexpr int c_max_player_hits = 16;
 global constexpr s_v2 c_pickup_size = v2(64);
 global constexpr float c_tile_size = 256;
+global constexpr int c_max_craters = 64;
 
 struct s_cells
 {
@@ -90,7 +91,7 @@ struct s_upgrade_data
 };
 
 global constexpr s_upgrade_data c_upgrade_data[] = {
-	{.base_cost = 5, .name = "+ drone (%i)"},
+	{.base_cost = 5, .max_upgrades = 3500, .name = "+ drone (%i)"},
 	{.base_cost = 5, .name = "+ player damage (%i)"},
 	{.base_cost = 50, .name = "+ drone damage (%i)"},
 	{.base_cost = 10, .max_upgrades = 20, .name = "+ player speed (%i)"},
@@ -98,8 +99,8 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 20, .name = "+ spawn rate (%i)"},
 	{.base_cost = 100, .name = "+ creature tier (%i)"},
 	{.base_cost = 50, .max_upgrades = 40, .name = "+ player range (%i)"},
-	{.base_cost = 100, .name = "+ drone range (%i)"},
-	{.base_cost = 10000, .max_upgrades = 1, .name = "x2 harvest (%i)"},
+	{.base_cost = 100, .max_upgrades = 50, .name = "+ drone range (%i)"},
+	{.base_cost = 5000, .max_upgrades = 1, .name = "x2 harvest (%i)"},
 	{.base_cost = 100, .max_upgrades = 9, .name = "+ drone cargo (%i)"},
 	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain (%i)"},
 };
@@ -410,6 +411,8 @@ struct s_play_state
 	s_sarray<s_visual_effect, 1024> visual_effect_arr;
 	s_sarray<s_pickup, 128> pickup_arr;
 	s_sarray<s_broken_bot, 128> broken_bot_arr;
+	s_carray<s_v2, c_max_craters> crater_pos_arr;
+	s_carray<float, c_max_craters> crater_size_arr;
 };
 
 
@@ -513,3 +516,4 @@ func void add_buff(s_player* player, e_pickup pickup);
 func b8 has_buff(e_pickup type);
 func s_particle_data multiply_particle_data(s_particle_data data, s_particle_multiplier multi);
 func int get_player_multi_target();
+func s_bounds get_cam_bounds_snap_to_tile_size(s_camera2d cam);

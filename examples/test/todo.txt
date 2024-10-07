@@ -19,8 +19,11 @@ place a turret down?
 
 dont tick down buffs until they actually do something once
 
+dash?
+
 polish:
 	make defeat bar shake when it gets close?
 	smooth zoom
 	smooth camera movement
 	win animation instead of instant change to leaderboard
+	sound when picking up broken drone
