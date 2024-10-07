@@ -904,10 +904,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			if(show_ui) {
 				draw_text(g_r, format_text("%i", play_state->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 
-				constexpr float font_size = 20;
-				constexpr float padding = 8;
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		upgrade buttons start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
+					constexpr float padding = 8;
+					constexpr float font_size = 24;
 					constexpr int c_rows = 3;
 					struct s_row
 					{
@@ -924,9 +924,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_v2 panel_pos = v2(0.0f, c_base_res.y - (c_base_button_size.y + padding) * 3);
 					s_v2 panel_size = v2(c_base_res.x, c_base_button_size.y + padding);
 					s_carray<s_pos_area, c_rows> area_arr;
-					area_arr[0] = make_pos_area(v2(padding, 0.0f) + panel_pos, panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
-					area_arr[1] = make_pos_area(v2(padding, 0.0f) + panel_pos + v2(0.0f, panel_size.y), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
-					area_arr[2] = make_pos_area(v2(padding, 0.0f) + panel_pos + v2(0.0f, panel_size.y * 2), panel_size, c_base_button_size, padding, -1, e_pos_area_flag_center_y);
+					s_v2 button_size = v2(370, 32);
+					area_arr[0] = make_pos_area(v2(padding, 0.0f) + panel_pos, panel_size, button_size, padding, -1, e_pos_area_flag_center_y);
+					area_arr[1] = make_pos_area(v2(padding, 0.0f) + panel_pos + v2(0.0f, panel_size.y), panel_size, button_size, padding, -1, e_pos_area_flag_center_y);
+					area_arr[2] = make_pos_area(v2(padding, 0.0f) + panel_pos + v2(0.0f, panel_size.y * 2), panel_size, button_size, padding, -1, e_pos_area_flag_center_y);
 					b8 played_buy_bot_sound = false;
 					b8 played_upgrade_sound = false;
 					for(int row_i = 0; row_i < c_rows; row_i += 1) {
@@ -937,12 +938,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							int curr_level = play_state->upgrade_level_arr[upgrade_id];
 							int cost = data.base_cost * (curr_level + 1);
 							b8 over_limit = play_state->upgrade_level_arr[upgrade_id] >= data.max_upgrades;
+							s_ui_optional optional = zero;
+							optional.description = get_upgrade_tooltip(upgrade_id);
+							optional.font_size = font_size;
+							optional.size_x = button_size.x;
+							optional.size_y = button_size.y;
 							if(
 								!over_limit &&
-								ui_button(
-									format_text("%s (%i)", data.name, cost), pos_area_get_advance(&area_arr[row_i]),
-									{.description = get_upgrade_tooltip(upgrade_id), .font_size = font_size}
-								)
+								(ui_button(
+									format_text("%s (%i) (%c)", data.name, cost, (char)data.key), pos_area_get_advance(&area_arr[row_i]), optional
+								) || is_key_pressed(g_input, data.key))
 							) {
 								int buy_count = 1;
 								if(is_key_down(g_input, c_key_left_ctrl)) {
