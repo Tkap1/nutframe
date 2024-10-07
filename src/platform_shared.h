@@ -1093,6 +1093,17 @@ static constexpr s_v4 rgb(int hex)
 }
 
 [[nodiscard]]
+static constexpr s_v4 hex_rgb_plus_alpha(int hex, float a)
+{
+	s_v4 result;
+	result.x = ((hex & 0xFF0000) >> 16) / 255.0f;
+	result.y = ((hex & 0x00FF00) >> 8) / 255.0f;
+	result.z = ((hex & 0x0000FF)) / 255.0f;
+	result.w = a;
+	return result;
+}
+
+[[nodiscard]]
 static constexpr s_v4 rgba(int hex)
 {
 	s_v4 result;
@@ -3217,6 +3228,7 @@ static s_v2 get_text_size_with_count(s_len_str text, s_font* font, float font_si
 	int column = in_column;
 
 	s_v2 size = {};
+	float max_width = 0;
 	float scale = font->scale * (font_size / font->size);
 	size.y = font_size;
 
@@ -3224,18 +3236,23 @@ static s_v2 get_text_size_with_count(s_len_str text, s_font* font, float font_si
 	{
 		char c = text[char_i];
 		s_glyph glyph = font->glyph_arr[c];
-		if(c == '\t')
-		{
+		if(c == '\t') {
 			int spaces = get_spaces_for_column(column);
 			size.x += glyph.advance_width * scale * spaces;
 			column += spaces;
 		}
-		else
-		{
+		else if(c == '\n') {
+			size.y += font_size;
+			size.x = 0;
+			column = 0;
+		}
+		else {
 			size.x += glyph.advance_width * scale;
 			column += 1;
 		}
+		max_width = max(size.x, max_width);
 	}
+	size.x = max_width;
 
 	return size;
 }
@@ -6269,6 +6286,17 @@ struct s_bounds
 	float max_y;
 };
 
+struct s_rectf
+{
+	s_v2 pos;
+	s_v2 size;
+};
+
+static s_rectf make_rectf(s_v2 pos, s_v2 size)
+{
+	return {pos, size};
+}
+
 static s_v2 constrain_pos(s_v2 pos, s_bounds bounds)
 {
 	pos.x = at_least(bounds.min_x, pos.x);
@@ -6276,6 +6304,35 @@ static s_v2 constrain_pos(s_v2 pos, s_bounds bounds)
 	pos.x = at_most(bounds.max_x, pos.x);
 	pos.y = at_most(bounds.max_y, pos.y);
 	return pos;
+}
+
+constexpr static s_bounds rect_to_bounds(s_v2 pos, s_v2 size)
+{
+	return {
+		pos.x, pos.y,
+		pos.x + size.x, pos.y + size.y
+	};
+}
+
+static s_rectf bounds_to_rect(s_bounds b)
+{
+	s_rectf r;
+	r.pos.x = b.min_x;
+	r.pos.y = b.min_y;
+	r.size.x = b.max_x - b.min_x;
+	r.size.y = b.max_y - b.min_y;
+	return r;
+}
+
+static s_rectf constrain_rect(s_v2 pos, s_v2 size, s_bounds bounds)
+{
+	s_bounds temp = rect_to_bounds(pos, size);
+	temp.min_x = at_least(bounds.min_x, temp.min_x);
+	temp.min_y = at_least(bounds.min_y, temp.min_y);
+	temp.max_x = at_most(bounds.max_x, temp.max_x);
+	temp.max_y = at_most(bounds.max_y, temp.max_y);
+	s_rectf r = bounds_to_rect(temp);
+	return r;
 }
 
 template <typename t>

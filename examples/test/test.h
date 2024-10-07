@@ -398,6 +398,7 @@ struct s_ui_element_data
 
 struct s_ui_optional
 {
+	s_len_str description;
 	float font_size;
 	float size_x;
 	float size_y;
@@ -471,6 +472,8 @@ struct s_game
 	s_carray<s_render_pass*, 8> world_render_pass_arr;
 	s_render_pass* ui_render_pass0;
 	s_render_pass* ui_render_pass1;
+	s_render_pass* ui_render_pass2;
+	s_render_pass* ui_render_pass3;
 	s_render_pass* light_render_pass;
 
 	s_carray<s_sound*, e_sound_count> sound_arr;
@@ -559,3 +562,5 @@ func s_particle_data multiply_particle_data(s_particle_data data, s_particle_mul
 func int get_player_multi_target();
 func s_bounds get_cam_bounds_snap_to_tile_size(s_camera2d cam);
 func void play_sound_group(e_sound_group id);
+func int count_alive_bots();
+func s_len_str get_upgrade_tooltip(e_upgrade id);

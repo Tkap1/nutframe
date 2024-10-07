@@ -8,6 +8,7 @@
 static constexpr s_v2 c_base_res = {1920, 1080};
 // static constexpr s_v2 c_base_res = {1366, 768};
 static constexpr s_v2 c_half_res = {c_base_res.x * 0.5f, c_base_res.y * 0.5f};
+static constexpr s_bounds c_base_res_bounds = rect_to_bounds(v2(0), c_base_res);
 
 static s_input* g_input;
 static s_game* game;
@@ -95,6 +96,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		}
 		game->ui_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->ui_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->ui_render_pass2 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->ui_render_pass3 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->light_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 		g_r->default_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 
@@ -901,7 +904,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							int curr_level = play_state->upgrade_level_arr[upgrade_id];
 							int cost = data.base_cost * (curr_level + 1);
 							b8 over_limit = play_state->upgrade_level_arr[upgrade_id] >= data.max_upgrades;
-							if(!over_limit && ui_button2(format_text(data.name, cost), pos_area_get_advance(&area_arr[row_i]), {.font_size = font_size})) {
+							if(
+								!over_limit &&
+								ui_button2(
+									format_text(data.name, cost), pos_area_get_advance(&area_arr[row_i]),
+									{.description = get_upgrade_tooltip(upgrade_id), .font_size = font_size}
+								)
+							) {
 								int buy_count = 1;
 								if(is_key_down(g_input, c_key_left_ctrl)) {
 									buy_count *= 10;
@@ -1126,6 +1135,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass2, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass3, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 	g_r->clear_framebuffer(g_r->default_fbo, zero, c_default_fbo_clear_flags);
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo, game->world_render_pass_arr[0]);
@@ -1419,9 +1430,24 @@ func b8 ui_button2(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	}
 	draw_texture(g_r, pos, 0, size, color, game->button_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 
-	s_v2 text_pos = center_text_on_rect(id_str, game->font, pos, size, font_size, true, true);
-	text_pos.y += font_size * 0.1f;
-	draw_text(g_r, parse_result.text, text_pos, 1, font_size, make_color(1), false, game->font, game->ui_render_pass1);
+	{
+		s_v2 text_pos = center_text_on_rect(id_str, game->font, pos, size, font_size, true, true);
+		text_pos.y += font_size * 0.1f;
+		draw_text(g_r, parse_result.text, text_pos, 1, font_size, make_color(1), false, game->font, game->ui_render_pass1);
+	}
+
+	if(hovered && optional.description.len > 0) {
+		float temp_font_size = font_size * 1.6f;
+		s_v2 text_size = get_text_size(optional.description, game->font, temp_font_size);
+		float padding = 16;
+		s_v2 panel_size = text_size + v2(padding * 2);
+		s_v2 panel_pos = g_mouse - v2(0.0f, panel_size.y);
+		s_rectf panel = constrain_rect(panel_pos, panel_size, c_base_res_bounds);
+		s_v2 text_pos = panel.pos + v2(padding);
+		text_pos.y += 4;
+		draw_rect(g_r, panel.pos, 0, panel.size, hex_rgb_plus_alpha(0x9E8642, 0.85f), game->ui_render_pass2, {}, {.origin_offset = c_origin_topleft});
+		draw_text(g_r, optional.description, text_pos, 0, temp_font_size, make_color(1), false, game->font, game->ui_render_pass3);
+	}
 
 	return result;
 }
@@ -1951,4 +1977,73 @@ func void play_sound_group(e_sound_group group_id)
 		g_platform_data->play_sound(to_play);
 	}
 
+}
+
+func int count_alive_bots()
+{
+	int result = 0;
+	for_bot_partial(bot) {
+		if(game->play_state.bot_arr.active[bot]) { result += 1; }
+	}
+	return result;
+}
+
+func s_len_str get_upgrade_tooltip(e_upgrade id)
+{
+	s_len_str result = zero;
+	switch(id) {
+		case e_upgrade_buy_bot: {
+			result = format_text("+1 drone\n\nCurrent: %i", count_alive_bots());
+		} break;
+
+		case e_upgrade_player_damage: {
+			result = format_text("+1 player damage\n\nCurrent: %i", get_player_damage());
+		} break;
+
+		case e_upgrade_bot_damage: {
+			result = format_text("+1 drone damage\n\nCurrent: %i", get_bot_damage());
+		} break;
+
+		case e_upgrade_player_movement_speed: {
+			result = format_text("+1 player movement speed\n\nCurrent: %.1f", get_player_movement_speed());
+		} break;
+
+		case e_upgrade_bot_movement_speed: {
+			result = format_text("+1 drone movement speed\n\nCurrent: %.1f", get_bot_movement_speed());
+		} break;
+
+		case e_upgrade_spawn_rate: {
+			int val = game->play_state.upgrade_level_arr[e_upgrade_spawn_rate] * 15;
+			result = format_text("Creatures spawn 15%% faster\n\nCurrent: %i%%", val);
+		} break;
+
+		case e_upgrade_creature_tier: {
+			int val = game->play_state.upgrade_level_arr[e_upgrade_creature_tier];
+			result = format_text("Creatures are stronger and more rewarding\n\nCurrent: %i", val);
+		} break;
+
+		case e_upgrade_player_harvest_range: {
+			result = format_text("+35 player harvest range\n\nCurrent: %.0f", get_player_harvest_range());
+		} break;
+
+		case e_upgrade_bot_harvest_range: {
+			result = format_text("+20 drone harvest range\n\nCurrent: %.0f", get_bot_harvest_range());
+		} break;
+
+		case e_upgrade_double_harvest: {
+			result = format_text("Gain double resources from harvesting");
+		} break;
+
+		case e_upgrade_bot_cargo_count: {
+			result = format_text("Drones can harvest more creatures\nbefore having to return to the hive\n\nCurrent: %i", get_bot_max_cargo_count());
+		} break;
+
+		case e_upgrade_player_chain: {
+			result = format_text("Player attack chains to nearby enemies\n\nCurrent: %i", get_player_hits() - 1);
+		} break;
+
+		invalid_default_case;
+
+	}
+	return result;
 }
