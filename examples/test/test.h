@@ -50,6 +50,7 @@ enum e_sound
 	e_sound_buy_bot,
 	e_sound_upgrade,
 	e_sound_level_up,
+	e_sound_dash,
 	e_sound_count,
 };
 
@@ -59,6 +60,7 @@ enum e_sound_group
 	e_sound_group_buy_bot,
 	e_sound_group_upgrade,
 	e_sound_group_level_up,
+	e_sound_group_dash,
 	e_sound_group_count,
 };
 
@@ -74,6 +76,7 @@ global constexpr s_sound_group_data c_sound_group_data_arr[e_sound_group_count] 
 	{1, 0.1f, {e_sound_buy_bot}},
 	{1, 0.1f, {e_sound_upgrade}},
 	{1, 0, {e_sound_level_up}},
+	{1, 0, {e_sound_dash}},
 };
 
 global float g_sound_group_last_play_time_arr[e_sound_group_count];

@@ -85,6 +85,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->sound_arr[e_sound_buy_bot] = platform_data->load_sound(platform_data, "examples/test/buy_bot.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_upgrade] = platform_data->load_sound(platform_data, "examples/test/upgrade.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_level_up] = platform_data->load_sound(platform_data, "examples/test/level_up.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_dash] = platform_data->load_sound(platform_data, "examples/test/dash.wav", platform_data->frame_arena);
 
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
 		game->light_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
@@ -309,6 +310,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						player->dash_start = player->pos;
 						player->active_dash_timer = 0;
 						player->cooldown_dash_timer = c_dash_cooldown;
+						play_sound_group(e_sound_group_dash);
 					}
 
 					dir *= get_player_movement_speed();
