@@ -10,12 +10,17 @@ static constexpr s_v2 c_base_res = {1920, 1080};
 static constexpr s_v2 c_half_res = {c_base_res.x * 0.5f, c_base_res.y * 0.5f};
 static constexpr s_bounds c_base_res_bounds = rect_to_bounds(v2(0), c_base_res);
 
+#ifdef m_emscripten
+global constexpr b8 c_are_we_on_web = true;
+#else // m_emscripten
+global constexpr b8 c_are_we_on_web = false;
+#endif // m_emscripten
+
 static s_input* g_input;
 static s_game* game;
 static s_game_renderer* g_r;
 static s_v2 g_mouse;
 static s_platform_data* g_platform_data;
-static s_ui* g_ui;
 static float g_delta = 0;
 
 #ifdef m_build_dll
@@ -37,7 +42,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	g_mouse = platform_data->mouse;
 	g_r = renderer;
 	g_platform_data = platform_data;
-	g_ui = &game->ui;
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		initialize start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	if(!game->initialized) {
@@ -103,7 +107,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		g_r->game_speed_index = 5;
 
-		set_state_next_frame(e_state_play);
+		game->next_state = -1;
+		set_state_next_frame(e_state_play, true);
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		initialize end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -114,6 +119,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		switch(game->state) {
 			case e_state_play: {
+
+				if(!game->reset_game_on_state_change) { break; }
+
 				memset(&game->play_state, 0, sizeof(game->play_state));
 				game->play_state.cam.zoom = 1;
 
@@ -200,6 +208,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				game->play_state.defeat = true;
 			}
 			if(game->play_state.defeat) { break; }
+
+			if(game->play_state.in_pause_menu) {
+				break;
+			}
 
 			s_cells cells = zero;
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		build cells start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -478,16 +490,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		check win condition start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				#ifdef m_emscripten
-				constexpr b8 are_we_on_web = true;
-				#else // m_emscripten
-				constexpr b8 are_we_on_web = false;
-				#endif // m_emscripten
 
 				if(state->resource_count >= c_resource_to_win) {
-					if constexpr(are_we_on_web) {
+					if constexpr(c_are_we_on_web) {
 						if(platform_data->leaderboard_nice_name.len > 0) {
-							set_state_next_frame(e_state_leaderboard);
+							set_state_next_frame(e_state_leaderboard, true);
 							game->leaderboard_state.coming_from_win = true;
 							platform_data->submit_leaderboard_score(
 								game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
@@ -495,11 +502,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							game->play_state.update_count_at_win_time = game->play_state.update_count;
 						}
 						else {
-							set_state_next_frame(e_state_input_name);
+							set_state_next_frame(e_state_input_name, true);
 						}
 					}
 					else {
-						set_state_next_frame(e_state_leaderboard);
+						set_state_next_frame(e_state_leaderboard, true);
 						game->leaderboard_state.coming_from_win = true;
 						game->play_state.update_count_at_win_time = game->play_state.update_count;
 					}
@@ -524,7 +531,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_r = renderer;
 	g_input = &platform_data->render_input;
 	g_platform_data = platform_data;
-	g_ui = &game->ui;
 
 	live_variable(&platform_data->vars, c_player_movement_speed, 0.0f, 100.0f, true);
 	live_variable(&platform_data->vars, c_creature_roam_delay, 1, 1000, true);
@@ -568,9 +574,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		play_state->resource_count = c_resource_to_win;
 	}
 	if(is_key_pressed(g_input, c_key_r)) {
-		set_state_next_frame(e_state_play);
+		set_state_next_frame(e_state_play, true);
 	}
 	#endif // m_debug
+
+
+	if(!game->play_state.defeat && is_key_pressed(g_input, c_key_escape)) {
+		game->play_state.in_pause_menu = !game->play_state.in_pause_menu;
+		play_state->asking_for_restart_confirmation = false;
+	}
 
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 	s_bot_arr* bot_arr = &game->play_state.bot_arr;
@@ -859,16 +871,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			b8 show_ui = !play_state->defeat && !play_state->in_pause_menu;
+
 			if(play_state->defeat) {
 				draw_rect(g_r, c_half_res, 0, c_base_res, v4(0.0f, 0.0f, 0.0f, 0.5f), game->ui_render_pass0);
 				draw_text(g_r, strlit("You were overwhelmed!"), c_base_res * v2(0.5f, 0.4f), 0, 64, make_color(1), true, game->font, game->ui_render_pass1);
 				draw_text(g_r, strlit("Press R to restart..."), c_base_res * v2(0.5f, 0.5f), 0, 64, make_color(0.6f), true, game->font, game->ui_render_pass1);
 
 				if(is_key_pressed(g_input, c_key_r)) {
-					set_state_next_frame(e_state_play);
+					set_state_next_frame(e_state_play, true);
 				}
 			}
-			else {
+			if(show_ui) {
 				draw_text(g_r, format_text("%i", play_state->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 
 				constexpr float font_size = 20;
@@ -906,7 +920,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							b8 over_limit = play_state->upgrade_level_arr[upgrade_id] >= data.max_upgrades;
 							if(
 								!over_limit &&
-								ui_button2(
+								ui_button(
 									format_text(data.name, cost), pos_area_get_advance(&area_arr[row_i]),
 									{.description = get_upgrade_tooltip(upgrade_id), .font_size = font_size}
 								)
@@ -981,6 +995,37 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lose progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			}
 
+			if(play_state->in_pause_menu) {
+				s_v2 button_size = c_base_button_size2;
+				s_ui_optional optional = zero;
+				optional.size_x = button_size.x;
+				optional.size_y = button_size.y;
+				s_pos_area area = make_pos_area(wxy(0.4f, 0.4f), wxy(0.2f, 0.2f), button_size, 8, 4, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
+				if(ui_button(strlit("Resume"), pos_area_get_advance(&area), optional)) {
+					play_state->in_pause_menu = false;
+					play_state->asking_for_restart_confirmation = false;
+				}
+				if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), optional)) {
+					set_state_next_frame(e_state_leaderboard, false);
+					if constexpr(c_are_we_on_web) {
+						on_leaderboard_score_submitted();
+					}
+					play_state->asking_for_restart_confirmation = false;
+				}
+				if(ui_button(format_text("Sounds: %s", game->sound_disabled ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
+					game->sound_disabled = !game->sound_disabled;
+					play_state->asking_for_restart_confirmation = false;
+				}
+				if(ui_button(play_state->asking_for_restart_confirmation ? strlit("Are you sure?") : strlit("Restart"), pos_area_get_advance(&area), optional)) {
+					if(play_state->asking_for_restart_confirmation) {
+						set_state_next_frame(e_state_play, true);
+					}
+					else {
+						play_state->asking_for_restart_confirmation = true;
+					}
+				}
+			}
+
 			// @Note(tkap, 06/10/2024): draw cells
 			#if 0
 			for(int y = 0; y < c_num_cells; y += 1) {
@@ -996,7 +1041,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		case e_state_leaderboard: {
 
 			if(is_key_pressed(g_input, c_key_r)) {
-				set_state_next_frame(e_state_play);
+				set_state_next_frame(e_state_play, true);
 			}
 
 			if(!game->leaderboard_state.received) {
@@ -1035,11 +1080,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				pos.y += 48;
 			}
 
-			ui_start(99);
-			if(ui_button(strlit("Restart"), c_base_res * v2(0.85f, 0.92f), {.font_size = 32, .size_x = 120}) || is_key_pressed(g_input, c_key_escape)) {
-				set_state_next_frame(e_state_play);
+			b8 win = game->leaderboard_state.coming_from_win;
+			if(ui_button(win ? strlit("Restart") : strlit("Back"), c_base_res * v2(0.75f, 0.92f), {.font_size = 32, .size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y}) || is_key_pressed(g_input, c_key_escape)) {
+				b8 reset_game = win ? true : false;
+				set_state_next_frame(e_state_play, reset_game);
 			}
-			ui_end();
 
 		} break;
 
@@ -1280,127 +1325,7 @@ static s_m4 get_camera_view(s_camera3d cam)
 	return look_at(cam.pos, cam.pos + cam.target, v3(0, -1, 0));
 }
 
-
-static void ui_start(int selected)
-{
-	s_ui_data data = {};
-	data.selected = selected;
-	g_ui->data_stack.add(data);
-}
-
-static void ui_bool_button(s_len_str id_str, s_v2 pos, b8* ptr)
-{
-	s_ui_data* data = &g_ui->data_stack.get_last();
-	u32 id = hash(id_str.str);
-
-	s_v2 size = v2(320, 48);
-	s_ui_element_data* element_data = g_ui->element_data.get(id);
-	if(!element_data) {
-		s_ui_element_data temp_data = {};
-		temp_data.size = size;
-		element_data = g_ui->element_data.set(id, temp_data);
-	}
-
-	b8 hovered = mouse_collides_rect_topleft(g_mouse, pos, size);
-
-	if(hovered) {
-		data->selected = data->element_count;
-	}
-	b8 selected = data->element_count == data->selected;
-	if(selected) {
-		element_data->size.x = lerp_snap(element_data->size.x, size.x * 1.2f, g_delta * 10, 0.1f);
-	}
-	else {
-		element_data->size.x = lerp_snap(element_data->size.x, size.x, g_delta * 10, 0.1f);
-	}
-	s_v4 color;
-	if(!*ptr) {
-		color = make_color(0.5f, 0.1f, 0.1f);
-	}
-	else {
-		color = make_color(0.1f, 0.5f, 0.1f);
-	}
-
-	if(hovered && is_key_pressed(g_input, c_left_mouse)) {
-		*ptr = !(*ptr);
-	}
-	if(selected && is_key_pressed(g_input, c_key_enter)) {
-		*ptr = !(*ptr);
-	}
-
-	if(selected) {
-		color = brighter(color, 1.5f);
-	}
-	draw_rect(g_r, pos, 0, element_data->size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
-
-	float font_size = size.y * 0.9f;
-	s_v2 text_pos = center_text_on_rect(id_str, game->font, pos, element_data->size, font_size, false, true);
-	text_pos.x += 4;
-	draw_text(g_r, id_str, text_pos, 1, font_size, make_color(1), false, game->font, game->ui_render_pass1);
-	data->element_count += 1;
-}
-
-static b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
-{
-	b8 result = false;
-	s_ui_data* data = &g_ui->data_stack.get_last();
-	s_parse_ui_id parse_result = parse_ui_id(id_str);
-
-	float font_size = 48;
-	if(optional.font_size > 0) {
-		font_size = optional.font_size;
-	}
-
-	s_v2 size = v2(320, 48);
-	if(optional.size_x > 0) {
-		size.x = optional.size_x;
-	}
-	if(optional.size_y > 0) {
-		size.y = optional.size_y;
-	}
-
-	s_ui_element_data* element_data = g_ui->element_data.get(parse_result.id);
-	if(!element_data) {
-		s_ui_element_data temp_data = {};
-		temp_data.size = size;
-		element_data = g_ui->element_data.set(parse_result.id, temp_data);
-	}
-
-	b8 hovered = mouse_collides_rect_topleft(g_mouse, pos, size);
-
-	if(hovered) {
-		data->selected = data->element_count;
-	}
-	b8 selected = data->element_count == data->selected;
-	if(selected) {
-		element_data->size.x = lerp_snap(element_data->size.x, size.x * 1.2f, g_delta * 20, 0.1f);
-	}
-	else {
-		element_data->size.x = lerp_snap(element_data->size.x, size.x, g_delta * 20, 0.1f);
-	}
-	s_v4 color = make_color(0.5f, 0.1f, 0.1f);
-
-	if(hovered && is_key_pressed(g_input, c_left_mouse)) {
-		result = true;
-	}
-	if(selected && is_key_pressed(g_input, c_key_enter)) {
-		result = true;
-	}
-
-	if(selected) {
-		color = brighter(color, 1.5f);
-	}
-	draw_rect(g_r, pos, 0, element_data->size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
-
-	s_v2 text_pos = center_text_on_rect(id_str, game->font, pos, element_data->size, font_size, false, true);
-	text_pos.x += 4;
-	draw_text(g_r, parse_result.text, text_pos, 1, font_size, make_color(1), false, game->font, game->ui_render_pass1);
-	data->element_count += 1;
-
-	return result;
-}
-
-func b8 ui_button2(s_len_str id_str, s_v2 pos, s_ui_optional optional)
+func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 {
 	b8 result = false;
 	s_parse_ui_id parse_result = parse_ui_id(id_str);
@@ -1452,24 +1377,10 @@ func b8 ui_button2(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	return result;
 }
 
-static int ui_end()
-{
-	s_ui_data data = g_ui->data_stack.pop();
-
-	if(is_key_pressed(g_input, c_key_up)) {
-		data.selected = circular_index(data.selected - 1, data.element_count);
-	}
-	if(is_key_pressed(g_input, c_key_down)) {
-		data.selected = circular_index(data.selected + 1, data.element_count);
-	}
-
-	return data.selected;
-}
-
 static void on_set_leaderboard_name(b8 success)
 {
 	if(success) {
-		set_state_next_frame(e_state_leaderboard);
+		set_state_next_frame(e_state_leaderboard, true);
 		game->leaderboard_state.coming_from_win = true;
 		g_platform_data->submit_leaderboard_score(
 			game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
@@ -1730,7 +1641,7 @@ func s_pos_area make_pos_area(s_v2 pos, s_v2 size, s_v2 element_size, float spac
 		area.advance.x = element_size.x + spacing;
 	}
 	else {
-		area.advance.y = element_size.x + spacing;
+		area.advance.y = element_size.y + spacing;
 	}
 
 	return area;
@@ -1808,9 +1719,11 @@ func int get_creature_resource_reward(int tier, b8 boss)
 	return result;
 }
 
-func void set_state_next_frame(e_state new_state)
+func void set_state_next_frame(e_state new_state, b8 reset_game_on_state_change)
 {
 	if(game->next_state >= 0) { return; }
+
+	game->reset_game_on_state_change = reset_game_on_state_change;
 
 	switch(new_state)	{
 		case e_state_leaderboard: {
@@ -1965,6 +1878,9 @@ func void play_sound_group(e_sound_group group_id)
 {
 	assert(group_id >= 0);
 	assert(group_id < e_sound_group_count);
+
+	if(game->sound_disabled) { return; }
+
 	float* t = &g_sound_group_last_play_time_arr[group_id];
 	s_sound_group_data data = c_sound_group_data_arr[group_id];
 	float passed = game->render_time - *t;
@@ -2046,4 +1962,9 @@ func s_len_str get_upgrade_tooltip(e_upgrade id)
 
 	}
 	return result;
+}
+
+func s_v2 wxy(float x, float y)
+{
+	return c_base_res * v2(x, y);
 }

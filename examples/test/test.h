@@ -32,6 +32,7 @@ global constexpr int c_max_craters = 32;
 global constexpr int c_dash_duration = 20;
 global constexpr int c_dash_cooldown = 50;
 global constexpr float c_dash_speed = 24;
+global constexpr s_v2 c_base_button_size2 = v2(376, 44);
 
 enum e_sound
 {
@@ -385,29 +386,12 @@ struct s_camera2d
 	s_m4 get_matrix();
 };
 
-struct s_ui_data
-{
-	int element_count;
-	int selected;
-};
-
-struct s_ui_element_data
-{
-	s_v2 size;
-};
-
 struct s_ui_optional
 {
 	s_len_str description;
 	float font_size;
 	float size_x;
 	float size_y;
-};
-
-struct s_ui
-{
-	s_hashmap<u32, s_ui_element_data, 1024> element_data;
-	s_sarray<s_ui_data, 16> data_stack;
 };
 
 struct s_leaderboard_state
@@ -439,6 +423,7 @@ struct s_broken_bot
 struct s_play_state
 {
 	b8 defeat;
+	b8 in_pause_menu;
 	int next_entity_id;
 	f64 spawn_creature_timer;
 	int resource_count;
@@ -457,6 +442,7 @@ struct s_play_state
 	s_carray<float, c_max_craters> crater_size_arr;
 	s_carray<float, c_max_craters> crater_rotation_arr;
 	s_carray<b8, c_max_craters> crater_flip_arr;
+	b8 asking_for_restart_confirmation;
 };
 
 
@@ -466,6 +452,9 @@ struct s_game
 	e_state state;
 
 	int next_state;
+	b8 sound_disabled;
+
+	b8 reset_game_on_state_change;
 
 	s_play_state play_state;
 
@@ -493,8 +482,6 @@ struct s_game
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;
 
-	s_ui ui;
-
 	float render_time;
 	s_framebuffer* particle_framebuffer;
 	s_framebuffer* text_framebuffer;
@@ -517,10 +504,6 @@ func void on_leaderboard_received(s_json* json);
 func void on_our_leaderboard_received(s_json* json);
 func void after_submitted_leaderboard();
 func void on_leaderboard_score_submitted();
-func void ui_start(int selected);
-func void ui_bool_button(s_len_str id_str, s_v2 pos, b8* ptr);
-func int ui_end();
-func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional = {});
 func void on_set_leaderboard_name(b8 success);
 func int make_creature(s_v2 pos, int tier, b8 boss);
 func void pick_target_for_bot(int bot);
@@ -531,7 +514,7 @@ func b8 damage_creature(int creature, int damage);
 func s_get_closest_creature get_closest_creature(s_v2 pos);
 func s_pos_area make_pos_area(s_v2 pos, s_v2 size, s_v2 element_size, float spacing, int count, int flags);
 func s_v2 pos_area_get_advance(s_pos_area* area);
-static b8 ui_button2(s_len_str id_str, s_v2 pos, s_ui_optional optional = zero);
+func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional = zero);
 func int get_player_damage();
 func int get_bot_damage();
 func float get_player_movement_speed();
@@ -541,7 +524,7 @@ func int get_creature_spawn_tier();
 func float get_player_harvest_range();
 func float get_bot_harvest_range();
 func int get_creature_resource_reward(int tier, b8 boss);
-func void set_state_next_frame(e_state new_state);
+func void set_state_next_frame(e_state new_state, b8 reset_game_on_state_change);
 func int count_alive_creatures();
 func s_render_pass* get_render_pass(e_layer layer);
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness);
@@ -564,3 +547,4 @@ func s_bounds get_cam_bounds_snap_to_tile_size(s_camera2d cam);
 func void play_sound_group(e_sound_group id);
 func int count_alive_bots();
 func s_len_str get_upgrade_tooltip(e_upgrade id);
+func s_v2 wxy(float x, float y);
