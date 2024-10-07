@@ -905,6 +905,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			if(show_ui) {
 				draw_text(g_r, format_text("%i", play_state->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 
+				if(game->show_timer) {
+					s_time_data time_data = update_count_to_time_data(game->play_state.update_count, c_update_delay);
+					s_len_str text = format_text("%02i:%02i.%03i", time_data.minutes, time_data.seconds, time_data.ms);
+					draw_text(g_r, text, v2(4, 36), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+				}
+
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		upgrade buttons start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
 					constexpr float padding = 8;
@@ -944,6 +950,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							optional.font_size = font_size;
 							optional.size_x = button_size.x;
 							optional.size_y = button_size.y;
+							optional.darken = cost > play_state->resource_count;
 							if(
 								!over_limit &&
 								(ui_button(
@@ -1048,12 +1055,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		level up progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			}
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		options pause menu start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(play_state->sub_state == e_sub_state_pause) {
 				s_v2 button_size = c_base_button_size2;
 				s_ui_optional optional = zero;
 				optional.size_x = button_size.x;
 				optional.size_y = button_size.y;
-				s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 8, 4, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
+				s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 8, 5, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
 				if(ui_button(strlit("Resume"), pos_area_get_advance(&area), optional)) {
 					play_state->sub_state = e_sub_state_default;
 					play_state->asking_for_restart_confirmation = false;
@@ -1069,6 +1077,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					game->sound_disabled = !game->sound_disabled;
 					play_state->asking_for_restart_confirmation = false;
 				}
+				if(ui_button(format_text("Timer: %s", game->show_timer ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
+					game->show_timer = !game->show_timer;
+					play_state->asking_for_restart_confirmation = false;
+				}
 				if(ui_button(play_state->asking_for_restart_confirmation ? strlit("Are you sure?") : strlit("Restart"), pos_area_get_advance(&area), optional)) {
 					if(play_state->asking_for_restart_confirmation) {
 						set_state_next_frame(e_state_play, true);
@@ -1078,6 +1090,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		options pause menu end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		level up menu start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(play_state->sub_state == e_sub_state_level_up) {
@@ -1176,7 +1189,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_text(g_r, strlit("Getting leaderboard..."), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
 			}
 			else if(game->leaderboard_arr.count <= 0) {
-				draw_text(g_r, strlit("No one scores :("), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
+				draw_text(g_r, strlit("No scores yet :("), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
 			}
 
 			if(game->leaderboard_state.coming_from_win) {
@@ -1481,12 +1494,16 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	if(hovered) {
 		color = make_color(1);
 	}
-	draw_texture(g_r, pos, 0, size, color, game->button_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	float color_multi = 1;
+	if(optional.darken) {
+		color_multi = 0.5f;
+	}
+	draw_texture(g_r, pos, 0, size, brighter(color, color_multi), game->button_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 
 	{
 		s_v2 text_pos = center_text_on_rect(id_str, game->font, pos, size, font_size, true, true);
 		text_pos.y += font_size * 0.1f;
-		draw_text(g_r, parse_result.text, text_pos, 1, font_size, make_color(1), false, game->font, game->ui_render_pass1);
+		draw_text(g_r, parse_result.text, text_pos, 1, font_size, make_color(color_multi), false, game->font, game->ui_render_pass1);
 	}
 
 	if(hovered && optional.description.len > 0) {

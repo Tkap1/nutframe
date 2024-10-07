@@ -370,6 +370,16 @@ static int sdl_key_to_windows_key(int key) {
 			{.sdl = SDL_BUTTON_LEFT, .win = c_left_mouse},
 			{.sdl = SDL_BUTTON_RIGHT, .win = c_right_mouse},
 			{.sdl = SDL_BUTTON_MIDDLE, .win = c_middle_mouse},
+			{.sdl = SDLK_1, .win = c_key_1},
+			{.sdl = SDLK_2, .win = c_key_2},
+			{.sdl = SDLK_3, .win = c_key_3},
+			{.sdl = SDLK_4, .win = c_key_4},
+			{.sdl = SDLK_5, .win = c_key_5},
+			{.sdl = SDLK_6, .win = c_key_6},
+			{.sdl = SDLK_7, .win = c_key_7},
+			{.sdl = SDLK_8, .win = c_key_8},
+			{.sdl = SDLK_9, .win = c_key_9},
+			{.sdl = SDLK_0, .win = c_key_0},
 		};
 
 		b8 handled = false;
