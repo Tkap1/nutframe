@@ -960,9 +960,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lose progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
-					draw_rect(g_r, c_base_res * v2(0.33f, 0.025f), 0, v2(c_base_res.x * 0.33f, c_base_res.y * 0.025f), make_color(0.25f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
-					float width = count_alive_creatures() / (float)c_num_creatures_to_lose * c_base_res.x * 0.33f;
-					draw_rect(g_r, c_base_res * v2(0.33f, 0.025f), 1, v2(width, c_base_res.y * 0.025f), make_color(0.66f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+					int alive_creatures = count_alive_creatures();
+					float defeat_progress = alive_creatures / (float)c_num_creatures_to_lose;
+					float shake_intensity = 0;
+					if(defeat_progress > 0.75f) { shake_intensity = range_lerp(defeat_progress, 0.75f, 1.0f, 2.0f, 5.0f); }
+					else if(defeat_progress > 0.5f) { shake_intensity = range_lerp(defeat_progress, 0.5f, 0.75f, 1.0f, 2.0f); }
+					s_v2 offset = v2(
+						game->rng.randf32_11() * shake_intensity,
+						game->rng.randf32_11() * shake_intensity
+					);
+					draw_rect(g_r, offset + c_base_res * v2(0.33f, 0.025f), 0, v2(c_base_res.x * 0.33f, c_base_res.y * 0.025f), make_color(0.25f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+					float width = defeat_progress * c_base_res.x * 0.33f;
+					draw_rect(g_r, offset + c_base_res * v2(0.33f, 0.025f), 1, v2(width, c_base_res.y * 0.025f), make_color(0.66f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lose progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			}
