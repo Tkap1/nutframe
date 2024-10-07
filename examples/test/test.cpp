@@ -595,7 +595,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	#endif // m_debug
 
 
-	if(can_pause() && is_key_pressed(g_input, c_key_escape)) {
+	if(can_pause() && is_key_pressed(g_input, c_key_escape) || is_key_pressed(g_input, c_key_p)) {
 		if(game->play_state.sub_state == e_sub_state_pause) {
 			game->play_state.sub_state = e_sub_state_default;
 		}
@@ -893,7 +893,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			b8 show_ui = should_show_ui();
-
 			if(play_state->sub_state == e_sub_state_defeat) {
 				draw_rect(g_r, c_half_res, 0, c_base_res, v4(0.0f, 0.0f, 0.0f, 0.5f), game->ui_render_pass0);
 				draw_text(g_r, strlit("You were overwhelmed!"), c_base_res * v2(0.5f, 0.4f), 0, 64, make_color(1), true, game->font, game->ui_render_pass1);

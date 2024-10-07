@@ -9,8 +9,6 @@ if player kills an enemy, chance for a pickup that does something??
 
 place a turret down?
 
-text for resource gotten
-
 polish:
 	smooth zoom
 	smooth camera movement
