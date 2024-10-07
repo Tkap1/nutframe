@@ -33,6 +33,39 @@ global constexpr int c_dash_duration = 20;
 global constexpr int c_dash_cooldown = 50;
 global constexpr float c_dash_speed = 24;
 
+enum e_sound
+{
+	e_sound_creature_death00,
+	e_sound_creature_death01,
+	e_sound_creature_death02,
+	e_sound_buy_bot,
+	e_sound_upgrade,
+	e_sound_count,
+};
+
+enum e_sound_group
+{
+	e_sound_group_creature_death,
+	e_sound_group_buy_bot,
+	e_sound_group_upgrade,
+	e_sound_group_count,
+};
+
+struct s_sound_group_data
+{
+	int sound_count;
+	float cooldown;
+	s_carray<e_sound, 4> sound_arr;
+};
+
+global constexpr s_sound_group_data c_sound_group_data_arr[e_sound_group_count] = {
+	{3, 0.1f, {e_sound_creature_death00, e_sound_creature_death01, e_sound_creature_death02}},
+	{1, 0.1f, {e_sound_buy_bot}},
+	{1, 0.1f, {e_sound_upgrade}},
+};
+
+global float g_sound_group_last_play_time_arr[e_sound_group_count];
+
 struct s_cells
 {
 	s_dynamic_array<int> cell_arr[c_num_cells][c_num_cells];
@@ -438,9 +471,7 @@ struct s_game
 	s_render_pass* ui_render_pass1;
 	s_render_pass* light_render_pass;
 
-	s_carray<s_sound*, 3> creature_death_sound_arr;
-	s_sound* buy_bot_sound;
-	s_sound* upgrade_sound;
+	s_carray<s_sound*, e_sound_count> sound_arr;
 
 	s_animation bot_animation;
 	s_animation ant_animation;
@@ -525,3 +556,4 @@ func b8 has_buff(e_pickup type);
 func s_particle_data multiply_particle_data(s_particle_data data, s_particle_multiplier multi);
 func int get_player_multi_target();
 func s_bounds get_cam_bounds_snap_to_tile_size(s_camera2d cam);
+func void play_sound_group(e_sound_group id);

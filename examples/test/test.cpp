@@ -74,11 +74,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player024.png", e_wrap_clamp));
 		game->player_animation.fps = 12;
 
-		game->creature_death_sound_arr[0] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
-		game->creature_death_sound_arr[1] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
-		game->creature_death_sound_arr[2] = platform_data->load_sound(platform_data, "examples/test/creature_death02.wav", platform_data->frame_arena);
-		game->buy_bot_sound = platform_data->load_sound(platform_data, "examples/test/buy_bot.wav", platform_data->frame_arena);
-		game->upgrade_sound = platform_data->load_sound(platform_data, "examples/test/upgrade.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_creature_death00] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_creature_death01] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_creature_death02] = platform_data->load_sound(platform_data, "examples/test/creature_death02.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_buy_bot] = platform_data->load_sound(platform_data, "examples/test/buy_bot.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_upgrade] = platform_data->load_sound(platform_data, "examples/test/upgrade.wav", platform_data->frame_arena);
 
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
 		game->light_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
@@ -362,6 +362,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						add_buff(&state->player, pickup.type);
 						state->pickup_arr.remove_and_swap(pickup_i);
 						pickup_i -= 1;
+						play_sound_group(e_sound_group_upgrade);
 					}
 				}
 			}
@@ -377,7 +378,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						}
 						state->broken_bot_arr.remove_and_swap(bot_i);
 						bot_i -= 1;
-						g_platform_data->play_sound(game->buy_bot_sound);
+						play_sound_group(e_sound_group_buy_bot);
 					}
 				}
 			}
@@ -927,7 +928,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 										if(bot >= 0) {
 											purchased = true;
 											if(!played_buy_bot_sound) {
-												g_platform_data->play_sound(game->buy_bot_sound);
+												play_sound_group(e_sound_group_buy_bot);
 												played_buy_bot_sound = true;
 											}
 										}
@@ -935,7 +936,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 									else {
 										purchased = true;
 										if(!played_upgrade_sound) {
-											g_platform_data->play_sound(game->upgrade_sound);
+											play_sound_group(e_sound_group_upgrade);
 											played_upgrade_sound = true;
 										}
 									}
@@ -1546,7 +1547,7 @@ func b8 damage_creature(int creature, int damage)
 	creature_arr->tick_when_last_damaged[creature] = game->play_state.update_count;
 	if(creature_arr->curr_health[creature] <= 0) {
 		remove_entity(creature, creature_arr->active, &creature_arr->index_data);
-		g_platform_data->play_sound(game->creature_death_sound_arr.get_random(&game->rng));
+		play_sound_group(e_sound_group_creature_death);
 
 		do_particles(64, creature_arr->pos[creature], e_layer_particle, false, {
 			.shrink = 3,
@@ -1938,4 +1939,22 @@ func int get_player_multi_target()
 		result += 4;
 	}
 	return result;
+}
+
+func void play_sound_group(e_sound_group group_id)
+{
+	assert(group_id >= 0);
+	assert(group_id < e_sound_group_count);
+	float* t = &g_sound_group_last_play_time_arr[group_id];
+	s_sound_group_data data = c_sound_group_data_arr[group_id];
+	float passed = game->render_time - *t;
+	if(passed > data.cooldown) {
+		*t = game->render_time;
+		e_sound sound_id = data.sound_arr[game->rng.randu() % data.sound_count];
+		assert(sound_id >= 0);
+		assert(sound_id < e_sound_count);
+		s_sound* to_play = game->sound_arr[sound_id];
+		g_platform_data->play_sound(to_play);
+	}
+
 }
