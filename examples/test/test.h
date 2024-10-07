@@ -29,6 +29,8 @@ global constexpr int c_max_player_hits = 16;
 global constexpr s_v2 c_pickup_size = v2(64);
 global constexpr float c_tile_size = 256;
 global constexpr int c_max_craters = 64;
+global constexpr int c_dash_duration = 20;
+global constexpr int c_dash_cooldown = 50;
 
 struct s_cells
 {
@@ -188,10 +190,15 @@ struct s_buff
 struct s_player
 {
 	b8 flip_x;
+	b8 dashing;
+	int active_dash_timer;
+	int cooldown_dash_timer;
 	int harvest_timer;
 	float animation_timer;
+	s_v2 dash_dir;
 	s_v2 prev_pos;
 	s_v2 pos;
+	s_v2 dash_start;
 	s_sarray<s_laser_target, c_max_player_hits * c_max_player_hits> laser_target_arr;
 	s_carray<s_buff, e_pickup_count> buff_arr;
 };

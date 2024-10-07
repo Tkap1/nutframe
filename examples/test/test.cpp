@@ -118,6 +118,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y * 0.6f);
 					game->play_state.player.pos = pos;
 					game->play_state.player.prev_pos = pos;
+					game->play_state.player.dash_dir = v2(1, 0);
 				}
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn broken bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -244,23 +245,49 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_player* player = &game->play_state.player;
 				s_v2 dir = zero;
-				if(is_key_down(g_input, c_key_a)) {
-					dir.x -= 1;
+
+				if(player->dashing) {
+					dir = player->dash_dir * 24;
+					player->active_dash_timer += 1;
+					if(player->active_dash_timer >= c_dash_duration) {
+						player->dashing = false;
+					}
 				}
-				if(is_key_down(g_input, c_key_d)) {
-					dir.x += 1;
+				else {
+					at_least_add(&player->cooldown_dash_timer, -1, 0);
+
+					if(is_key_down(g_input, c_key_a) || is_key_down(g_input, c_key_left)) {
+						dir.x -= 1;
+					}
+					if(is_key_down(g_input, c_key_d) || is_key_down(g_input, c_key_right)) {
+						dir.x += 1;
+					}
+					if(is_key_down(g_input, c_key_w) || is_key_down(g_input, c_key_up)) {
+						dir.y -= 1;
+					}
+					if(is_key_down(g_input, c_key_s) || is_key_down(g_input, c_key_down)) {
+						dir.y += 1;
+					}
+					dir = v2_normalized(dir);
+
+					if(v2_length(dir) > 0) {
+						player->dash_dir = dir;
+					}
+
+					if(player->cooldown_dash_timer <= 0 && (is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_right_mouse))) {
+						dir = player->dash_dir;
+						player->dashing = true;
+						player->dash_start = player->pos;
+						player->active_dash_timer = 0;
+						player->cooldown_dash_timer = c_dash_cooldown;
+					}
+
+					dir *= get_player_movement_speed();
 				}
-				if(is_key_down(g_input, c_key_w)) {
-					dir.y -= 1;
-				}
-				if(is_key_down(g_input, c_key_s)) {
-					dir.y += 1;
-				}
-				dir = v2_normalized(dir);
 				if(!floats_equal(dir.x, 0.0f)) {
 					player->flip_x = dir.x > 0;
 				}
-				player->pos += dir * get_player_movement_speed();
+				player->pos += dir;
 				{
 					s_bounds bounds = get_map_bounds();
 					player->pos = constrain_pos(player->pos, bounds);
@@ -631,8 +658,19 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_texture texture = get_animation_texture(&game->player_animation, &p->animation_timer);
 				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), texture, get_render_pass(e_layer_player), {.flip_x = p->flip_x});
 				draw_light(pos, 256, make_color(0.9f), 0.0f);
-
 				draw_shadow(pos + v2(0, 32), 128, 1.0f, 0.1f);
+				if(p->dashing) {
+					s_v2 a = p->dash_start;
+					s_v2 b = pos;
+					float dist = v2_distance(a, b);
+					int steps = ceilfi(dist / (c_player_size.x * 0.1f));
+					for(int i = 0; i < steps; i += 1) {
+						float percent = index_count_safe_div(i, steps);
+						float alpha = 1.0f - index_count_safe_div(p->active_dash_timer, c_dash_duration);
+						s_v2 c = lerp(a, b, percent);
+						draw_texture(g_r, c, e_layer_player, c_player_size, v4(0.5f, 0.5f, 0.5f, alpha * percent), texture, get_render_pass(e_layer_creature), {.flip_x = p->flip_x});
+					}
+				}
 
 				foreach_val(target_i, target, p->laser_target_arr) {
 					s_v2 from_pos;

@@ -6283,3 +6283,10 @@ static void at_least_add(t* val, t to_add, t limit)
 {
 	*val = at_least(limit, *val + to_add);
 }
+
+static float index_count_safe_div(int i, int in_count)
+{
+	int count = in_count - 1;
+	if(count <= 0) { return 1; }
+	return i / (float)count;
+}
