@@ -349,6 +349,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						}
 						state->broken_bot_arr.remove_and_swap(bot_i);
 						bot_i -= 1;
+						g_platform_data->play_sound(game->buy_bot_sound);
 					}
 				}
 			}
