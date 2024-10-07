@@ -1,6 +1,6 @@
 static float c_player_movement_speed = 4.166667f;
-static int c_creature_roam_delay = 429;
-static float c_creature_roam_distance = 148.000000f;
+static int c_creature_roam_delay = 400;
+static float c_creature_roam_distance = 160.000000f;
 static float c_bot_movement_speed = 5.000000f;
 static float c_creature_speed = 2.166667f;
 static float c_bot_harvest_range = 64.000000f;

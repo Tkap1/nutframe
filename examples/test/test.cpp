@@ -161,7 +161,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		setup craters start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
-					s_rng rng = make_rng(0);
+					s_rng rng = make_rng(4);
 					s_bounds map_bounds = get_map_bounds();
 					for(int crater_i = 0; crater_i < c_max_craters; crater_i += 1) {
 						game->play_state.crater_pos_arr[crater_i] = v2(
@@ -169,6 +169,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							rng.randf_range(map_bounds.min_y, map_bounds.max_y) - 64
 						);
 						game->play_state.crater_size_arr[crater_i] = rng.randf_range(96, 136);
+						game->play_state.crater_rotation_arr[crater_i] = rng.randf_range(-pi * 0.1f, pi * 0.1f);
+						game->play_state.crater_flip_arr[crater_i] = rng.rand_bool();
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		setup craters end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -622,7 +624,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					int y = floorfi(p.y / c_tile_size);
 					if(is_valid_index(x, y, 256, 256)) {
 						float brightness = at_most(1.0f, brightness_arr[y][x] * 1.1f);
-						draw_texture_keep_aspect(g_r, pos, e_layer_background + 1, v2(size), make_color(brightness), game->crater_texture, get_render_pass(e_layer_background));
+						draw_texture_keep_aspect(
+							g_r, pos, e_layer_background + 1, v2(size), make_color(brightness), game->crater_texture, get_render_pass(e_layer_background),
+							{.flip_x = game->play_state.crater_flip_arr[crater_i]}, {.rotation = game->play_state.crater_rotation_arr[crater_i]}
+						);
 					}
 				}
 			}
@@ -648,7 +653,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw base start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				draw_texture_keep_aspect(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->base_texture, get_render_pass(e_layer_base));
-				draw_light(c_base_pos, c_base_size.x, make_color(0.9f), 0.0f);
+				draw_light(c_base_pos, c_base_size.x, make_color(0.5f), 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw base end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -661,8 +666,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				s_texture texture = get_animation_texture(&game->player_animation, &p->animation_timer);
 				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), texture, get_render_pass(e_layer_player), {.flip_x = p->flip_x});
-				draw_light(pos, 256, make_color(0.9f), 0.0f);
-				draw_shadow(pos + v2(0, 32), 128, 1.0f, 0.1f);
+				draw_light(pos, 256, make_color(0.5f), 0.0f);
+				draw_shadow(pos + v2(0, 32), 128, 0.5f, 0.1f);
 				if(p->dashing) {
 					s_v2 a = p->dash_start;
 					s_v2 b = pos;
@@ -685,7 +690,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					else {
 						from_pos = pos;
 					}
-					s_v4 laser_color = make_color(1.0f, 0.1f, 0.1f);
+					s_v4 laser_color = make_color(0.5f, 0.1f, 0.1f);
 					draw_line(g_r, from_pos, to_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
 					draw_light(to_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
 				}
@@ -732,7 +737,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight}
 				);
 
-				draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.5f, 0.0f);
+				draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.33f, 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -783,16 +788,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				float tilt = bot_arr->tilt_timer[bot] * 0.25f;
 				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, texture, get_render_pass(e_layer_bot), {}, {.rotation = tilt});
 
-				draw_shadow(pos + v2(0, 100), 32, 0.5f, 0.0f);
+				draw_shadow(pos + v2(0, 100), 32, 0.25f, 0.0f);
 
 				int creature = get_creature(bot_arr->laser_target[bot]);
 				if(creature >= 0) {
 					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					s_v4 laser_color = make_color(0.1f, 1, 0.1f);
+					s_v4 laser_color = make_color(0.1f, 0.5f, 0.1f);
 					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
 					draw_light(creature_pos, laser_light_radius, laser_color, 0.0f);
 				}
-				draw_light(pos, 48, make_color(1.0f), 0.0f);
+				draw_light(pos, 48, make_color(0.33f), 0.0f);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -803,17 +808,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw pickups end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			#if 0
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		visual effects start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				foreach_ptr(ve_i, ve, game->play_state.visual_effect_arr) {
-					draw_line(g_r, ve->from, ve->to, e_layer_laser, c_laser_width, ve->color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
-					draw_light(ve->to, laser_light_radius * 1.5f, ve->color, 0.0f);
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		visual effects end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-			#endif
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
