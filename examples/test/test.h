@@ -441,6 +441,9 @@ struct s_broken_bot
 
 struct s_play_state
 {
+	b8 are_we_winning;
+	int win_ticks;
+	float win_timer;
 	u64 level_up_seed;
 	e_sub_state sub_state;
 	int next_entity_id;

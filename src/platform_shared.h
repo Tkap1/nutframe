@@ -2427,7 +2427,7 @@ static constexpr s_v4 make_color(t0 v, t1 a)
 	result.x = (float)v;
 	result.y = (float)v;
 	result.z = (float)v;
-	result.w = a;
+	result.w = (float)a;
 	return result;
 }
 

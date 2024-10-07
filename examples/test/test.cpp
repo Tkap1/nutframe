@@ -503,25 +503,33 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		check win condition start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-
-				if(state->resource_count >= c_resource_to_win) {
-					if constexpr(c_are_we_on_web) {
-						if(platform_data->leaderboard_nice_name.len > 0) {
-							set_state_next_frame(e_state_leaderboard, true);
-							game->leaderboard_state.coming_from_win = true;
-							platform_data->submit_leaderboard_score(
-								game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
-							);
-							game->play_state.update_count_at_win_time = game->play_state.update_count;
-						}
-						else {
-							set_state_next_frame(e_state_input_name, true);
+				if(state->resource_count >= c_resource_to_win || state->are_we_winning) {
+					if(state->are_we_winning) {
+						state->win_ticks += 1;
+						if(state->win_ticks >= c_updates_per_second * 3) {
+							if constexpr(c_are_we_on_web) {
+								if(platform_data->leaderboard_nice_name.len > 0) {
+									set_state_next_frame(e_state_leaderboard, true);
+									game->leaderboard_state.coming_from_win = true;
+									platform_data->submit_leaderboard_score(
+										game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
+									);
+									game->play_state.update_count_at_win_time = game->play_state.update_count;
+								}
+								else {
+									set_state_next_frame(e_state_input_name, true);
+								}
+							}
+							else {
+								set_state_next_frame(e_state_leaderboard, true);
+								game->leaderboard_state.coming_from_win = true;
+								game->play_state.update_count_at_win_time = game->play_state.update_count;
+							}
 						}
 					}
 					else {
-						set_state_next_frame(e_state_leaderboard, true);
-						game->leaderboard_state.coming_from_win = true;
-						game->play_state.update_count_at_win_time = game->play_state.update_count;
+						state->are_we_winning = true;
+						state->win_timer = 0;
 					}
 				}
 			}
@@ -893,6 +901,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			b8 show_ui = should_show_ui();
+			if(play_state->are_we_winning) {
+				play_state->win_timer += g_delta;
+				float p = play_state->win_timer / 3;
+				draw_rect(g_r, c_half_res, 0, c_base_res, make_color(0, p), game->ui_render_pass0);
+				float alpha = ease_linear_advanced(play_state->win_timer, 0, 1, 0, 1);
+				draw_text(g_r, strlit("Victory!"), c_base_res * v2(0.5f, 0.1f), 10, 36, make_color(1, alpha), true, game->font, game->ui_render_pass1);
+			}
 			if(play_state->sub_state == e_sub_state_defeat) {
 				draw_rect(g_r, c_half_res, 0, c_base_res, v4(0.0f, 0.0f, 0.0f, 0.5f), game->ui_render_pass0);
 				draw_text(g_r, strlit("You were overwhelmed!"), c_base_res * v2(0.5f, 0.4f), 0, 64, make_color(1), true, game->font, game->ui_render_pass1);
@@ -2221,7 +2236,7 @@ func b8 can_pause()
 func b8 should_show_ui()
 {
 	e_sub_state s = game->play_state.sub_state;
-	return s == e_sub_state_default;
+	return s == e_sub_state_default && !game->play_state.are_we_winning;
 }
 
 func int pick_weighted(f64* arr, int count, s_rng* rng)
