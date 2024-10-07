@@ -13,4 +13,3 @@ polish:
 	smooth zoom
 	smooth camera movement
 	win animation instead of instant change to leaderboard
-	sound cooldown

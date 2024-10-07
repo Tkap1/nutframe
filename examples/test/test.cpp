@@ -1081,7 +1081,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			b8 win = game->leaderboard_state.coming_from_win;
-			if(ui_button(win ? strlit("Restart") : strlit("Back"), c_base_res * v2(0.75f, 0.92f), {.font_size = 32, .size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y}) || is_key_pressed(g_input, c_key_escape)) {
+			if(ui_button(win ? strlit("Restart") : strlit("Back"), c_base_res * v2(0.75f, 0.92f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y}) || is_key_pressed(g_input, c_key_escape)) {
 				b8 reset_game = win ? true : false;
 				set_state_next_frame(e_state_play, reset_game);
 			}
