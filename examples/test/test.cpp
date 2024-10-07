@@ -1198,8 +1198,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				for(int choice_i = 0; choice_i < 3; choice_i += 1) {
 					e_upgrade upgrade_id = choice_arr[choice_i];
 					s_upgrade_data data = c_upgrade_data[upgrade_id];
+					int curr_level = play_state->upgrade_level_arr[upgrade_id];
+					int cost = data.base_cost * (curr_level + 1);
 					optional.description = get_upgrade_tooltip(upgrade_id);
-					if(ui_button(format_text("%s [%c]", data.name, c_key_1 + choice_i), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_1 + choice_i)) {
+					if(ui_button(format_text("%s (%i) [%c]", data.name, cost, c_key_1 + choice_i), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_1 + choice_i)) {
 						picked_choice = choice_i;
 					}
 				}
