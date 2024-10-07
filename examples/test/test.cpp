@@ -711,7 +711,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						float percent = index_count_safe_div(i, steps);
 						float alpha = 1.0f - index_count_safe_div(p->active_dash_timer, c_dash_duration);
 						s_v2 c = lerp(a, b, percent);
-						draw_texture(g_r, c, e_layer_player, c_player_size, v4(0.5f, 0.5f, 0.5f, alpha * percent), texture, get_render_pass(e_layer_creature), {.flip_x = p->flip_x});
+						draw_texture(g_r, c, e_layer_player, c_player_size, v4(0.75f, 0.75f, 0.75f, alpha * percent), texture, get_render_pass(e_layer_creature), {.flip_x = p->flip_x});
 					}
 				}
 
@@ -1097,7 +1097,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					e_upgrade upgrade_id = choice_arr[choice_i];
 					s_upgrade_data data = c_upgrade_data[upgrade_id];
 					optional.description = get_upgrade_tooltip(upgrade_id);
-					if(ui_button(strlit(data.name), pos_area_get_advance(&area), optional) && picked_choice == -1) {
+					if(ui_button(strlit(data.name), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_1 + choice_i)) {
 						picked_choice = choice_i;
 					}
 				}
@@ -2077,7 +2077,8 @@ func s_v2 wxy(float x, float y)
 
 func int get_required_exp_level(int level)
 {
-	return 5 + (level - 1) * 3;
+	int level_minus_one = level - 1;
+	return 5 + floorfi(0.3f * level_minus_one * level) + (level_minus_one) * 5;
 }
 
 func int add_exp(s_player* player, int to_add)
