@@ -2420,6 +2420,17 @@ static constexpr s_v4 make_color(t0 r, t1 g, t2 b)
 	return result;
 }
 
+template <typename t0, typename t1>
+static constexpr s_v4 make_color(t0 v, t1 a)
+{
+	s_v4 result;
+	result.x = (float)v;
+	result.y = (float)v;
+	result.z = (float)v;
+	result.w = a;
+	return result;
+}
+
 static s_v2 v2_from_angle(float angle)
 {
 	return v2(
@@ -6045,12 +6056,9 @@ static float ilerp_clamp(float start, float end, float value)
 	return ilerp(start, end, clamp(value, start, end));
 }
 
-
-static float handle_advanced_easing(float x, float x_start, float x_end, float duration)
+static float handle_advanced_easing(float x, float x_start, float x_end)
 {
-	assert(duration > 0);
-	assert(duration <= 1);
-	x = clamp(ilerp_clamp(x_start, x_end, x) / duration, 0.0f, 1.0f);
+	x = clamp(ilerp_clamp(x_start, x_end, x), 0.0f, 1.0f);
 	return x;
 }
 
@@ -6058,6 +6066,11 @@ static float ease_in_expo(float x)
 {
 	if(floats_equal(x, 0)) { return 0; }
 	return powf(2, 10 * x - 10);
+}
+
+static float ease_linear(float x)
+{
+	return x;
 }
 
 static float ease_in_quad(float x)
@@ -6091,18 +6104,27 @@ static float ease_out_elastic2(float x)
 	return powf(2, -10 * x) * sinf((x * 10 - 0.75f) * c4) + 1;
 }
 
+static float ease_out_back(float x)
+{
+	float c1 = 1.70158f;
+	float c3 = c1 + 1;
+	return 1 + c3 * powf(x - 1, 3) + c1 * powf(x - 1, 2);
+}
+
 #define m_advanced_easings \
+X(ease_linear) \
 X(ease_in_expo) \
 X(ease_in_quad) \
 X(ease_out_quad) \
 X(ease_out_expo) \
 X(ease_out_elastic) \
 X(ease_out_elastic2) \
+X(ease_out_back) \
 
 #define X(name) \
-static float name##_advanced(float x, float x_start, float x_end, float target_start, float target_end, float duration) \
+static float name##_advanced(float x, float x_start, float x_end, float target_start, float target_end) \
 { \
-	x = handle_advanced_easing(x, x_start, x_end, duration); \
+	x = handle_advanced_easing(x, x_start, x_end); \
 	return lerp(target_start, target_end, name(x)); \
 }
 m_advanced_easings

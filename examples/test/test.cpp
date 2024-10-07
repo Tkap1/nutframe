@@ -903,7 +903,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			if(show_ui) {
-				draw_text(g_r, format_text("%i", play_state->resource_count), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+				draw_text(g_r, format_text("%i / %i", play_state->resource_count, c_resource_to_win), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 
 				if(game->show_timer) {
 					s_time_data time_data = update_count_to_time_data(game->play_state.update_count, c_update_delay);
@@ -1008,6 +1008,60 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					draw_text(g_r, str, text_pos, 0, 40, make_color(1), false, game->font, get_render_pass(e_layer_text));
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		display controls start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				{
+					s_v2 player_pos = lerp(play_state->player.prev_pos, play_state->player.pos, interp_dt);
+					player_pos += v2(0, 100);
+					float time_passed = play_state->update_count / (float)c_updates_per_second;
+					if(time_passed < 15) {
+						s_len_str text_arr[] = {
+							strlit("Move - WASD or Arrow keys"),
+							strlit("Dash - Space or Right click"),
+							strlit("Options - P or Escape"),
+							strlit("Zoom - Scroll wheel"),
+						};
+						float alpha = 1;
+						if(time_passed >= 14) {
+							alpha = range_lerp(time_passed, 14, 15, 1, 0);
+						}
+
+						s_v2 text_pos = player_pos;
+						for(int text_i = 0; text_i < array_count(text_arr); text_i += 1) {
+							float zoom = play_state->cam.zoom;
+							float font_size = clamp(32 / zoom, 2.0f, 70.0f);
+							draw_text(g_r, text_arr[text_i], text_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, get_render_pass(e_layer_text));
+							text_pos.y += font_size;
+						}
+					}
+					if(is_key_pressed(g_input, c_key_f)) {
+						play_state->update_count = 29 * c_updates_per_second;
+					}
+					if(time_passed >= 15 && time_passed <= 30) {
+						float zoom = play_state->cam.zoom;
+						float alpha = ease_linear_advanced(time_passed, 15.0f, 16.0f, 0.0f, 1.0f);
+						alpha *= ease_linear_advanced(time_passed, 29, 30, 1, 0);
+						float font_size = clamp(32 / zoom, 2.0f, 70.0f);
+						s_len_str text = strlit(
+							"Your goal is to get 50000 nectar, but before you can do that\n"
+							"you will need to use it to get stronger and force more ants to spawn,\n"
+							"thus increasing your nectar income."
+						);
+						draw_text(g_r, text, player_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, get_render_pass(e_layer_text));
+					}
+					if(time_passed >= 30 && time_passed <= 45) {
+						float zoom = play_state->cam.zoom;
+						float alpha = ease_linear_advanced(time_passed, 30.0f, 31.0f, 0.0f, 1.0f);
+						alpha *= ease_linear_advanced(time_passed, 44, 45, 1, 0);
+						float font_size = clamp(32 / zoom, 2.0f, 70.0f);
+						s_len_str text = strlit(
+							"But be careful, as letting too many ants accumulate will be the end.\n"
+							"1000 ants would be too much to handle."
+						);
+						draw_text(g_r, text, player_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, get_render_pass(e_layer_text));
+					}
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		display controls end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lose progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
@@ -1276,7 +1330,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			float t2 = clamp(game->render_time - state->name.last_edit_time, 0.0f, 1.0f);
 			s_v4 color = lerp(rgb(0xffdddd), brighter(rgb(0xABC28F), 0.8f), 1 - powf(1 - t2, 3));
-			float extra_height = ease_out_elastic2_advanced(t2, 0, 1, 20, 0, 0.75f);
+			float extra_height = ease_out_elastic2_advanced(t2, 0, 0.75f, 20, 0);
 			cursor_size.y += extra_height;
 
 			if(!state->name.visual_pos_initialized) {
@@ -1306,7 +1360,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[4], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[5], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[6], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[7], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lights start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
@@ -1318,6 +1371,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		g_r->end_render_pass(g_r, game->light_render_pass, game->main_fbo, {.blend_mode = e_blend_mode_multiply, .projection = ortho});
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lights end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[7], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 
 	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
@@ -2106,7 +2161,7 @@ func s_len_str get_upgrade_tooltip(e_upgrade id)
 		} break;
 
 		case e_upgrade_double_harvest: {
-			result = format_text("Gain double resources from harvesting");
+			result = format_text("Gain double nectar from harvesting");
 		} break;
 
 		case e_upgrade_bot_cargo_count: {
