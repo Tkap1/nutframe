@@ -221,12 +221,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				while(state->spawn_creature_timer >= spawn_delay) {
 
 					state->spawn_creature_timer -= spawn_delay;
+					float angle = game->rng.randf_range(0, tau);
+					float dist = game->rng.randf_range(c_base_size.x * 2.0f, c_base_size.x * 4.0f);
 					s_v2 offset = v2(
-						cosf(game->rng.randf_range(0, tau)) * c_base_size.x * 2.0f,
-						sinf(game->rng.randf_range(0, tau)) * c_base_size.x * 2.0f
+						cosf(angle) * dist,
+						sinf(angle) * dist
 					);
-					s_v2 base = game->rng.rand_bool() ? c_base_pos : game->play_state.player.pos;
-					s_v2 pos = base + offset;
+					s_v2 pos = c_base_pos + offset;
 					pos = constrain_pos(pos, get_map_bounds());
 
 					int tier = get_creature_spawn_tier();

@@ -17,11 +17,8 @@ if player kills an enemy, chance for a pickup that does something??
 
 place a turret down?
 
-dont tick down buffs until they actually do something once
-
-dash?
-
 polish:
 	smooth zoom
 	smooth camera movement
 	win animation instead of instant change to leaderboard
+	sound cooldown
