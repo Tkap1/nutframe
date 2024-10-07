@@ -34,6 +34,14 @@ global constexpr int c_dash_cooldown = 50;
 global constexpr float c_dash_speed = 24;
 global constexpr s_v2 c_base_button_size2 = v2(376, 44);
 
+enum e_sub_state
+{
+	e_sub_state_default,
+	e_sub_state_pause,
+	e_sub_state_defeat,
+	e_sub_state_level_up,
+};
+
 enum e_sound
 {
 	e_sound_creature_death00,
@@ -41,6 +49,7 @@ enum e_sound
 	e_sound_creature_death02,
 	e_sound_buy_bot,
 	e_sound_upgrade,
+	e_sound_level_up,
 	e_sound_count,
 };
 
@@ -49,6 +58,7 @@ enum e_sound_group
 	e_sound_group_creature_death,
 	e_sound_group_buy_bot,
 	e_sound_group_upgrade,
+	e_sound_group_level_up,
 	e_sound_group_count,
 };
 
@@ -63,6 +73,7 @@ global constexpr s_sound_group_data c_sound_group_data_arr[e_sound_group_count] 
 	{3, 0.1f, {e_sound_creature_death00, e_sound_creature_death01, e_sound_creature_death02}},
 	{1, 0.1f, {e_sound_buy_bot}},
 	{1, 0.1f, {e_sound_upgrade}},
+	{1, 0, {e_sound_level_up}},
 };
 
 global float g_sound_group_last_play_time_arr[e_sound_group_count];
@@ -128,18 +139,18 @@ struct s_upgrade_data
 };
 
 global constexpr s_upgrade_data c_upgrade_data[] = {
-	{.base_cost = 5, .max_upgrades = 3500, .name = "+ drone (%i)"},
-	{.base_cost = 5, .name = "+ player damage (%i)"},
-	{.base_cost = 20, .name = "+ drone damage (%i)"},
-	{.base_cost = 10, .max_upgrades = 20, .name = "+ player speed (%i)"},
-	{.base_cost = 40, .max_upgrades = 30, .name = "+ drone speed (%i)"},
-	{.base_cost = 20, .name = "+ spawn rate (%i)"},
-	{.base_cost = 100, .name = "+ creature tier (%i)"},
-	{.base_cost = 50, .max_upgrades = 40, .name = "+ player range (%i)"},
-	{.base_cost = 90, .max_upgrades = 50, .name = "+ drone range (%i)"},
-	{.base_cost = 5000, .max_upgrades = 1, .name = "x2 harvest (%i)"},
-	{.base_cost = 100, .max_upgrades = 9, .name = "+ drone cargo (%i)"},
-	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain (%i)"},
+	{.base_cost = 5, .max_upgrades = 3500, .name = "+ drone"},
+	{.base_cost = 5, .name = "+ player damage"},
+	{.base_cost = 20, .name = "+ drone damage"},
+	{.base_cost = 10, .max_upgrades = 20, .name = "+ player speed"},
+	{.base_cost = 40, .max_upgrades = 30, .name = "+ drone speed"},
+	{.base_cost = 20, .name = "+ spawn rate"},
+	{.base_cost = 100, .name = "+ creature tier"},
+	{.base_cost = 50, .max_upgrades = 40, .name = "+ player range"},
+	{.base_cost = 90, .max_upgrades = 50, .name = "+ drone range"},
+	{.base_cost = 5000, .max_upgrades = 1, .name = "x2 harvest"},
+	{.base_cost = 100, .max_upgrades = 9, .name = "+ drone cargo"},
+	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain"},
 };
 
 enum e_pickup
@@ -226,6 +237,8 @@ struct s_player
 {
 	b8 flip_x;
 	b8 dashing;
+	int curr_level;
+	int curr_exp;
 	int active_dash_timer;
 	int cooldown_dash_timer;
 	int harvest_timer;
@@ -390,6 +403,7 @@ struct s_ui_optional
 {
 	s_len_str description;
 	float font_size;
+	float tooltip_font_size;
 	float size_x;
 	float size_y;
 };
@@ -422,8 +436,8 @@ struct s_broken_bot
 
 struct s_play_state
 {
-	b8 defeat;
-	b8 in_pause_menu;
+	u64 level_up_seed;
+	e_sub_state sub_state;
 	int next_entity_id;
 	f64 spawn_creature_timer;
 	int resource_count;
@@ -443,6 +457,7 @@ struct s_play_state
 	s_carray<float, c_max_craters> crater_rotation_arr;
 	s_carray<b8, c_max_craters> crater_flip_arr;
 	b8 asking_for_restart_confirmation;
+	int level_up_triggers;
 };
 
 
@@ -548,3 +563,10 @@ func void play_sound_group(e_sound_group id);
 func int count_alive_bots();
 func s_len_str get_upgrade_tooltip(e_upgrade id);
 func s_v2 wxy(float x, float y);
+func int get_creature_exp_reward(int tier, b8 boss);
+func int add_exp(s_player* player, int to_add);
+func int get_required_exp_level(int level);
+func b8 game_is_paused();
+func b8 can_pause();
+func b8 should_show_ui();
+func int pick_weighted(f64* arr, int count, s_rng* rng);

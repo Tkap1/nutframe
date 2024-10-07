@@ -2840,7 +2840,7 @@ typedef b8 (*t_play_sound)(s_sound*);
 typedef void (*t_set_vsync)(b8);
 typedef int (*t_show_cursor)(b8);
 typedef int (*t_cycle_between_available_resolutions)(int);
-typedef u32 (*t_get_random_seed)();
+typedef u64 (*t_get_random_seed)();
 typedef s_framebuffer* (*t_make_framebuffer)(s_game_renderer*, s_v2i);
 typedef s_sound* (*t_load_sound)(s_platform_data*, const char*, s_lin_arena*);
 typedef b8 (*t_set_shader_float)(const char*, float);
@@ -6332,6 +6332,28 @@ static s_rectf constrain_rect(s_v2 pos, s_v2 size, s_bounds bounds)
 	temp.max_x = at_most(bounds.max_x, temp.max_x);
 	temp.max_y = at_most(bounds.max_y, temp.max_y);
 	s_rectf r = bounds_to_rect(temp);
+	return r;
+}
+
+static s_rectf fit_rect(s_v2 pos, s_v2 size, s_bounds bounds)
+{
+	float x_diff = pos.x - bounds.min_x;
+	float y_diff = pos.y - bounds.min_y;
+	if(x_diff < 0) {
+		pos.x -= x_diff;
+	}
+	if(y_diff < 0) {
+		pos.y -= y_diff;
+	}
+	x_diff = bounds.max_x - (pos.x + size.x);
+	y_diff = bounds.max_y - (pos.y + size.y);
+	if(x_diff < 0) {
+		pos.x += x_diff;
+	}
+	if(y_diff < 0) {
+		pos.y += y_diff;
+	}
+	s_rectf r = make_rectf(pos, size);
 	return r;
 }
 

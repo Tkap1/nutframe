@@ -40,7 +40,7 @@ static b8 play_sound(s_sound* sound);
 static void set_vsync(b8 val);
 void printProgramLog( GLuint program );
 static void do_one_frame();
-static u32 get_random_seed();
+static u64 get_random_seed();
 static int sdl_key_to_windows_key(int key);
 static f64 get_seconds();
 static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
@@ -327,8 +327,8 @@ static void do_one_frame()
 	// return result;
 }
 
-static u32 get_random_seed() {
-	return (u32)SDL_GetPerformanceCounter();
+static u64 get_random_seed() {
+	return SDL_GetPerformanceCounter();
 }
 
 static int sdl_key_to_windows_key(int key) {

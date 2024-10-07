@@ -70,7 +70,7 @@ static int cycle_between_available_resolutions(int current);
 static void center_window();
 static void set_actual_window_size(int width, int height);
 static void wide_to_unicode(wchar_t* wide, char* out);
-static u32 get_random_seed();
+static u64 get_random_seed();
 static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena);
 static s_sound load_sound_from_file(const char* path, s_lin_arena* arena);
 static s_sound load_sound_from_data(u8* data);
@@ -874,9 +874,9 @@ static void wide_to_unicode(wchar_t* wide, char* out)
 	WideCharToMultiByte(CP_UTF8, 0, wide, -1, out, required_buffer_size, NULL, NULL);
 }
 
-static u32 get_random_seed()
+static u64 get_random_seed()
 {
-	return (u32)__rdtsc();
+	return __rdtsc();
 }
 
 static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)

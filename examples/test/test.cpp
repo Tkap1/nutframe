@@ -84,6 +84,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->sound_arr[e_sound_creature_death02] = platform_data->load_sound(platform_data, "examples/test/creature_death02.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_buy_bot] = platform_data->load_sound(platform_data, "examples/test/buy_bot.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_upgrade] = platform_data->load_sound(platform_data, "examples/test/upgrade.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_level_up] = platform_data->load_sound(platform_data, "examples/test/level_up.wav", platform_data->frame_arena);
 
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
 		game->light_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
@@ -130,6 +131,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					game->play_state.player.pos = pos;
 					game->play_state.player.prev_pos = pos;
 					game->play_state.player.dash_dir = v2(1, 0);
+					game->play_state.player.curr_level = 1;
 				}
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn broken bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -203,13 +205,22 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		case e_state_play: {
 
 			s_play_state* state = &game->play_state;
-			int alive_creatures = count_alive_creatures();
-			if(alive_creatures >= c_num_creatures_to_lose) {
-				game->play_state.defeat = true;
-			}
-			if(game->play_state.defeat) { break; }
 
-			if(game->play_state.in_pause_menu) {
+			if(state->sub_state == e_sub_state_default && state->level_up_triggers > 0) {
+				state->level_up_triggers -= 1;
+				state->sub_state = e_sub_state_level_up;
+				state->level_up_seed = g_platform_data->get_random_seed();
+				play_sound_group(e_sound_group_level_up);
+			}
+
+			{
+				int alive_creatures = count_alive_creatures();
+				if(alive_creatures >= c_num_creatures_to_lose) {
+					state->sub_state = e_sub_state_defeat;
+				}
+			}
+
+			if(game_is_paused()) {
 				break;
 			}
 
@@ -573,14 +584,22 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	if(is_key_pressed(g_input, c_key_f2)) {
 		play_state->resource_count = c_resource_to_win;
 	}
+	if(is_key_pressed(g_input, c_key_f3)) {
+		play_state->level_up_triggers += add_exp(&play_state->player, 5);
+	}
 	if(is_key_pressed(g_input, c_key_r)) {
 		set_state_next_frame(e_state_play, true);
 	}
 	#endif // m_debug
 
 
-	if(!game->play_state.defeat && is_key_pressed(g_input, c_key_escape)) {
-		game->play_state.in_pause_menu = !game->play_state.in_pause_menu;
+	if(can_pause() && is_key_pressed(g_input, c_key_escape)) {
+		if(game->play_state.sub_state == e_sub_state_pause) {
+			game->play_state.sub_state = e_sub_state_default;
+		}
+		else {
+			game->play_state.sub_state = e_sub_state_pause;
+		}
 		play_state->asking_for_restart_confirmation = false;
 	}
 
@@ -871,9 +890,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			b8 show_ui = !play_state->defeat && !play_state->in_pause_menu;
+			b8 show_ui = should_show_ui();
 
-			if(play_state->defeat) {
+			if(play_state->sub_state == e_sub_state_defeat) {
 				draw_rect(g_r, c_half_res, 0, c_base_res, v4(0.0f, 0.0f, 0.0f, 0.5f), game->ui_render_pass0);
 				draw_text(g_r, strlit("You were overwhelmed!"), c_base_res * v2(0.5f, 0.4f), 0, 64, make_color(1), true, game->font, game->ui_render_pass1);
 				draw_text(g_r, strlit("Press R to restart..."), c_base_res * v2(0.5f, 0.5f), 0, 64, make_color(0.6f), true, game->font, game->ui_render_pass1);
@@ -921,7 +940,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							if(
 								!over_limit &&
 								ui_button(
-									format_text(data.name, cost), pos_area_get_advance(&area_arr[row_i]),
+									format_text("%s (%i)", data.name, cost), pos_area_get_advance(&area_arr[row_i]),
 									{.description = get_upgrade_tooltip(upgrade_id), .font_size = font_size}
 								)
 							) {
@@ -995,14 +1014,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lose progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			}
 
-			if(play_state->in_pause_menu) {
+			if(play_state->sub_state == e_sub_state_pause) {
 				s_v2 button_size = c_base_button_size2;
 				s_ui_optional optional = zero;
 				optional.size_x = button_size.x;
 				optional.size_y = button_size.y;
-				s_pos_area area = make_pos_area(wxy(0.4f, 0.4f), wxy(0.2f, 0.2f), button_size, 8, 4, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
+				s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 8, 4, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
 				if(ui_button(strlit("Resume"), pos_area_get_advance(&area), optional)) {
-					play_state->in_pause_menu = false;
+					play_state->sub_state = e_sub_state_default;
 					play_state->asking_for_restart_confirmation = false;
 				}
 				if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), optional)) {
@@ -1022,6 +1041,79 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 					else {
 						play_state->asking_for_restart_confirmation = true;
+					}
+				}
+			}
+
+			if(play_state->sub_state == e_sub_state_level_up) {
+
+				{
+					float s = sin_range(0.0f, 1.0f, game->render_time * 1.0f);
+					s_v4 color = hsv_to_rgb(v3(s, 1, 1));
+					draw_text(
+						g_r, strlit("Free upgrade!"), wxy(0.5f, sin_range(0.1f, 0.15f, game->render_time * 8)), 10,
+						sin_range(90.0f, 128.0f, game->render_time * 8.0f), color, true, game->font, game->ui_render_pass1
+					);
+				}
+
+				s_rng rng = make_rng(play_state->level_up_seed);
+				s_sarray<e_upgrade, e_upgrade_count> possible_upgrade_arr;
+				s_sarray<f64, e_upgrade_count> weight_arr;
+				s_sarray<e_upgrade, 3> choice_arr;
+				for_enum(upgrade_i, e_upgrade) {
+					s_upgrade_data data = c_upgrade_data[upgrade_i];
+					b8 over_limit = play_state->upgrade_level_arr[upgrade_i] >= data.max_upgrades;
+					int curr_level = play_state->upgrade_level_arr[upgrade_i];
+					int cost = data.base_cost * (curr_level + 1);
+					if(upgrade_i != e_upgrade_double_harvest && !over_limit) {
+						possible_upgrade_arr.add(upgrade_i);
+						f64 weight = 1.0 / cost;
+						weight = weight * weight * weight;
+						weight_arr.add(weight);
+					}
+				}
+				assert(possible_upgrade_arr.count == weight_arr.count);
+
+				for(int i = 0; i < 3; i += 1) {
+					int index = pick_weighted(weight_arr.elements, weight_arr.count, &rng);
+					e_upgrade element = possible_upgrade_arr[index];
+					possible_upgrade_arr.remove_and_swap(index);
+					weight_arr.remove_and_swap(index);
+					choice_arr.add(element);
+				}
+
+				int picked_choice = -1;
+				s_ui_optional optional = zero;
+				s_v2 button_size = c_base_button_size2;
+				button_size.x += 200;
+				button_size.y += 16;
+				optional.size_x = button_size.x;
+				optional.size_y = button_size.y;
+				optional.font_size = 40;
+				optional.tooltip_font_size = 40;
+
+				s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 32, 3, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
+				for(int choice_i = 0; choice_i < 3; choice_i += 1) {
+					e_upgrade upgrade_id = choice_arr[choice_i];
+					s_upgrade_data data = c_upgrade_data[upgrade_id];
+					optional.description = get_upgrade_tooltip(upgrade_id);
+					if(ui_button(strlit(data.name), pos_area_get_advance(&area), optional) && picked_choice == -1) {
+						picked_choice = choice_i;
+					}
+				}
+				if(picked_choice >= 0) {
+					e_upgrade upgrade_id = choice_arr[picked_choice];
+					play_state->upgrade_level_arr[upgrade_id] += 1;
+					if(upgrade_id == e_upgrade_buy_bot) {
+						make_bot(c_base_pos);
+						play_sound_group(e_sound_group_buy_bot);
+					}
+					else {
+						play_sound_group(e_sound_group_upgrade);
+					}
+					assert(play_state->level_up_triggers >= 0);
+					if(play_state->level_up_triggers <= 0) {
+						play_state->sub_state = e_sub_state_default;
 					}
 				}
 			}
@@ -1363,11 +1455,14 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 
 	if(hovered && optional.description.len > 0) {
 		float temp_font_size = font_size * 1.6f;
+		if(optional.tooltip_font_size > 0) {
+			temp_font_size = optional.tooltip_font_size;
+		}
 		s_v2 text_size = get_text_size(optional.description, game->font, temp_font_size);
 		float padding = 16;
 		s_v2 panel_size = text_size + v2(padding * 2);
 		s_v2 panel_pos = g_mouse - v2(0.0f, panel_size.y);
-		s_rectf panel = constrain_rect(panel_pos, panel_size, c_base_res_bounds);
+		s_rectf panel = fit_rect(panel_pos, panel_size, c_base_res_bounds);
 		s_v2 text_pos = panel.pos + v2(padding);
 		text_pos.y += 4;
 		draw_rect(g_r, panel.pos, 0, panel.size, hex_rgb_plus_alpha(0x9E8642, 0.85f), game->ui_render_pass2, {}, {.origin_offset = c_origin_topleft});
@@ -1501,6 +1596,8 @@ func b8 damage_creature(int creature, int damage)
 			make_pickup(creature_arr->pos[creature], (e_pickup)game->rng.rand_range_ie(0, e_pickup_count));
 		}
 
+		int level_up_count = add_exp(&game->play_state.player, get_creature_exp_reward(creature_arr->tier[creature], creature_arr->boss[creature]));
+		game->play_state.level_up_triggers += level_up_count;
 
 		return true;
 	}
@@ -1713,6 +1810,15 @@ func int get_creature_resource_reward(int tier, b8 boss)
 	if(game->play_state.upgrade_level_arr[e_upgrade_double_harvest] > 0) {
 		result *= 2;
 	}
+	if(boss) {
+		result *= 11;
+	}
+	return result;
+}
+
+func int get_creature_exp_reward(int tier, b8 boss)
+{
+	int result = tier + 1;
 	if(boss) {
 		result *= 11;
 	}
@@ -1967,4 +2073,60 @@ func s_len_str get_upgrade_tooltip(e_upgrade id)
 func s_v2 wxy(float x, float y)
 {
 	return c_base_res * v2(x, y);
+}
+
+func int get_required_exp_level(int level)
+{
+	return 5 + (level - 1) * 3;
+}
+
+func int add_exp(s_player* player, int to_add)
+{
+	int level_up_count_result = 0;
+	int exp_to_level = get_required_exp_level(player->curr_level);
+	player->curr_exp += to_add;
+	while(player->curr_exp >= exp_to_level) {
+		player->curr_exp -= exp_to_level;
+		player->curr_level += 1;
+		exp_to_level = get_required_exp_level(player->curr_level);
+		level_up_count_result += 1;
+	}
+	return level_up_count_result;
+}
+
+func b8 game_is_paused()
+{
+	e_sub_state s = game->play_state.sub_state;
+	return s == e_sub_state_pause || s == e_sub_state_defeat || s == e_sub_state_level_up;
+}
+
+func b8 can_pause()
+{
+	e_sub_state s = game->play_state.sub_state;
+	return s == e_sub_state_pause || s == e_sub_state_default;
+}
+
+func b8 should_show_ui()
+{
+	e_sub_state s = game->play_state.sub_state;
+	return s == e_sub_state_default;
+}
+
+func int pick_weighted(f64* arr, int count, s_rng* rng)
+{
+	assert(count > 0);
+
+	f64 total_weight = 0;
+	for(int i = 0; i < count; i += 1) {
+		total_weight += arr[i];
+	}
+	for(int i = 0; i < count; i += 1) {
+		f64 roll = rng->randf64() * total_weight;
+		if(roll <= arr[i]) {
+			return i;
+		}
+		total_weight -= arr[i];
+	}
+	assert(false);
+	return -1;
 }
