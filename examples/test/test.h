@@ -239,7 +239,7 @@ struct s_player
 	b8 flip_x;
 	b8 dashing;
 	int curr_level;
-	int curr_exp;
+	s64 curr_exp;
 	int active_dash_timer;
 	int cooldown_dash_timer;
 	int harvest_timer;
@@ -566,7 +566,7 @@ func s_len_str get_upgrade_tooltip(e_upgrade id);
 func s_v2 wxy(float x, float y);
 func int get_creature_exp_reward(int tier, b8 boss);
 func int add_exp(s_player* player, int to_add);
-func int get_required_exp_level(int level);
+func s64 get_required_exp_to_level(int level);
 func b8 game_is_paused();
 func b8 can_pause();
 func b8 should_show_ui();

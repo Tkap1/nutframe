@@ -946,7 +946,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							if(
 								!over_limit &&
 								(ui_button(
-									format_text("%s (%i) (%c)", data.name, cost, (char)data.key), pos_area_get_advance(&area_arr[row_i]), optional
+									format_text("%s (%i) [%c]", data.name, cost, (char)data.key), pos_area_get_advance(&area_arr[row_i]), optional
 								) || is_key_pressed(g_input, data.key))
 							) {
 								int buy_count = 1;
@@ -1012,11 +1012,39 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						game->rng.randf32_11() * shake_intensity,
 						game->rng.randf32_11() * shake_intensity
 					);
-					draw_rect(g_r, offset + c_base_res * v2(0.33f, 0.025f), 0, v2(c_base_res.x * 0.33f, c_base_res.y * 0.025f), make_color(0.25f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+					s_v2 pos = wxy(0.33f, 0.02f) + offset;
+					s_v2 size = wxy(0.33f, 0.025f);
+					draw_rect(g_r, pos, 0, size, make_color(0.25f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 					float width = defeat_progress * c_base_res.x * 0.33f;
-					draw_rect(g_r, offset + c_base_res * v2(0.33f, 0.025f), 1, v2(width, c_base_res.y * 0.025f), make_color(0.66f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+					draw_rect(g_r, pos, 1, v2(width, size.y), make_color(0.66f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+
+					draw_text(
+						g_r, format_text("%i", alive_creatures), pos + size * 0.5f + v2(0.0f, 3.0f), 0,
+						24, make_color(1), true, game->font, game->ui_render_pass1
+					);
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lose progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		level up progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				{
+					s64 required_exp = get_required_exp_to_level(play_state->player.curr_level);
+					float level_progress = play_state->player.curr_exp / (float)required_exp;
+					s_v4 color = v4(0.0f, 0.474f, 0.945f, 1.0f);
+					float width = level_progress * c_base_res.x * 0.33f;
+					s_v2 pos = wxy(0.33f, 0.07f);
+					s_v2 size = wxy(0.33f, 0.025f);
+					draw_rect(
+						g_r, pos, 0, size, brighter(color, 0.5f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft}
+					);
+					draw_rect(
+						g_r, pos, 1, v2(width, size.y), color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft}
+					);
+					draw_text(
+						g_r, format_text("%i", play_state->player.curr_level), pos + size * 0.5f + v2(0.0f, 3.0f), 0,
+						24, make_color(1), true, game->font, game->ui_render_pass1
+					);
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		level up progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			}
 
 			if(play_state->sub_state == e_sub_state_pause) {
@@ -1050,6 +1078,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		level up menu start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(play_state->sub_state == e_sub_state_level_up) {
 
 				{
@@ -1102,7 +1131,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					e_upgrade upgrade_id = choice_arr[choice_i];
 					s_upgrade_data data = c_upgrade_data[upgrade_id];
 					optional.description = get_upgrade_tooltip(upgrade_id);
-					if(ui_button(strlit(data.name), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_1 + choice_i)) {
+					if(ui_button(format_text("%s [%c]", data.name, c_key_1 + choice_i), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_1 + choice_i)) {
 						picked_choice = choice_i;
 					}
 				}
@@ -1122,6 +1151,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		level up menu end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// @Note(tkap, 06/10/2024): draw cells
 			#if 0
@@ -1592,9 +1622,9 @@ func b8 damage_creature(int creature, int damage)
 			.color_rand = v3(0.1f, 0.1f, 0.1f),
 		});
 
-		float chance = 2;
+		float chance = 1;
 		if(creature_arr->boss[creature]) {
-			chance = 20;
+			chance = 10;
 		}
 
 		if(game->rng.chance100(chance)) {
@@ -2080,7 +2110,7 @@ func s_v2 wxy(float x, float y)
 	return c_base_res * v2(x, y);
 }
 
-func int get_required_exp_level(int level)
+func s64 get_required_exp_to_level(int level)
 {
 	int level_minus_one = level - 1;
 	return 5 + floorfi(0.3f * level_minus_one * level) + (level_minus_one) * 5;
@@ -2089,12 +2119,12 @@ func int get_required_exp_level(int level)
 func int add_exp(s_player* player, int to_add)
 {
 	int level_up_count_result = 0;
-	int exp_to_level = get_required_exp_level(player->curr_level);
+	s64 exp_to_level = get_required_exp_to_level(player->curr_level);
 	player->curr_exp += to_add;
 	while(player->curr_exp >= exp_to_level) {
 		player->curr_exp -= exp_to_level;
 		player->curr_level += 1;
-		exp_to_level = get_required_exp_level(player->curr_level);
+		exp_to_level = get_required_exp_to_level(player->curr_level);
 		level_up_count_result += 1;
 	}
 	return level_up_count_result;
