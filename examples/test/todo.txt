@@ -13,3 +13,8 @@ polish:
 	smooth zoom
 	smooth camera movement
 	win animation instead of instant change to leaderboard
+
+
+round robin the pickups?
+new pickup that makes bots chain
+shouldnt be able to pause while in free upgrade

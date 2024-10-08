@@ -1024,8 +1024,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		display controls start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-				{
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		display controls tutorial start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				if(!game->hide_tutorial) {
 					s_v2 player_pos = lerp(play_state->player.prev_pos, play_state->player.pos, interp_dt);
 					player_pos += v2(0, 100);
 					float time_passed = play_state->update_count / (float)c_updates_per_second;
@@ -1048,9 +1048,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							draw_text(g_r, text_arr[text_i], text_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, get_render_pass(e_layer_text));
 							text_pos.y += font_size;
 						}
-					}
-					if(is_key_pressed(g_input, c_key_f)) {
-						play_state->update_count = 29 * c_updates_per_second;
 					}
 					if(time_passed >= 15 && time_passed <= 30) {
 						float zoom = play_state->cam.zoom;
@@ -1076,7 +1073,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						draw_text(g_r, text, player_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, get_render_pass(e_layer_text));
 					}
 				}
-				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		display controls end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		display controls tutorial end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lose progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
@@ -1130,7 +1127,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_ui_optional optional = zero;
 				optional.size_x = button_size.x;
 				optional.size_y = button_size.y;
-				s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 8, 5, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
+				s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 8, 6, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
 				if(ui_button(strlit("Resume"), pos_area_get_advance(&area), optional)) {
 					play_state->sub_state = e_sub_state_default;
 					play_state->asking_for_restart_confirmation = false;
@@ -1148,6 +1145,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				if(ui_button(format_text("Timer: %s", game->show_timer ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
 					game->show_timer = !game->show_timer;
+					play_state->asking_for_restart_confirmation = false;
+				}
+				if(ui_button(format_text("Tutorial: %s", game->hide_tutorial ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
+					game->hide_tutorial = !game->hide_tutorial;
 					play_state->asking_for_restart_confirmation = false;
 				}
 				if(ui_button(play_state->asking_for_restart_confirmation ? strlit("Are you sure?") : strlit("Restart"), pos_area_get_advance(&area), optional)) {

@@ -477,6 +477,7 @@ struct s_game
 	int next_state;
 	b8 sound_disabled;
 	b8 show_timer;
+	b8 hide_tutorial;
 
 	b8 reset_game_on_state_change;
 
