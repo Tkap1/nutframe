@@ -260,8 +260,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				f64 dt = platform_data->update_delay;
-				state->spawn_creature_timer += dt;
 				f64 spawn_delay = get_creature_spawn_delay();
+				if(state->has_player_performed_any_action) {
+					state->spawn_creature_timer += dt;
+				}
 				while(state->spawn_creature_timer >= spawn_delay) {
 
 					state->spawn_creature_timer -= spawn_delay;
@@ -303,15 +305,19 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 					if(is_key_down(g_input, c_key_a) || is_key_down(g_input, c_key_left)) {
 						dir.x -= 1;
+						state->has_player_performed_any_action = true;
 					}
 					if(is_key_down(g_input, c_key_d) || is_key_down(g_input, c_key_right)) {
 						dir.x += 1;
+						state->has_player_performed_any_action = true;
 					}
 					if(is_key_down(g_input, c_key_w) || is_key_down(g_input, c_key_up)) {
 						dir.y -= 1;
+						state->has_player_performed_any_action = true;
 					}
 					if(is_key_down(g_input, c_key_s) || is_key_down(g_input, c_key_down)) {
 						dir.y += 1;
+						state->has_player_performed_any_action = true;
 					}
 					dir = v2_normalized(dir);
 
@@ -320,6 +326,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 
 					if(player->cooldown_dash_timer <= 0 && (is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_right_mouse))) {
+						state->has_player_performed_any_action = true;
 						dir = player->dash_dir;
 						player->dashing = true;
 						player->dash_start = player->pos;
@@ -585,7 +592,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check win condition end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			state->update_count += 1;
+			if(state->has_player_performed_any_action) {
+				state->update_count += 1;
+			}
 
 		} break;
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		play state update end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

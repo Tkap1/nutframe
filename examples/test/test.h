@@ -448,6 +448,7 @@ struct s_broken_bot
 
 struct s_play_state
 {
+	b8 has_player_performed_any_action;
 	int next_pickup_to_drop;
 	int win_ticks;
 	u64 level_up_seed;
