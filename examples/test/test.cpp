@@ -207,7 +207,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			s_play_state* state = &game->play_state;
 
-			if(state->sub_state == e_sub_state_default && state->level_up_triggers > 0) {
+			if(can_go_to_level_up_state() && state->level_up_triggers > 0) {
 				state->level_up_triggers -= 1;
 				state->sub_state = e_sub_state_level_up;
 				state->level_up_seed = g_platform_data->get_random_seed();
@@ -2234,6 +2234,12 @@ func b8 can_pause()
 {
 	e_sub_state s = game->play_state.sub_state;
 	return s == e_sub_state_pause || s == e_sub_state_default;
+}
+
+func b8 can_go_to_level_up_state()
+{
+	e_sub_state s = game->play_state.sub_state;
+	return s == e_sub_state_default;
 }
 
 func b8 should_show_ui()

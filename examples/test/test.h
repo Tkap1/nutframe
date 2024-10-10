@@ -581,3 +581,4 @@ func b8 can_pause();
 func b8 should_show_ui();
 func int pick_weighted(f64* arr, int count, s_rng* rng);
 func float ticks_to_seconds(int ticks);
+func b8 can_go_to_level_up_state();

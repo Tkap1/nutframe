@@ -1,0 +1,2 @@
+- Free upgrade no longer triggers when winning
+- Can no longer pause while in free upgrade, which made you lose the upgrade
