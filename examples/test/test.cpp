@@ -660,7 +660,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		game->show_hitboxes = !game->show_hitboxes;
 	}
 	if(is_key_pressed(g_input, c_key_f5)) {
-		add_buff(&game->play_state.player, e_pickup_bot_chain_and_range);
+		for_enum(pickup_i, e_pickup) {
+			add_buff(&game->play_state.player, pickup_i);
+		}
 	}
 	if(get_state() == e_state_play && is_key_pressed(g_input, c_key_r)) {
 		game->reset_game = true;
@@ -1092,6 +1094,22 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		upgrade buttons end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		buff display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+				{
+					s_v2 size = v2(32);
+					s_pos_area area = make_pos_area(wxy(0.005f, 0.07f), wxy(1.0f, 0.07f), size, 8, -1, 0);
+					s_v4 color_arr[] = {
+						make_color(0, 1, 0), make_color(1, 0, 0), make_color(0, 0, 1),
+					};
+					for_enum(pickup_i, e_pickup) {
+						s_v2 pos = pos_area_get_advance(&area);
+						if(has_buff(pickup_i)) {
+							draw_rect(g_r, pos, 0, size, color_arr[pickup_i], game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+						}
+					}
+				}
+				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		buff display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		score goal display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
