@@ -506,7 +506,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				if(state->resource_count >= c_resource_to_win || state->are_we_winning) {
 					if(state->are_we_winning) {
 						state->win_ticks += 1;
-						if(state->win_ticks >= c_updates_per_second * 3) {
+						if(state->win_ticks >= c_win_animation_duration_in_ticks) {
 							if constexpr(c_are_we_on_web) {
 								if(platform_data->leaderboard_nice_name.len > 0) {
 									set_state_next_frame(e_state_leaderboard, true);
@@ -529,7 +529,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 					else {
 						state->are_we_winning = true;
-						state->win_timer = 0;
+						state->win_ticks = 0;
 					}
 				}
 			}
@@ -902,10 +902,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			b8 show_ui = should_show_ui();
 			if(play_state->are_we_winning) {
-				play_state->win_timer += g_delta;
-				float p = play_state->win_timer / 3;
+				float prev_timer = ticks_to_seconds(at_least(0, play_state->win_ticks - 1));
+				float curr_timer = ticks_to_seconds(at_least(0, play_state->win_ticks));
+				float timer = lerp(prev_timer, curr_timer, interp_dt);
+				float p = timer / ticks_to_seconds(c_win_animation_duration_in_ticks);
 				draw_rect(g_r, c_half_res, 0, c_base_res, make_color(0, p), game->ui_render_pass0);
-				float alpha = ease_linear_advanced(play_state->win_timer, 0, 1, 0, 1);
+				float alpha = ease_linear_advanced(timer, 0, 1, 0, 1);
 				draw_text(g_r, strlit("Victory!"), c_base_res * v2(0.5f, 0.1f), 10, 36, make_color(1, alpha), true, game->font, game->ui_render_pass1);
 			}
 			if(play_state->sub_state == e_sub_state_defeat) {
@@ -2257,4 +2259,10 @@ func int pick_weighted(f64* arr, int count, s_rng* rng)
 	}
 	assert(false);
 	return -1;
+}
+
+func float ticks_to_seconds(int ticks)
+{
+	float result = ticks / (float)c_updates_per_second;
+	return result;
 }

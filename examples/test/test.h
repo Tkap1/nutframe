@@ -33,6 +33,7 @@ global constexpr int c_dash_duration = 20;
 global constexpr int c_dash_cooldown = 50;
 global constexpr float c_dash_speed = 24;
 global constexpr s_v2 c_base_button_size2 = v2(376, 44);
+global constexpr int c_win_animation_duration_in_ticks = c_updates_per_second * 3;
 
 enum e_sub_state
 {
@@ -442,8 +443,8 @@ struct s_broken_bot
 struct s_play_state
 {
 	b8 are_we_winning;
+
 	int win_ticks;
-	float win_timer;
 	u64 level_up_seed;
 	e_sub_state sub_state;
 	int next_entity_id;
@@ -580,3 +581,4 @@ func b8 game_is_paused();
 func b8 can_pause();
 func b8 should_show_ui();
 func int pick_weighted(f64* arr, int count, s_rng* rng);
+func float ticks_to_seconds(int ticks);
