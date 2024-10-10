@@ -35,6 +35,7 @@ global constexpr int c_dash_cooldown = 50;
 global constexpr float c_dash_speed = 24;
 global constexpr s_v2 c_base_button_size2 = v2(376, 44);
 global constexpr int c_win_animation_duration_in_ticks = c_updates_per_second * 3;
+global constexpr int c_invalid_entity = -1000000000;
 
 enum e_sub_state
 {
@@ -589,3 +590,4 @@ func float ticks_to_seconds(int ticks);
 func b8 can_go_to_level_up_state();
 func int get_bot_hits();
 func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser_color, float interp_dt);
+func b8 can_lose();

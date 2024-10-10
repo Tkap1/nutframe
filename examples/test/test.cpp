@@ -1,4 +1,3 @@
-// nocheckin test
 #define m_game
 
 #include "../../src/platform_shared.h"
@@ -216,7 +215,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				play_sound_group(e_sound_group_level_up);
 			}
 
-			{
+			if(can_lose()) {
 				int alive_creatures = count_alive_creatures();
 				if(alive_creatures >= c_num_creatures_to_lose) {
 					state->sub_state = e_sub_state_defeat;
@@ -1679,25 +1678,27 @@ func int make_entity(b8* active, int* id, s_entity_index_data* index_data, int m
 			return i;
 		}
 	}
-	return -1;
+	return c_invalid_entity;
 }
 
 func int make_creature(s_v2 pos, int tier, b8 boss)
 {
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 	int entity = make_entity(creature_arr->active, creature_arr->id, &creature_arr->index_data, c_max_creatures);
-	creature_arr->pos[entity] = pos;
-	creature_arr->prev_pos[entity] = pos;
-	creature_arr->target_pos[entity] = pos;
-	creature_arr->tier[entity] = tier;
-	creature_arr->curr_health[entity] = 20 * (tier + 1);
-	creature_arr->roam_timer[entity] = 0;
-	creature_arr->targeted[entity] = false;
-	creature_arr->boss[entity] = boss;
-	creature_arr->animation_timer[entity] = 0;
+	if(entity >= 0) {
+		creature_arr->pos[entity] = pos;
+		creature_arr->prev_pos[entity] = pos;
+		creature_arr->target_pos[entity] = pos;
+		creature_arr->tier[entity] = tier;
+		creature_arr->curr_health[entity] = 20 * (tier + 1);
+		creature_arr->roam_timer[entity] = 0;
+		creature_arr->targeted[entity] = false;
+		creature_arr->boss[entity] = boss;
+		creature_arr->animation_timer[entity] = 0;
 
-	if(boss) {
-		creature_arr->curr_health[entity] *= 10;
+		if(boss) {
+			creature_arr->curr_health[entity] *= 10;
+		}
 	}
 	return entity;
 }
@@ -1737,11 +1738,11 @@ func void pick_target_for_bot(int bot)
 func int get_creature(s_entity_index index)
 {
 	assert(index.index >= 0);
-	if(index.id <= 0) { return -1; }
-	if(!game->play_state.creature_arr.active[index.index]) { return -1; }
+	if(index.id <= 0) { return c_invalid_entity; }
+	if(!game->play_state.creature_arr.active[index.index]) { return c_invalid_entity; }
 
 	if(game->play_state.creature_arr.id[index.index] == index.id) { return index.index; }
-	return -1;
+	return c_invalid_entity;
 }
 
 // @Note(tkap, 05/10/2024): Return true if creature died. Return false if creature still alive
@@ -2291,6 +2292,12 @@ func b8 can_pause()
 {
 	e_sub_state s = game->play_state.sub_state;
 	return s == e_sub_state_pause || s == e_sub_state_default;
+}
+
+func b8 can_lose()
+{
+	e_sub_state s = game->play_state.sub_state;
+	return s != e_sub_state_winning;
 }
 
 func b8 can_go_to_level_up_state()
