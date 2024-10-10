@@ -177,6 +177,7 @@ struct s_pickup
 
 enum e_state
 {
+	e_state_main_menu,
 	e_state_play,
 	e_state_leaderboard,
 	e_state_input_name,
@@ -469,16 +470,26 @@ struct s_play_state
 	s_carray<float, c_max_craters> crater_size_arr;
 	s_carray<float, c_max_craters> crater_rotation_arr;
 	s_carray<b8, c_max_craters> crater_flip_arr;
-	b8 asking_for_restart_confirmation;
 	int level_up_triggers;
 };
 
+
+struct s_main_menu
+{
+	e_sub_state sub_state;
+};
 
 struct s_game
 {
 	b8 initialized;
 	b8 show_hitboxes;
-	e_state state;
+	b8 asking_for_restart_confirmation;
+	b8 should_pop_state;
+	b8 reset_game;
+
+	s_sarray<e_state, 16> state_stack;
+
+	s_main_menu main_menu;
 
 	int next_state;
 	b8 sound_disabled;
@@ -555,7 +566,7 @@ func int get_creature_spawn_tier();
 func float get_player_harvest_range();
 func float get_bot_harvest_range();
 func int get_creature_resource_reward(int tier, b8 boss);
-func void set_state_next_frame(e_state new_state, b8 reset_game_on_state_change);
+func void set_state_next_frame(e_state new_state);
 func int count_alive_creatures();
 func s_render_pass* get_render_pass(e_layer layer);
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness);
@@ -591,3 +602,6 @@ func b8 can_go_to_level_up_state();
 func int get_bot_hits();
 func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser_color, float interp_dt);
 func b8 can_lose();
+func void do_options_menu(b8 in_play_mode);
+func e_state get_state();
+func void go_back_to_prev_state();

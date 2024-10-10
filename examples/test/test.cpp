@@ -110,91 +110,105 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		g_r->game_speed_index = 5;
 
 		game->next_state = -1;
-		set_state_next_frame(e_state_play, true);
+		set_state_next_frame(e_state_main_menu);
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		initialize end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		handle state change start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	if(game->next_state >= 0) {
-		game->state = (e_state)game->next_state;
+		if(game->should_pop_state) {
+			game->should_pop_state = false;
+			game->state_stack.pop();
+		}
+		else {
+			game->state_stack.add((e_state)game->next_state);
+		}
 		game->next_state = -1;
 
-		switch(game->state) {
+		switch(get_state()) {
 			case e_state_play: {
-
-				if(!game->reset_game_on_state_change) { break; }
-
-				memset(&game->play_state, 0, sizeof(game->play_state));
-				game->play_state.cam.zoom = 1;
-
-				game->play_state.next_pickup_to_drop = game->rng.randu() % e_pickup_count;
-
-				{
-					s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y * 0.6f);
-					game->play_state.player.pos = pos;
-					game->play_state.player.prev_pos = pos;
-					game->play_state.player.dash_dir = v2(1, 0);
-					game->play_state.player.curr_level = 1;
+				if(game->reset_game_on_state_change) {
+					game->reset_game_on_state_change = false;
+					game->reset_game = true;
 				}
-
-				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn broken bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-				{
-					s_bounds bounds = get_map_bounds();
-					// @Note(tkap, 06/10/2024): Left
-					for(int i = 0; i < 2; i += 1) {
-						s_v2 pos = v2(
-							game->rng.randf_range(bounds.min_x, bounds.min_x + 500),
-							game->rng.randf_range(bounds.min_y, bounds.max_y)
-						);
-						game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
-					}
-					// @Note(tkap, 06/10/2024): Right
-					for(int i = 0; i < 2; i += 1) {
-						s_v2 pos = v2(
-							game->rng.randf_range(bounds.max_x - 500, bounds.max_x),
-							game->rng.randf_range(bounds.min_y, bounds.max_y)
-						);
-						game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
-					}
-					// @Note(tkap, 06/10/2024): Top
-					for(int i = 0; i < 2; i += 1) {
-						s_v2 pos = v2(
-							game->rng.randf_range(bounds.min_x, bounds.max_x),
-							game->rng.randf_range(bounds.min_y, bounds.min_y + 500)
-						);
-						game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
-					}
-					// @Note(tkap, 06/10/2024): Bottom
-					for(int i = 0; i < 2; i += 1) {
-						s_v2 pos = v2(
-							game->rng.randf_range(bounds.min_x, bounds.max_x),
-							game->rng.randf_range(bounds.max_y - 500, bounds.max_y)
-						);
-						game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
-					}
-				}
-				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		spawn broken bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		setup craters start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-				{
-					s_rng rng = make_rng(4);
-					s_bounds map_bounds = get_map_bounds();
-					for(int crater_i = 0; crater_i < c_max_craters; crater_i += 1) {
-						game->play_state.crater_pos_arr[crater_i] = v2(
-							rng.randf_range(map_bounds.min_x, map_bounds.max_x) + 64,
-							rng.randf_range(map_bounds.min_y, map_bounds.max_y) - 64
-						);
-						game->play_state.crater_size_arr[crater_i] = rng.randf_range(96, 136);
-						game->play_state.crater_rotation_arr[crater_i] = rng.randf_range(-pi * 0.1f, pi * 0.1f);
-						game->play_state.crater_flip_arr[crater_i] = rng.rand_bool();
-					}
-				}
-				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		setup craters end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 			} break;
 		}
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		handle state change end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		reset game start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	if(game->reset_game) {
+		game->reset_game = false;
+
+		memset(&game->play_state, 0, sizeof(game->play_state));
+		game->play_state.cam.zoom = 1;
+
+		game->play_state.next_pickup_to_drop = game->rng.randu() % e_pickup_count;
+
+		{
+			s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y * 0.6f);
+			game->play_state.player.pos = pos;
+			game->play_state.player.prev_pos = pos;
+			game->play_state.player.dash_dir = v2(1, 0);
+			game->play_state.player.curr_level = 1;
+		}
+
+		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn broken bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+		{
+			s_bounds bounds = get_map_bounds();
+			// @Note(tkap, 06/10/2024): Left
+			for(int i = 0; i < 2; i += 1) {
+				s_v2 pos = v2(
+					game->rng.randf_range(bounds.min_x, bounds.min_x + 500),
+					game->rng.randf_range(bounds.min_y, bounds.max_y)
+				);
+				game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
+			}
+			// @Note(tkap, 06/10/2024): Right
+			for(int i = 0; i < 2; i += 1) {
+				s_v2 pos = v2(
+					game->rng.randf_range(bounds.max_x - 500, bounds.max_x),
+					game->rng.randf_range(bounds.min_y, bounds.max_y)
+				);
+				game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
+			}
+			// @Note(tkap, 06/10/2024): Top
+			for(int i = 0; i < 2; i += 1) {
+				s_v2 pos = v2(
+					game->rng.randf_range(bounds.min_x, bounds.max_x),
+					game->rng.randf_range(bounds.min_y, bounds.min_y + 500)
+				);
+				game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
+			}
+			// @Note(tkap, 06/10/2024): Bottom
+			for(int i = 0; i < 2; i += 1) {
+				s_v2 pos = v2(
+					game->rng.randf_range(bounds.min_x, bounds.max_x),
+					game->rng.randf_range(bounds.max_y - 500, bounds.max_y)
+				);
+				game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
+			}
+		}
+		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		spawn broken bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		setup craters start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+		{
+			s_rng rng = make_rng(4);
+			s_bounds map_bounds = get_map_bounds();
+			for(int crater_i = 0; crater_i < c_max_craters; crater_i += 1) {
+				game->play_state.crater_pos_arr[crater_i] = v2(
+					rng.randf_range(map_bounds.min_x, map_bounds.max_x) + 64,
+					rng.randf_range(map_bounds.min_y, map_bounds.max_y) - 64
+				);
+				game->play_state.crater_size_arr[crater_i] = rng.randf_range(96, 136);
+				game->play_state.crater_rotation_arr[crater_i] = rng.randf_range(-pi * 0.1f, pi * 0.1f);
+				game->play_state.crater_flip_arr[crater_i] = rng.rand_bool();
+			}
+		}
+		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		setup craters end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	}
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		reset game end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 	s_bot_arr* bot_arr = &game->play_state.bot_arr;
@@ -202,7 +216,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	game->play_state.player.prev_pos = game->play_state.player.pos;
 	memcpy(creature_arr->prev_pos, creature_arr->pos, sizeof(creature_arr->prev_pos));
 	memcpy(bot_arr->prev_pos, bot_arr->pos, sizeof(bot_arr->prev_pos));
-	switch(game->state) {
+	switch(get_state()) {
 
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		play state update start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		case e_state_play: {
@@ -545,7 +559,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						if(state->win_ticks >= c_win_animation_duration_in_ticks) {
 							if constexpr(c_are_we_on_web) {
 								if(platform_data->leaderboard_nice_name.len > 0) {
-									set_state_next_frame(e_state_leaderboard, true);
+									set_state_next_frame(e_state_leaderboard);
 									game->leaderboard_state.coming_from_win = true;
 									platform_data->submit_leaderboard_score(
 										game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
@@ -553,11 +567,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 									game->play_state.update_count_at_win_time = game->play_state.update_count;
 								}
 								else {
-									set_state_next_frame(e_state_input_name, true);
+									set_state_next_frame(e_state_input_name);
 								}
 							}
 							else {
-								set_state_next_frame(e_state_leaderboard, true);
+								set_state_next_frame(e_state_leaderboard);
 								game->leaderboard_state.coming_from_win = true;
 								game->play_state.update_count_at_win_time = game->play_state.update_count;
 							}
@@ -636,8 +650,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	if(is_key_pressed(g_input, c_key_f4)) {
 		game->show_hitboxes = !game->show_hitboxes;
 	}
-	if(is_key_pressed(g_input, c_key_r)) {
-		set_state_next_frame(e_state_play, true);
+	if(get_state() == e_state_play && is_key_pressed(g_input, c_key_r)) {
+		game->reset_game = true;
 	}
 	#endif // m_debug
 
@@ -649,7 +663,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		else {
 			game->play_state.sub_state = e_sub_state_pause;
 		}
-		play_state->asking_for_restart_confirmation = false;
+		game->asking_for_restart_confirmation = false;
 	}
 
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
@@ -660,7 +674,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		game->play_state.cam.pos = pos - c_base_res * (0.5f / game->play_state.cam.zoom);
 	}
 
-	switch(game->state) {
+	switch(get_state()) {
 
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		play state draw start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		case e_state_play: {
@@ -965,7 +979,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_text(g_r, strlit("Press R to restart..."), c_base_res * v2(0.5f, 0.5f), 0, 64, make_color(0.6f), true, game->font, game->ui_render_pass1);
 
 				if(is_key_pressed(g_input, c_key_r)) {
-					set_state_next_frame(e_state_play, true);
+					set_state_next_frame(e_state_play);
+					game->reset_game_on_state_change = true;
 				}
 			}
 			if(show_ui) {
@@ -1174,42 +1189,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		options pause menu start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(play_state->sub_state == e_sub_state_pause) {
-				s_v2 button_size = c_base_button_size2;
-				s_ui_optional optional = zero;
-				optional.size_x = button_size.x;
-				optional.size_y = button_size.y;
-				s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 8, 6, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
-				if(ui_button(strlit("Resume"), pos_area_get_advance(&area), optional)) {
-					play_state->sub_state = e_sub_state_default;
-					play_state->asking_for_restart_confirmation = false;
-				}
-				if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), optional)) {
-					set_state_next_frame(e_state_leaderboard, false);
-					if constexpr(c_are_we_on_web) {
-						on_leaderboard_score_submitted();
-					}
-					play_state->asking_for_restart_confirmation = false;
-				}
-				if(ui_button(format_text("Sounds: %s", game->sound_disabled ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
-					game->sound_disabled = !game->sound_disabled;
-					play_state->asking_for_restart_confirmation = false;
-				}
-				if(ui_button(format_text("Timer: %s", game->hide_timer ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
-					game->hide_timer = !game->hide_timer;
-					play_state->asking_for_restart_confirmation = false;
-				}
-				if(ui_button(format_text("Tutorial: %s", game->hide_tutorial ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
-					game->hide_tutorial = !game->hide_tutorial;
-					play_state->asking_for_restart_confirmation = false;
-				}
-				if(ui_button(play_state->asking_for_restart_confirmation ? strlit("Are you sure?") : strlit("Restart"), pos_area_get_advance(&area), optional)) {
-					if(play_state->asking_for_restart_confirmation) {
-						set_state_next_frame(e_state_play, true);
-					}
-					else {
-						play_state->asking_for_restart_confirmation = true;
-					}
-				}
+				do_options_menu(true);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		options pause menu end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1303,10 +1283,37 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		} break;
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		play state draw end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+		case e_state_main_menu: {
+			s_main_menu* state = &game->main_menu;
+
+			if(state->sub_state == e_sub_state_default) {
+				draw_text(g_r, strlit("Hive Havoc"), wxy(0.5f, 0.1f), 0, 128, make_color(1), true, game->font, game->ui_render_pass1);
+
+				s_v2 button_size = v2(370, 48);
+				s_pos_area area = make_pos_area(wxy(0.0f, 0.0f), wxy(1.0f, 1.0f), button_size, 8, 2, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
+				if(ui_button(strlit("Play"), pos_area_get_advance(&area), {.size_x = button_size.x, .size_y = button_size.y})) {
+					set_state_next_frame(e_state_play);
+					game->reset_game_on_state_change = true;
+				}
+				if(ui_button(strlit("Options"), pos_area_get_advance(&area), {.size_x = button_size.x, .size_y = button_size.y})) {
+					state->sub_state = e_sub_state_pause;
+					game->asking_for_restart_confirmation = false;
+				}
+			}
+
+			if(state->sub_state == e_sub_state_pause) {
+				do_options_menu(false);
+			}
+
+		} break;
+
 		case e_state_leaderboard: {
 
-			if(is_key_pressed(g_input, c_key_r)) {
-				set_state_next_frame(e_state_play, true);
+			if(game->leaderboard_state.coming_from_win) {
+				if(is_key_pressed(g_input, c_key_r)) {
+					set_state_next_frame(e_state_play);
+					game->reset_game_on_state_change = true;
+				}
 			}
 
 			if(!game->leaderboard_state.received) {
@@ -1347,8 +1354,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			b8 win = game->leaderboard_state.coming_from_win;
 			if(ui_button(win ? strlit("Restart") : strlit("Back"), c_base_res * v2(0.75f, 0.92f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y}) || is_key_pressed(g_input, c_key_escape)) {
-				b8 reset_game = win ? true : false;
-				set_state_next_frame(e_state_play, reset_game);
+				if(win) {
+					go_back_to_prev_state();
+					game->reset_game_on_state_change = true;
+				}
+				else {
+					go_back_to_prev_state();
+				}
 			}
 
 		} break;
@@ -1654,7 +1666,7 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 static void on_set_leaderboard_name(b8 success)
 {
 	if(success) {
-		set_state_next_frame(e_state_leaderboard, true);
+		set_state_next_frame(e_state_leaderboard);
 		game->leaderboard_state.coming_from_win = true;
 		g_platform_data->submit_leaderboard_score(
 			game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
@@ -2006,11 +2018,9 @@ func int get_creature_exp_reward(int tier, b8 boss)
 	return result;
 }
 
-func void set_state_next_frame(e_state new_state, b8 reset_game_on_state_change)
+func void set_state_next_frame(e_state new_state)
 {
 	if(game->next_state >= 0) { return; }
-
-	game->reset_game_on_state_change = reset_game_on_state_change;
 
 	switch(new_state)	{
 		case e_state_leaderboard: {
@@ -2343,4 +2353,69 @@ func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser
 	s_v2 to_pos = lerp(target.to.prev_pos, target.to.pos, interp_dt);
 	draw_line(g_r, from_pos, to_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
 	draw_light(to_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
+}
+
+func void do_options_menu(b8 in_play_mode)
+{
+	s_v2 button_size = c_base_button_size2;
+	s_ui_optional optional = zero;
+	s_play_state* play_state = &game->play_state;
+	int button_count = in_play_mode ? 6 : 5;
+	optional.size_x = button_size.x;
+	optional.size_y = button_size.y;
+
+	s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 8, button_count, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
+	if(in_play_mode && ui_button(strlit("Resume"), pos_area_get_advance(&area), optional)) {
+		play_state->sub_state = e_sub_state_default;
+		game->asking_for_restart_confirmation = false;
+	}
+	if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), optional)) {
+		set_state_next_frame(e_state_leaderboard);
+		if constexpr(c_are_we_on_web) {
+			on_leaderboard_score_submitted();
+		}
+		game->asking_for_restart_confirmation = false;
+	}
+	if(ui_button(format_text("Sounds: %s", game->sound_disabled ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
+		game->sound_disabled = !game->sound_disabled;
+		game->asking_for_restart_confirmation = false;
+	}
+	if(ui_button(format_text("Timer: %s", game->hide_timer ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
+		game->hide_timer = !game->hide_timer;
+		game->asking_for_restart_confirmation = false;
+	}
+	if(ui_button(format_text("Tutorial: %s", game->hide_tutorial ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
+		game->hide_tutorial = !game->hide_tutorial;
+		game->asking_for_restart_confirmation = false;
+	}
+	if(in_play_mode && ui_button(game->asking_for_restart_confirmation ? strlit("Are you sure?") : strlit("Restart"), pos_area_get_advance(&area), optional)) {
+		if(game->asking_for_restart_confirmation) {
+			set_state_next_frame(e_state_play);
+			game->reset_game_on_state_change = true;
+		}
+		else {
+			game->asking_for_restart_confirmation = true;
+		}
+	}
+	if(!in_play_mode && ui_button(strlit("Back"), pos_area_get_advance(&area), optional)) {
+		game->main_menu.sub_state = e_sub_state_default;
+		game->asking_for_restart_confirmation = false;
+	}
+	if(in_play_mode && ui_button(strlit("Exit"), pos_area_get_advance(&area), optional)) {
+		go_back_to_prev_state();
+		game->asking_for_restart_confirmation = false;
+	}
+
+}
+
+func e_state get_state()
+{
+	return game->state_stack.get_last();
+}
+
+func void go_back_to_prev_state()
+{
+	e_state state = game->state_stack[game->state_stack.count - 2];
+	set_state_next_frame(state);
+	game->should_pop_state = true;
 }
