@@ -127,6 +127,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				memset(&game->play_state, 0, sizeof(game->play_state));
 				game->play_state.cam.zoom = 1;
 
+				game->play_state.next_pickup_to_drop = game->rng.randu() % e_pickup_count;
+
 				{
 					s_v2 pos = c_base_pos + v2(0.0f, c_base_size.y * 0.6f);
 					game->play_state.player.pos = pos;
@@ -1722,7 +1724,8 @@ func b8 damage_creature(int creature, int damage)
 		}
 
 		if(game->rng.chance100(chance)) {
-			make_pickup(creature_arr->pos[creature], (e_pickup)game->rng.rand_range_ie(0, e_pickup_count));
+			make_pickup(creature_arr->pos[creature], (e_pickup)game->play_state.next_pickup_to_drop);
+			circular_index_add(&game->play_state.next_pickup_to_drop, 1, e_pickup_count);
 		}
 
 		int level_up_count = add_exp(&game->play_state.player, get_creature_exp_reward(creature_arr->tier[creature], creature_arr->boss[creature]));

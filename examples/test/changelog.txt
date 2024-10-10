@@ -1,2 +1,3 @@
 - Free upgrade no longer triggers when winning
 - Can no longer pause while in free upgrade, which made you lose the upgrade
+- Power up drops now alternate. This means that you will now get red, green, red, green. This is to reduce bad RNG where you get a bunch of the same power up

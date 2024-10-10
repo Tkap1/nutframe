@@ -15,7 +15,6 @@ polish:
 	win animation instead of instant change to leaderboard
 
 
-round robin the pickups?
 new pickup that makes bots chain
 shouldnt be able to pause while in free upgrade
 bar for the win condition?

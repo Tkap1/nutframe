@@ -443,6 +443,7 @@ struct s_broken_bot
 
 struct s_play_state
 {
+	int next_pickup_to_drop;
 	int win_ticks;
 	u64 level_up_seed;
 	e_sub_state sub_state;
