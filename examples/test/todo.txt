@@ -17,3 +17,5 @@ polish:
 
 new pickup that makes bots chain
 bar for the win condition?
+
+fix bug where you can lose while winning

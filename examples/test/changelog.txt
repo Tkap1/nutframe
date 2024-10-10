@@ -1,6 +1,10 @@
-- Free upgrade no longer triggers when winning
-- Can no longer pause while in free upgrade, which made you lose the upgrade
+*Misc*
 - Power up drops now alternate. This means that you will now get red, green, red, green. This is to reduce bad RNG where you get a bunch of the same power up
 - Drones now do a circle vs rect collision against enemies to start attacking. Previously they checked distance between centers. This results in more drone range
 - Drone range upgrade cost 90 -> 80
 - Drone range upgrade value 20 -> 25
+
+*Bug fixes*
+- Free upgrade no longer triggers when in the winning animation
+- Can no longer pause while in free upgrade, which made you lose the upgrade
+- Can no longer get stuck in the free upgrade menu

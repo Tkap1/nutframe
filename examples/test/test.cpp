@@ -1,3 +1,4 @@
+// nocheckin test
 #define m_game
 
 #include "../../src/platform_shared.h"
@@ -210,7 +211,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			s_play_state* state = &game->play_state;
 
 			if(can_go_to_level_up_state() && state->level_up_triggers > 0) {
-				state->level_up_triggers -= 1;
 				state->sub_state = e_sub_state_level_up;
 				state->level_up_seed = g_platform_data->get_random_seed();
 				play_sound_group(e_sound_group_level_up);
@@ -344,22 +344,21 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 					foreach_val(target_i, target, target_arr) {
 						int curr_target = target;
-						s_v2 prev_pos = zero;
-						int previous = -1;
+						s_v2 prev_prev_pos = v2(0);
+						s_v2 prev_pos = v2(0);
 						s_sarray<int, c_max_player_hits> blacklist;
-						s_v2 query_pos = player->pos;
 						if(!creature_arr->active[curr_target]) { continue; }
 
 						for(int hit_i = 0; hit_i < hits; hit_i += 1) {
-							s_laser_target laser_target = zero;
-							if(previous >= 0) { query_pos = prev_pos; }
-							prev_pos = creature_arr->pos[curr_target];
 							blacklist.add(curr_target);
 
 							// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		add laser start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-							if(previous >= 0) {
-								laser_target.from = maybe(s_lerp{creature_arr->prev_pos[previous], creature_arr->pos[previous]});
+							s_laser_target laser_target = zero;
+							if(hit_i > 0) {
+								laser_target.has_prev = true;
 							}
+							laser_target.from.prev_pos = prev_prev_pos;
+							laser_target.from.pos = prev_pos;
 							laser_target.to = {creature_arr->prev_pos[curr_target], creature_arr->pos[curr_target]};
 							player->laser_target_arr.add(laser_target);
 							b8 killed = damage_creature(curr_target, player_damage);
@@ -368,7 +367,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							}
 							// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add laser end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 							player->harvest_timer = 0;
-							previous = curr_target;
+
+							prev_prev_pos = creature_arr->prev_pos[curr_target];
+							prev_pos = creature_arr->pos[curr_target];
 
 							curr_target = get_closest_creature2(creature_arr->pos[curr_target], harvest_range, &cells, platform_data->frame_arena, blacklist);
 							if(curr_target < 0) { break; }
@@ -440,8 +441,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			for_bot_partial(bot) {
 				if(!bot_arr->active[bot]) { continue; }
 
-				bot_arr->laser_target[bot] = zero;
 				bot_arr->harvest_timer[bot] += 1;
+				if(bot_arr->harvest_timer[bot] >= c_bot_harvest_delay) {
+					bot_arr->laser_target_arr[bot].count = 0;
+				}
 
 				switch(bot_arr->state[bot]) {
 					case e_bot_state_going_to_creature: {
@@ -460,22 +463,55 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					case e_bot_state_harvesting_creature: {
 						int creature = get_creature(bot_arr->target[bot]);
 						if(creature >= 0) {
-							bot_arr->laser_target[bot] = bot_arr->target[bot];
 
 							if(bot_arr->harvest_timer[bot] >= c_bot_harvest_delay) {
-								bot_arr->harvest_timer[bot] = 0;
+								int curr_target = creature;
+								int hit_count = get_bot_hits();
 								int bot_damage = get_bot_damage();
-								b8 killed = damage_creature(creature, bot_damage);
-								if(killed) {
-									bot_arr->cargo[bot] += get_creature_resource_reward(creature_arr->tier[creature], creature_arr->boss[creature]);
-									bot_arr->cargo_count[bot] += 1;
-									if(bot_arr->cargo_count[bot] >= get_bot_max_cargo_count()) {
-										bot_arr->state[bot] = e_bot_state_going_back_to_base;
+								float harvest_range = get_bot_harvest_range();
+								s_sarray<int, c_max_bot_hits> blacklist;
+								b8 pick_new_target = false;
+								int max_cargo = get_bot_max_cargo_count();
+								s_v2 prev_prev_pos = v2(0);
+								s_v2 prev_pos = v2(0);
+
+								for(int hit_i = 0; hit_i < hit_count; hit_i += 1) {
+									bot_arr->harvest_timer[bot] = 0;
+									blacklist.add(curr_target);
+									b8 killed = damage_creature(curr_target, bot_damage);
+									if(killed) {
+										bot_arr->cargo[bot] += get_creature_resource_reward(creature_arr->tier[curr_target], creature_arr->boss[curr_target]);
+										bot_arr->cargo_count[bot] += 1;
+										if(bot_arr->cargo_count[bot] >= max_cargo) {
+											bot_arr->state[bot] = e_bot_state_going_back_to_base;
+											pick_new_target = false;
+										}
+										else if(hit_i == 0) {
+											pick_new_target = true;
+										}
 									}
-									else {
-										bot_arr->state[bot] = e_bot_state_going_to_creature;
-										pick_target_for_bot(bot);
+
+									{
+										s_laser_target lt = zero;
+										lt.has_prev = hit_i > 0;
+										lt.from.prev_pos = prev_prev_pos;
+										lt.from.pos = prev_pos;
+										lt.to.prev_pos = creature_arr->prev_pos[curr_target];
+										lt.to.pos = creature_arr->pos[curr_target];
+										bot_arr->laser_target_arr[bot].add(lt);
 									}
+
+									prev_prev_pos = creature_arr->prev_pos[curr_target];
+									prev_pos = creature_arr->pos[curr_target];
+
+									curr_target = get_closest_creature2(creature_arr->pos[curr_target], harvest_range, &cells, platform_data->frame_arena, blacklist);
+									if(curr_target < 0) { break; }
+
+
+								}
+								if(pick_new_target) {
+									bot_arr->state[bot] = e_bot_state_going_to_creature;
+									pick_target_for_bot(bot);
 								}
 							}
 						}
@@ -730,17 +766,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 
 				foreach_val(target_i, target, p->laser_target_arr) {
-					s_v2 from_pos;
-					s_v2 to_pos = lerp(target.to.prev_pos, target.to.pos, interp_dt);
-					if(target.from.valid) {
-						from_pos = lerp(target.from.value.prev_pos, target.from.value.pos, interp_dt);
+					if(!target.has_prev) {
+						target.from.prev_pos = p->prev_pos;
+						target.from.pos = p->pos;
 					}
-					else {
-						from_pos = pos;
-					}
-					s_v4 laser_color = make_color(0.5f, 0.1f, 0.1f);
-					draw_line(g_r, from_pos, to_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
-					draw_light(to_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
+					draw_laser(target, laser_light_radius, make_color(0.5f, 0.1f, 0.1f), interp_dt);
 				}
 				if(game->show_hitboxes) {
 					draw_rect(g_r, pos, e_layer_hitbox, c_player_size, v4(0.0f, 0.5f, 0.0f, 0.5f), get_render_pass(e_layer_hitbox));
@@ -849,15 +879,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, texture, get_render_pass(e_layer_bot), {}, {.rotation = tilt});
 
 				draw_shadow(pos + v2(0, 100), 32, 0.25f, 0.0f);
-
-				int creature = get_creature(bot_arr->laser_target[bot]);
-				if(creature >= 0) {
-					s_v2 creature_pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					s_v4 laser_color = make_color(0.1f, 0.5f, 0.1f);
-					draw_line(g_r, pos, creature_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
-					draw_light(creature_pos, laser_light_radius, laser_color, 0.0f);
-				}
 				draw_light(pos, 48, make_color(0.33f), 0.0f);
+
+				foreach_val(target_i, target, bot_arr->laser_target_arr[bot]) {
+					if(!target.has_prev) {
+						target.from.prev_pos = bot_arr->prev_pos[bot];
+						target.from.pos = bot_arr->pos[bot];
+					}
+					draw_laser(target, laser_light_radius, make_color(0.1f, 0.5f, 0.1f), interp_dt);
+				}
 
 				if(game->show_hitboxes) {
 					draw_circle(g_r, pos, e_layer_hitbox, get_bot_harvest_range(), v4(0.0f, 0.0f, 0.5f, 0.5f), get_render_pass(e_layer_hitbox));
@@ -1253,7 +1283,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					else {
 						play_sound_group(e_sound_group_upgrade);
 					}
-					assert(play_state->level_up_triggers >= 0);
+					assert(play_state->level_up_triggers > 0);
+					play_state->level_up_triggers -= 1;
 					if(play_state->level_up_triggers <= 0) {
 						play_state->sub_state = e_sub_state_default;
 					}
@@ -1679,7 +1710,6 @@ func int make_bot(s_v2 pos)
 	bot_arr->state[entity] = e_bot_state_going_to_creature;
 	bot_arr->pos[entity] = pos;
 	bot_arr->prev_pos[entity] = pos;
-	bot_arr->laser_target[entity] = zero;
 	bot_arr->cargo[entity] = 0;
 	bot_arr->cargo_count[entity] = 0;
 	return entity;
@@ -2096,6 +2126,12 @@ func int get_player_hits()
 	return at_most(c_max_player_hits, result);
 }
 
+func int get_bot_hits()
+{
+	int result = 1;
+	return at_most(c_max_bot_hits, result);
+}
+
 func void make_pickup(s_v2 pos, e_pickup type)
 {
 	s_pickup pickup = zero;
@@ -2199,7 +2235,7 @@ func s_len_str get_upgrade_tooltip(e_upgrade id)
 		} break;
 
 		case e_upgrade_bot_harvest_range: {
-			result = format_text("+20 drone harvest range\n\nCurrent: %.0f", get_bot_harvest_range());
+			result = format_text("+25 drone harvest range\n\nCurrent: %.0f", get_bot_harvest_range());
 		} break;
 
 		case e_upgrade_double_harvest: {
@@ -2292,4 +2328,12 @@ func float ticks_to_seconds(int ticks)
 {
 	float result = ticks / (float)c_updates_per_second;
 	return result;
+}
+
+func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser_color, float interp_dt)
+{
+	s_v2 from_pos = lerp(target.from.prev_pos, target.from.pos, interp_dt);
+	s_v2 to_pos = lerp(target.to.prev_pos, target.to.pos, interp_dt);
+	draw_line(g_r, from_pos, to_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
+	draw_light(to_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
 }

@@ -26,6 +26,7 @@ global constexpr int c_cell_size = 256;
 global constexpr int c_num_cells = c_cell_area / c_cell_size;
 global constexpr s_v2 c_cells_topleft = v2(c_base_pos.x - c_cell_area * 0.5f, c_base_pos.y - c_cell_area * 0.5f);
 global constexpr int c_max_player_hits = 16;
+global constexpr int c_max_bot_hits = 16;
 global constexpr s_v2 c_pickup_size = v2(64);
 global constexpr float c_tile_size = 256;
 global constexpr int c_max_craters = 32;
@@ -231,8 +232,9 @@ struct s_lerp
 
 struct s_laser_target
 {
+	b8 has_prev;
 	s_lerp to;
-	s_maybe<s_lerp> from;
+	s_lerp from;
 };
 
 struct s_buff
@@ -295,10 +297,10 @@ struct s_bot_arr
 	float animation_timer[c_max_bots];
 	float tilt_timer[c_max_bots];
 	s_entity_index target[c_max_bots];
-	s_entity_index laser_target[c_max_bots];
 	e_bot_state state[c_max_bots];
 	s_v2 prev_pos[c_max_bots];
 	s_v2 pos[c_max_bots];
+	s_sarray<s_laser_target, c_max_bot_hits> laser_target_arr[c_max_bots];
 };
 
 struct s_visual_effect
@@ -585,3 +587,5 @@ func b8 should_show_ui();
 func int pick_weighted(f64* arr, int count, s_rng* rng);
 func float ticks_to_seconds(int ticks);
 func b8 can_go_to_level_up_state();
+func int get_bot_hits();
+func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser_color, float interp_dt);
