@@ -5,6 +5,10 @@
 - Drone range upgrade value 20 -> 25
 - Timer is on by default
 - Timer no longer starts until the player performs an action
+- Added a power up that gives +100 range and +4 chains to drones (same as the player's chain power up)
+- Increased the maximum number of cargo upgrades 9 -> 19
+- Power ups are now easier to see
+- Increased the EXP needed to level in the late game
 
 *Bug fixes*
 - Can no longer pause while in free upgrade, which made you lose the upgrade

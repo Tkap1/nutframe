@@ -659,6 +659,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	if(is_key_pressed(g_input, c_key_f4)) {
 		game->show_hitboxes = !game->show_hitboxes;
 	}
+	if(is_key_pressed(g_input, c_key_f5)) {
+		add_buff(&game->play_state.player, e_pickup_bot_chain_and_range);
+	}
 	if(get_state() == e_state_play && is_key_pressed(g_input, c_key_r)) {
 		game->reset_game = true;
 	}
@@ -2003,7 +2006,11 @@ func float get_player_harvest_range()
 
 func float get_bot_harvest_range()
 {
-	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 25;
+	float result = c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 25;
+	if(has_buff(e_pickup_bot_chain_and_range)) {
+		result += 100;
+	}
+	return result;
 }
 
 func int get_creature_resource_reward(int tier, b8 boss)
@@ -2149,6 +2156,9 @@ func int get_player_hits()
 func int get_bot_hits()
 {
 	int result = 1;
+	if(has_buff(e_pickup_bot_chain_and_range)) {
+		result += 4;
+	}
 	return at_most(c_max_bot_hits, result);
 }
 
@@ -2284,7 +2294,8 @@ func s_v2 wxy(float x, float y)
 func s64 get_required_exp_to_level(int level)
 {
 	int level_minus_one = level - 1;
-	return 5 + floorfi(0.3f * level_minus_one * level) + (level_minus_one) * 5;
+	s64 result = 5 + floorfi(0.4f * level_minus_one * level) + (level_minus_one) * 5;
+	return result;
 }
 
 func int add_exp(s_player* player, int to_add)

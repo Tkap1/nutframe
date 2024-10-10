@@ -158,7 +158,7 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 50, .max_upgrades = 40, .name = "+ player range", .key = c_key_r},
 	{.base_cost = 80, .max_upgrades = 50, .name = "+ drone range", .key = c_key_k},
 	{.base_cost = 5000, .max_upgrades = 1, .name = "x2 harvest", .key = c_key_c},
-	{.base_cost = 100, .max_upgrades = 9, .name = "+ drone cargo", .key = c_key_j},
+	{.base_cost = 100, .max_upgrades = 19, .name = "+ drone cargo", .key = c_key_j},
 	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain", .key = c_key_t},
 };
 
@@ -166,6 +166,7 @@ enum e_pickup
 {
 	e_pickup_chain_and_range,
 	e_pickup_multi_target_and_range,
+	e_pickup_bot_chain_and_range,
 	e_pickup_count,
 };
 
@@ -362,9 +363,9 @@ global constexpr s_particle_data c_buff_particle_data_arr[] = {
 		.slowdown = 1,
 		.duration = 0.5f,
 		.duration_rand = 1,
-		.speed = 128,
+		.speed = 150,
 		.speed_rand = 1,
-		.radius = 4,
+		.radius = 6,
 		.color = v3(0.367f, 0.826f, 0.506f),
 		.color_rand = v3(0.5f, 0.5f, 0.5f),
 	},
@@ -372,10 +373,20 @@ global constexpr s_particle_data c_buff_particle_data_arr[] = {
 		.slowdown = 1,
 		.duration = 0.5f,
 		.duration_rand = 1,
-		.speed = 128,
+		.speed = 150,
 		.speed_rand = 1,
-		.radius = 4,
+		.radius = 6,
 		.color = v3(0.889f, 0.538f, 0.617f),
+		.color_rand = v3(0.5f, 0.5f, 0.5f),
+	},
+	{
+		.slowdown = 1,
+		.duration = 0.5f,
+		.duration_rand = 1,
+		.speed = 150,
+		.speed_rand = 1,
+		.radius = 6,
+		.color = v3(0.5f, 0.538f, 1.0f),
 		.color_rand = v3(0.5f, 0.5f, 0.5f),
 	},
 };
