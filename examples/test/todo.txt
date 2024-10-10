@@ -12,9 +12,8 @@ place a turret down?
 polish:
 	smooth zoom
 	smooth camera movement
-	win animation instead of instant change to leaderboard
+
 
 
 new pickup that makes bots chain
-shouldnt be able to pause while in free upgrade
 bar for the win condition?

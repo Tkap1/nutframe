@@ -98,6 +98,7 @@ X(broken_bot, 3) \
 X(creature, 3) \
 X(bot, 4) \
 X(player, 5) \
+X(hitbox, 5) \
 X(laser, 6) \
 X(particle, 6) \
 X(text, 7)
@@ -153,7 +154,7 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 20, .name = "+ spawn rate", .key = c_key_z},
 	{.base_cost = 100, .name = "+ creature tier", .key = c_key_x},
 	{.base_cost = 50, .max_upgrades = 40, .name = "+ player range", .key = c_key_r},
-	{.base_cost = 90, .max_upgrades = 50, .name = "+ drone range", .key = c_key_k},
+	{.base_cost = 80, .max_upgrades = 50, .name = "+ drone range", .key = c_key_k},
 	{.base_cost = 5000, .max_upgrades = 1, .name = "x2 harvest", .key = c_key_c},
 	{.base_cost = 100, .max_upgrades = 9, .name = "+ drone cargo", .key = c_key_j},
 	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain", .key = c_key_t},
@@ -473,6 +474,7 @@ struct s_play_state
 struct s_game
 {
 	b8 initialized;
+	b8 show_hitboxes;
 	e_state state;
 
 	int next_state;

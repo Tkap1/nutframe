@@ -448,8 +448,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						int creature = get_creature(bot_arr->target[bot]);
 						if(creature >= 0) {
 							bot_arr->pos[bot] = go_towards(bot_arr->pos[bot], creature_arr->pos[creature], get_bot_movement_speed());
-							float dist = v2_distance(bot_arr->pos[bot], creature_arr->pos[creature]);
-							if(dist <= get_bot_harvest_range()) {
+							if(rect_collides_circle_center(creature_arr->pos[creature], get_creature_size(creature), bot_arr->pos[bot], get_bot_harvest_range())) {
 								bot_arr->state[bot] = e_bot_state_harvesting_creature;
 							}
 						}
@@ -599,6 +598,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	if(is_key_pressed(g_input, c_key_f3)) {
 		play_state->level_up_triggers += add_exp(&play_state->player, 5);
 	}
+	if(is_key_pressed(g_input, c_key_f4)) {
+		game->show_hitboxes = !game->show_hitboxes;
+	}
 	if(is_key_pressed(g_input, c_key_r)) {
 		set_state_next_frame(e_state_play, true);
 	}
@@ -740,6 +742,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					draw_line(g_r, from_pos, to_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
 					draw_light(to_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
 				}
+				if(game->show_hitboxes) {
+					draw_rect(g_r, pos, e_layer_hitbox, c_player_size, v4(0.0f, 0.5f, 0.0f, 0.5f), get_render_pass(e_layer_hitbox));
+					draw_circle(g_r, pos, e_layer_hitbox, get_player_harvest_range(), v4(0.0f, 0.0f, 0.5f, 0.5f), get_render_pass(e_layer_hitbox));
+				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -784,6 +790,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				);
 
 				draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.33f, 0.0f);
+
+				if(game->show_hitboxes) {
+					draw_rect(g_r, pos, e_layer_hitbox, get_creature_size(creature), v4(0.0f, 0.5f, 0.0f, 0.5f), get_render_pass(e_layer_hitbox));
+				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -807,7 +817,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						.radius = 8,
 						.color = v3(0.5f, 0.1f, 0.1f),
 						.color_rand = v3(0.1f, 0.1f, 0.1f),
-				});
+					});
+
+					if(game->show_hitboxes) {
+						draw_rect(g_r, bot.pos, e_layer_hitbox, c_bot_size, v4(0.0f, 0.5f, 0.0f, 0.5f), get_render_pass(e_layer_hitbox));
+					}
 
 				}
 			}
@@ -844,6 +858,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					draw_light(creature_pos, laser_light_radius, laser_color, 0.0f);
 				}
 				draw_light(pos, 48, make_color(0.33f), 0.0f);
+
+				if(game->show_hitboxes) {
+					draw_circle(g_r, pos, e_layer_hitbox, get_bot_harvest_range(), v4(0.0f, 0.0f, 0.5f, 0.5f), get_render_pass(e_layer_hitbox));
+				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1933,7 +1951,7 @@ func float get_player_harvest_range()
 
 func float get_bot_harvest_range()
 {
-	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 20;
+	return c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 25;
 }
 
 func int get_creature_resource_reward(int tier, b8 boss)
