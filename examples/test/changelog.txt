@@ -3,6 +3,7 @@
 - Drones now do a circle vs rect collision against enemies to start attacking. Previously they checked distance between centers. This results in more drone range
 - Drone range upgrade cost 90 -> 80
 - Drone range upgrade value 20 -> 25
+- Timer is on by default
 
 *Bug fixes*
 - Can no longer pause while in free upgrade, which made you lose the upgrade

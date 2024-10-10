@@ -971,7 +971,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			if(show_ui) {
 				draw_text(g_r, format_text("%i / %i", play_state->resource_count, c_resource_to_win), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 
-				if(game->show_timer) {
+				if(!game->hide_timer) {
 					s_time_data time_data = update_count_to_time_data(game->play_state.update_count, c_update_delay);
 					s_len_str text = format_text("%02i:%02i.%03i", time_data.minutes, time_data.seconds, time_data.ms);
 					draw_text(g_r, text, v2(4, 36), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
@@ -1194,8 +1194,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					game->sound_disabled = !game->sound_disabled;
 					play_state->asking_for_restart_confirmation = false;
 				}
-				if(ui_button(format_text("Timer: %s", game->show_timer ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
-					game->show_timer = !game->show_timer;
+				if(ui_button(format_text("Timer: %s", game->hide_timer ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
+					game->hide_timer = !game->hide_timer;
 					play_state->asking_for_restart_confirmation = false;
 				}
 				if(ui_button(format_text("Tutorial: %s", game->hide_tutorial ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
