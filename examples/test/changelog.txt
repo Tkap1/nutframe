@@ -10,6 +10,7 @@
 - Power ups are now easier to see
 - Increased the EXP needed to level in the late game
 - Added an ugly display to see what buffs you currently have
+- Added an option to automatically pick the most expensive free upgrade when leveling up
 
 *Bug fixes*
 - Can no longer pause while in free upgrade, which made you lose the upgrade

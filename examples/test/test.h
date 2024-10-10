@@ -498,6 +498,7 @@ struct s_game
 	b8 asking_for_restart_confirmation;
 	b8 should_pop_state;
 	b8 reset_game;
+	b8 pick_free_upgrade_automatically;
 
 	s_sarray<e_state, 16> state_stack;
 

@@ -1272,16 +1272,27 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				optional.tooltip_font_size = 40;
 
 				s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 32, 3, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
+				int highest_cost = 0;
+				int highest_cost_index = 0;
 				for(int choice_i = 0; choice_i < 3; choice_i += 1) {
 					e_upgrade upgrade_id = choice_arr[choice_i];
 					s_upgrade_data data = c_upgrade_data[upgrade_id];
 					int curr_level = play_state->upgrade_level_arr[upgrade_id];
 					int cost = data.base_cost * (curr_level + 1);
+					if(cost > highest_cost) {
+						highest_cost = cost;
+						highest_cost_index = choice_i;
+					}
 					optional.description = get_upgrade_tooltip(upgrade_id);
 					if(ui_button(format_text("%s (%i) [%c]", data.name, cost, c_key_1 + choice_i), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_1 + choice_i)) {
 						picked_choice = choice_i;
 					}
 				}
+
+				if(game->pick_free_upgrade_automatically) {
+					picked_choice = highest_cost_index;
+				}
+
 				if(picked_choice >= 0) {
 					e_upgrade upgrade_id = choice_arr[picked_choice];
 					play_state->upgrade_level_arr[upgrade_id] += 1;
@@ -2396,6 +2407,7 @@ func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser
 func void do_options_menu(b8 in_play_mode)
 {
 	s_v2 button_size = c_base_button_size2;
+	button_size.x += 40;
 	s_ui_optional optional = zero;
 	s_play_state* play_state = &game->play_state;
 	int button_count = in_play_mode ? 6 : 5;
@@ -2424,6 +2436,10 @@ func void do_options_menu(b8 in_play_mode)
 	}
 	if(ui_button(format_text("Tutorial: %s", game->hide_tutorial ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->hide_tutorial = !game->hide_tutorial;
+		game->asking_for_restart_confirmation = false;
+	}
+	if(ui_button(format_text("Auto level: %s", game->pick_free_upgrade_automatically ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
+		game->pick_free_upgrade_automatically = !game->pick_free_upgrade_automatically;
 		game->asking_for_restart_confirmation = false;
 	}
 	if(in_play_mode && ui_button(game->asking_for_restart_confirmation ? strlit("Are you sure?") : strlit("Restart"), pos_area_get_advance(&area), optional)) {
