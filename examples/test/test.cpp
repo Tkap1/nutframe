@@ -503,8 +503,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		check win condition start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				if(state->resource_count >= c_resource_to_win || state->are_we_winning) {
-					if(state->are_we_winning) {
+				if(state->resource_count >= c_resource_to_win || state->sub_state == e_sub_state_winning) {
+					if(state->sub_state == e_sub_state_winning) {
 						state->win_ticks += 1;
 						if(state->win_ticks >= c_win_animation_duration_in_ticks) {
 							if constexpr(c_are_we_on_web) {
@@ -528,7 +528,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						}
 					}
 					else {
-						state->are_we_winning = true;
+						state->sub_state = e_sub_state_winning;
 						state->win_ticks = 0;
 					}
 				}
@@ -603,7 +603,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	#endif // m_debug
 
 
-	if(can_pause() && is_key_pressed(g_input, c_key_escape) || is_key_pressed(g_input, c_key_p)) {
+	if(can_pause() && (is_key_pressed(g_input, c_key_escape) || is_key_pressed(g_input, c_key_p))) {
 		if(game->play_state.sub_state == e_sub_state_pause) {
 			game->play_state.sub_state = e_sub_state_default;
 		}
@@ -901,7 +901,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			b8 show_ui = should_show_ui();
-			if(play_state->are_we_winning) {
+			if(play_state->sub_state == e_sub_state_winning) {
 				float prev_timer = ticks_to_seconds(at_least(0, play_state->win_ticks - 1));
 				float curr_timer = ticks_to_seconds(at_least(0, play_state->win_ticks));
 				float timer = lerp(prev_timer, curr_timer, interp_dt);
@@ -2239,7 +2239,7 @@ func b8 can_pause()
 func b8 should_show_ui()
 {
 	e_sub_state s = game->play_state.sub_state;
-	return s == e_sub_state_default && !game->play_state.are_we_winning;
+	return s == e_sub_state_default && s != e_sub_state_winning;
 }
 
 func int pick_weighted(f64* arr, int count, s_rng* rng)

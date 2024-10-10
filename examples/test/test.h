@@ -41,6 +41,7 @@ enum e_sub_state
 	e_sub_state_pause,
 	e_sub_state_defeat,
 	e_sub_state_level_up,
+	e_sub_state_winning,
 };
 
 enum e_sound
@@ -442,8 +443,6 @@ struct s_broken_bot
 
 struct s_play_state
 {
-	b8 are_we_winning;
-
 	int win_ticks;
 	u64 level_up_seed;
 	e_sub_state sub_state;
