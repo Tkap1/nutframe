@@ -664,6 +664,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			add_buff(&game->play_state.player, pickup_i);
 		}
 	}
+	if(is_key_pressed(g_input, c_key_f6)) {
+		game->play_state.sub_state = e_sub_state_defeat;
+	}
 	if(get_state() == e_state_play && is_key_pressed(g_input, c_key_r)) {
 		game->reset_game = true;
 	}
@@ -993,8 +996,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_text(g_r, strlit("Press R to restart..."), c_base_res * v2(0.5f, 0.5f), 0, 64, make_color(0.6f), true, game->font, game->ui_render_pass1);
 
 				if(is_key_pressed(g_input, c_key_r)) {
-					set_state_next_frame(e_state_play);
-					game->reset_game_on_state_change = true;
+					game->reset_game = true;
 				}
 			}
 			if(show_ui) {
@@ -1360,11 +1362,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		case e_state_leaderboard: {
 
-			if(game->leaderboard_state.coming_from_win) {
-				if(is_key_pressed(g_input, c_key_r)) {
-					set_state_next_frame(e_state_play);
-					game->reset_game_on_state_change = true;
-				}
+			b8 want_to_reset = false;
+			if(game->leaderboard_state.coming_from_win && is_key_pressed(g_input, c_key_r)) {
+				want_to_reset = true;
 			}
 
 			if(!game->leaderboard_state.received) {
@@ -1404,7 +1404,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			b8 win = game->leaderboard_state.coming_from_win;
-			if(ui_button(win ? strlit("Restart") : strlit("Back"), c_base_res * v2(0.75f, 0.92f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y}) || is_key_pressed(g_input, c_key_escape)) {
+			if(
+				ui_button(win ? strlit("Restart") : strlit("Back"), c_base_res * v2(0.75f, 0.92f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y})
+				|| is_key_pressed(g_input, c_key_escape) || want_to_reset
+			) {
 				if(win) {
 					go_back_to_prev_state();
 					game->reset_game_on_state_change = true;
@@ -2454,8 +2457,7 @@ func void do_options_menu(b8 in_play_mode)
 	}
 	if(in_play_mode && ui_button(game->asking_for_restart_confirmation ? strlit("Are you sure?") : strlit("Restart"), pos_area_get_advance(&area), optional)) {
 		if(game->asking_for_restart_confirmation) {
-			set_state_next_frame(e_state_play);
-			game->reset_game_on_state_change = true;
+			game->reset_game = true;
 		}
 		else {
 			game->asking_for_restart_confirmation = true;
