@@ -500,6 +500,7 @@ struct s_game
 	b8 should_pop_state;
 	b8 reset_game;
 	b8 pick_free_upgrade_automatically;
+	b8 dont_add_state_to_stack;
 
 	s_sarray<e_state, 16> state_stack;
 
@@ -510,7 +511,7 @@ struct s_game
 	b8 hide_timer;
 	b8 hide_tutorial;
 
-	b8 reset_game_on_state_change;
+	b8 reset_game_on_state_change; // @TODO(tkap, 11/10/2024): delete?
 
 	s_play_state play_state;
 
@@ -580,7 +581,7 @@ func int get_creature_spawn_tier();
 func float get_player_harvest_range();
 func float get_bot_harvest_range();
 func int get_creature_resource_reward(int tier, b8 boss);
-func void set_state_next_frame(e_state new_state);
+func b8 set_state_next_frame(e_state new_state);
 func int count_alive_creatures();
 func s_render_pass* get_render_pass(e_layer layer);
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness);
@@ -619,3 +620,4 @@ func b8 can_lose();
 func void do_options_menu(b8 in_play_mode);
 func e_state get_state();
 func void go_back_to_prev_state();
+func void set_state_next_frame_dont_add_to_stack(e_state new_state);

@@ -121,9 +121,12 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			game->state_stack.pop();
 		}
 		else {
-			game->state_stack.add((e_state)game->next_state);
+			if(!game->dont_add_state_to_stack) {
+				game->state_stack.add((e_state)game->next_state);
+			}
 		}
 		game->next_state = -1;
+		game->dont_add_state_to_stack = false;
 
 		switch(get_state()) {
 			case e_state_play: {
@@ -574,7 +577,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 									game->play_state.update_count_at_win_time = game->play_state.update_count;
 								}
 								else {
-									set_state_next_frame(e_state_input_name);
+									set_state_next_frame_dont_add_to_stack(e_state_input_name);
 								}
 							}
 							else {
@@ -2076,9 +2079,9 @@ func int get_creature_exp_reward(int tier, b8 boss)
 	return result;
 }
 
-func void set_state_next_frame(e_state new_state)
+func b8 set_state_next_frame(e_state new_state)
 {
-	if(game->next_state >= 0) { return; }
+	if(game->next_state >= 0) { return false; }
 
 	switch(new_state)	{
 		case e_state_leaderboard: {
@@ -2088,6 +2091,14 @@ func void set_state_next_frame(e_state new_state)
 	}
 
 	game->next_state = new_state;
+	return true;
+}
+
+func void set_state_next_frame_dont_add_to_stack(e_state new_state)
+{
+	if(set_state_next_frame(new_state)) {
+		game->dont_add_state_to_stack = true;
+	}
 }
 
 func int count_alive_creatures()
