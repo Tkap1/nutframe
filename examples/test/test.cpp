@@ -1331,12 +1331,22 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_text(g_r, strlit("Hive Havoc"), wxy(0.5f, 0.1f), 0, 128, make_color(1), true, game->font, game->ui_render_pass1);
 
 				s_v2 button_size = v2(370, 48);
+				s_ui_optional optional = zero;
+				optional.size_x = button_size.x;
+				optional.size_y = button_size.y;
 				s_pos_area area = make_pos_area(wxy(0.0f, 0.0f), wxy(1.0f, 1.0f), button_size, 8, 2, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
-				if(ui_button(strlit("Play"), pos_area_get_advance(&area), {.size_x = button_size.x, .size_y = button_size.y})) {
+				if(ui_button(strlit("Play"), pos_area_get_advance(&area), optional)) {
 					set_state_next_frame(e_state_play);
 					game->reset_game_on_state_change = true;
 				}
-				if(ui_button(strlit("Options"), pos_area_get_advance(&area), {.size_x = button_size.x, .size_y = button_size.y})) {
+				if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), optional)) {
+					set_state_next_frame(e_state_leaderboard);
+					if constexpr(c_are_we_on_web) {
+						on_leaderboard_score_submitted();
+					}
+					game->asking_for_restart_confirmation = false;
+				}
+				if(ui_button(strlit("Options"), pos_area_get_advance(&area), optional)) {
 					state->sub_state = e_sub_state_pause;
 					game->asking_for_restart_confirmation = false;
 				}

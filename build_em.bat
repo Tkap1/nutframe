@@ -22,7 +22,7 @@ if !debug!==0 (
 	set comp=!comp! -O3
 ) else (
 	@REM set comp=!comp! -Dm_debug
-	set comp=!comp! -O0
+	set comp=!comp! -O3
 	set comp=!comp! -sSAFE_HEAP=0
 	set comp=!comp! -sASSERTIONS=0
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
