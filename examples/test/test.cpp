@@ -127,15 +127,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		}
 		game->next_state = -1;
 		game->dont_add_state_to_stack = false;
-
-		switch(get_state()) {
-			case e_state_play: {
-				if(game->reset_game_on_state_change) {
-					game->reset_game_on_state_change = false;
-					game->reset_game = true;
-				}
-			} break;
-		}
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		handle state change end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1342,7 +1333,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_pos_area area = make_pos_area(wxy(0.0f, 0.0f), wxy(1.0f, 1.0f), button_size, 8, 2, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
 				if(ui_button(strlit("Play"), pos_area_get_advance(&area), optional)) {
 					set_state_next_frame(e_state_play);
-					game->reset_game_on_state_change = true;
+					game->reset_game = true;
 				}
 				if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), optional)) {
 					set_state_next_frame(e_state_leaderboard);
@@ -1413,7 +1404,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			) {
 				if(win) {
 					go_back_to_prev_state();
-					game->reset_game_on_state_change = true;
+					game->reset_game = true;
 				}
 				else {
 					go_back_to_prev_state();

@@ -511,8 +511,6 @@ struct s_game
 	b8 hide_timer;
 	b8 hide_tutorial;
 
-	b8 reset_game_on_state_change; // @TODO(tkap, 11/10/2024): delete?
-
 	s_play_state play_state;
 
 	s_carray<s_render_pass*, 8> world_render_pass_arr;
