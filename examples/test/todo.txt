@@ -14,8 +14,17 @@ polish:
 	smooth camera movement
 
 
+buff display should go down to reflect duration
 
 bar for the win condition?
+
+delete indexdb and see if the name input works
+	athano got stuck in victory without name input or leaderboard
+
+add confirmation to exit button
+
+make power ups add to time instead of refreshing? it just feels bad to get them again once you have them
+	maybe nerf duration to compensate?
 
 Maybe allow drones to get chain too, but if you want it different to the player, instead of chain, allow it to multi attack, so extra beams directly from drone to enemy.
 Scrollable leaderboard.
