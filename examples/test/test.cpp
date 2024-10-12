@@ -1520,7 +1520,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 }
 #endif // m_build_dll
 
-static s_v2i pos_to_index(s_v2 pos, int tile_size)
+func s_v2i pos_to_index(s_v2 pos, int tile_size)
 {
 	s_v2i result;
 	result.x = floorfi(pos.x / tile_size);
@@ -1528,7 +1528,7 @@ static s_v2i pos_to_index(s_v2 pos, int tile_size)
 	return result;
 }
 
-static s_v2 index_to_pos(s_v2i index, int tile_size)
+func s_v2 index_to_pos(s_v2i index, int tile_size)
 {
 	return v2(index) * v2(tile_size);
 }
@@ -1568,7 +1568,7 @@ func void do_particles(int count, s_v2 pos, int z, b8 attached_to_player, s_part
 	}
 }
 
-static void on_leaderboard_received(s_json* json)
+func void on_leaderboard_received(s_json* json)
 {
 	game->leaderboard_arr.count = 0;
 	s_json* temp = json_get(json, "items", e_json_array);
@@ -1602,7 +1602,7 @@ static void on_leaderboard_received(s_json* json)
 	game->leaderboard_state.received = true;
 }
 
-static void on_our_leaderboard_received(s_json* json)
+func void on_our_leaderboard_received(s_json* json)
 {
 	s_json* j = json->object;
 	if(!j) { return; }
@@ -1642,12 +1642,12 @@ static void on_our_leaderboard_received(s_json* json)
 	}
 }
 
-static void on_leaderboard_score_submitted()
+func void on_leaderboard_score_submitted()
 {
 	g_platform_data->get_leaderboard(c_leaderboard_id, on_leaderboard_received);
 }
 
-static s_m4 get_camera_view(s_camera3d cam)
+func s_m4 get_camera_view(s_camera3d cam)
 {
 	return look_at(cam.pos, cam.pos + cam.target, v3(0, -1, 0));
 }
@@ -1711,7 +1711,7 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	return result;
 }
 
-static void on_set_leaderboard_name(b8 success)
+func void on_set_leaderboard_name(b8 success)
 {
 	if(success) {
 		set_state_next_frame(e_state_leaderboard);
