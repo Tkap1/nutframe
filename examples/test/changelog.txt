@@ -18,3 +18,8 @@
 - Can no longer get stuck in the free upgrade menu
 - Free upgrade no longer triggers when in the winning animation
 - Can no longer lose while in the winning animation
+
+
+*Misc*
+- Picking up a power up that you already adds to the duration rather than refreshing
+

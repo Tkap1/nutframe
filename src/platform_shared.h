@@ -940,6 +940,12 @@ static t at_least(t a, t b)
 }
 
 template <typename t>
+static void at_least_ptr(t a, t* b)
+{
+	*b = at_least(a, *b);
+}
+
+template <typename t>
 static t at_most(t a, t b)
 {
 	return b > a ? a : b;

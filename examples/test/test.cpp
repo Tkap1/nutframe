@@ -2216,7 +2216,8 @@ func void make_pickup(s_v2 pos, e_pickup type)
 
 func void add_buff(s_player* player, e_pickup pickup)
 {
-	player->buff_arr[pickup].ticks_left = 500;
+	at_least_ptr(0, &player->buff_arr[pickup].ticks_left);
+	player->buff_arr[pickup].ticks_left += 500;
 }
 
 func b8 has_buff(e_pickup type)
