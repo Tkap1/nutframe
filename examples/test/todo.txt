@@ -20,8 +20,7 @@ buff display should go down to reflect duration
 
 bar for the win condition?
 
-delete indexdb and see if the name input works
-	athano got stuck in victory without name input or leaderboard
+display total resource ever gotten
 
 add confirmation to exit button
 

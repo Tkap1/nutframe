@@ -169,6 +169,12 @@ m_gl_funcs
 
 #endif // ifndef m_game
 
+enum e_filter
+{
+	e_filter_nearest,
+	e_filter_linear,
+};
+
 enum e_wrap
 {
 	e_wrap_repeat,
@@ -1984,7 +1990,7 @@ static u32 load_shader_from_file(const char* vertex_path, const char* fragment_p
 static void after_making_framebuffer(int index, s_game_renderer* game_renderer);
 static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
 static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena);
-static s_texture load_texture(s_game_renderer* game_renderer, const char* path, e_wrap wrap_mode);
+static s_texture load_texture(s_game_renderer* game_renderer, const char* path, e_filter in_filter_mode, e_wrap in_wrap_mode);
 static s_texture load_texture_from_data(void* data, int width, int height, u32 filtering, int format, int wrap_mode);
 static s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena);
 static void reset_ui();
@@ -3131,7 +3137,7 @@ static constexpr float c_game_speed_arr[] = {
 
 
 static constexpr int c_max_framebuffers = 8;
-typedef s_texture (*t_load_texture)(s_game_renderer*, const char*, e_wrap);
+typedef s_texture (*t_load_texture)(s_game_renderer*, const char*, e_filter, e_wrap);
 typedef s_font* (*t_load_font)(s_game_renderer*, const char*, int, s_lin_arena*);
 struct s_game_renderer
 {
@@ -4736,6 +4742,10 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 				.vertex_path = "shaders/vertex.vertex",
 				.fragment_path = "shaders/light.fragment",
 			},
+			{
+				.vertex_path = "shaders/vertex.vertex",
+				.fragment_path = "shaders/dont_premultiply.fragment",
+			},
 		};
 
 		for(int shader_i = 0; shader_i < array_count(c_shader_paths); shader_i++) {
@@ -4750,7 +4760,7 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 
 
 	// @Fixme(tkap, 20/10/2023): path
-	game_renderer->checkmark_texture = load_texture(game_renderer, "assets/checkmark.png", e_wrap_clamp);
+	game_renderer->checkmark_texture = load_texture(game_renderer, "assets/checkmark.png", e_filter_linear, e_wrap_clamp);
 
 	load_font(game_renderer, "assets/consola.ttf", 128, arena);
 
@@ -4962,13 +4972,20 @@ static b8 check_for_shader_errors(u32 id, char* out_error)
 	return true;
 }
 
-static s_texture load_texture(s_game_renderer* game_renderer, const char* path, e_wrap in_wrap_mode)
+static s_texture load_texture(s_game_renderer* game_renderer, const char* path, e_filter in_filter_mode, e_wrap in_wrap_mode)
 {
 	if(g_do_embed) {
 		g_to_embed.add(path);
 	}
 
+	int filter_mode = 0;
 	int wrap_mode = 0;
+	if(in_filter_mode == e_filter_nearest) {
+		filter_mode = GL_NEAREST;
+	}
+	else if(in_filter_mode == e_filter_linear) {
+		filter_mode = GL_LINEAR;
+	}
 	if(in_wrap_mode == e_wrap_repeat) {
 		wrap_mode = GL_REPEAT;
 	}
@@ -4981,12 +4998,12 @@ static s_texture load_texture(s_game_renderer* game_renderer, const char* path, 
 
 	int width, height, num_channels;
 	void* data = stbi_load_from_memory(embed_data[g_asset_index], embed_sizes[g_asset_index], &width, &height, &num_channels, 4);
-	s_texture result = load_texture_from_data(data, width, height, GL_LINEAR, GL_RGBA, wrap_mode);
+	s_texture result = load_texture_from_data(data, width, height, filter_mode, GL_RGBA, wrap_mode);
 	g_asset_index += 1;
 
 	#else
 
-	s_texture result = load_texture_from_file(path, GL_LINEAR, wrap_mode);
+	s_texture result = load_texture_from_file(path, filter_mode, wrap_mode);
 	#endif
 
 	result.game_id = game_renderer->texture_arr.count;
