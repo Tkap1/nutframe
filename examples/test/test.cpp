@@ -117,16 +117,18 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		handle state change start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	if(game->next_state >= 0) {
 		if(game->should_pop_state) {
+			while(true) {
+				game->state_stack.pop();
+				s_state previous_state = game->state_stack.get_last();
+				if(!previous_state.is_temporary) { break; }
+			}
 			game->should_pop_state = false;
-			game->state_stack.pop();
 		}
 		else {
-			if(!game->dont_add_state_to_stack) {
-				game->state_stack.add((e_state)game->next_state);
-			}
+			game->state_stack.add({.is_temporary = game->next_state_is_temporary, .state = (e_state)game->next_state});
 		}
 		game->next_state = -1;
-		game->dont_add_state_to_stack = false;
+		game->next_state_is_temporary = false;
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		handle state change end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -568,7 +570,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 									game->play_state.update_count_at_win_time = game->play_state.update_count;
 								}
 								else {
-									set_state_next_frame_dont_add_to_stack(e_state_input_name);
+									set_state_next_frame_temporary(e_state_input_name);
 								}
 							}
 							else {
@@ -2085,10 +2087,10 @@ func b8 set_state_next_frame(e_state new_state)
 	return true;
 }
 
-func void set_state_next_frame_dont_add_to_stack(e_state new_state)
+func void set_state_next_frame_temporary(e_state new_state)
 {
 	if(set_state_next_frame(new_state)) {
-		game->dont_add_state_to_stack = true;
+		game->next_state_is_temporary = true;
 	}
 }
 
@@ -2479,12 +2481,19 @@ func void do_options_menu(b8 in_play_mode)
 
 func e_state get_state()
 {
-	return game->state_stack.get_last();
+	return game->state_stack.get_last().state;
 }
 
 func void go_back_to_prev_state()
 {
-	e_state state = game->state_stack[game->state_stack.count - 2];
-	set_state_next_frame(state);
+	s_state state = zero;
+	int index = game->state_stack.count - 2;
+	while(true) {
+		assert(index >= 0);
+		state = game->state_stack[index];
+		if(!state.is_temporary) { break; }
+		index -= 1;
+	}
+	set_state_next_frame(state.state);
 	game->should_pop_state = true;
 }

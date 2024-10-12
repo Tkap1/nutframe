@@ -31,7 +31,7 @@ func float get_bot_harvest_range();
 func int get_creature_resource_reward(int tier, b8 boss);
 func int get_creature_exp_reward(int tier, b8 boss);
 func b8 set_state_next_frame(e_state new_state);
-func void set_state_next_frame_dont_add_to_stack(e_state new_state);
+func void set_state_next_frame_temporary(e_state new_state);
 func int count_alive_creatures();
 func s_render_pass* get_render_pass(e_layer layer);
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness);

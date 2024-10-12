@@ -23,3 +23,6 @@
 *Misc*
 - Picking up a power up that you already adds to the duration rather than refreshing
 
+*Bug fixes*
+- Fixed a bug where you would get stuck in the victory animation if you didn't already have a user name
+

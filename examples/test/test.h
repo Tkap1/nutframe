@@ -493,6 +493,12 @@ struct s_main_menu
 	e_sub_state sub_state;
 };
 
+struct s_state
+{
+	b8 is_temporary;
+	e_state state;
+};
+
 struct s_game
 {
 	b8 initialized;
@@ -501,9 +507,9 @@ struct s_game
 	b8 should_pop_state;
 	b8 reset_game;
 	b8 pick_free_upgrade_automatically;
-	b8 dont_add_state_to_stack;
+	b8 next_state_is_temporary;
 
-	s_sarray<e_state, 16> state_stack;
+	s_sarray<s_state, 16> state_stack;
 
 	s_main_menu main_menu;
 
