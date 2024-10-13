@@ -455,6 +455,7 @@ struct s_play_state
 	int next_entity_id;
 	f64 spawn_creature_timer;
 	int resource_count;
+	int total_resource;
 	s_carray<int, e_upgrade_count> upgrade_level_arr;
 	s_sarray<s_particle, c_max_particles> particle_arr;
 	s_creature_arr creature_arr;
@@ -495,6 +496,7 @@ struct s_game
 	b8 pick_free_upgrade_automatically;
 	b8 next_state_is_temporary;
 	b8 dash_to_keyboard;
+	b8 show_total_nectar;
 
 	s_sarray<s_state, 16> state_stack;
 

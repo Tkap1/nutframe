@@ -381,7 +381,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							player->laser_target_arr.add(laser_target);
 							b8 killed = damage_creature(curr_target, player_damage);
 							if(killed) {
-								state->resource_count += get_creature_resource_reward(creature_arr->tier[curr_target], creature_arr->boss[curr_target]);
+								add_resource(get_creature_resource_reward(creature_arr->tier[curr_target], creature_arr->boss[curr_target]));
 							}
 							// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add laser end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 							player->harvest_timer = 0;
@@ -546,7 +546,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							pick_target_for_bot(bot);
 							bot_arr->state[bot] = e_bot_state_going_to_creature;
 							// assert(bot_arr->cargo[bot] > 0);
-							state->resource_count += bot_arr->cargo[bot];
+							add_resource(bot_arr->cargo[bot]);
 							bot_arr->cargo[bot] = 0;
 							bot_arr->cargo_count[bot] = 0;
 						}
@@ -787,7 +787,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				if(!creature_arr->active[creature]) { continue; }
 				s_v2 pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
 				s_v4 color_arr[] = {
-					make_color(1), /*make_color(0.605f, 0.531f, 0.168f),*/ make_color(0.332f, 0.809f, 0.660f), make_color(0.581f, 0.705f, 0.104f), make_color(0.434f, 0.172f, 0.290f),
+					make_color(1), make_color(0.332f, 0.809f, 0.660f), make_color(0.581f, 0.705f, 0.104f), make_color(0.434f, 0.172f, 0.290f),
 					make_color(0.473f, 0.549f, 0.744f), make_color(0.276f, 0.523f, 0.052f), make_color(0.076f, 0.185f, 0.868f), make_color(0.525f, 0.820f, 0.016f),
 				};
 
@@ -795,11 +795,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				float mix_weight = 1.0f - (play_state->update_count - creature_arr->tick_when_last_damaged[creature]) / 5.0f;
 				mix_weight = clamp(mix_weight, 0.0f, 1.0f);
 
+				s_texture texture;
 				b8 moving = v2_distance(creature_arr->target_pos[creature], creature_arr->pos[creature]) > 1;
 				if(moving) {
 					creature_arr->animation_timer[creature] += g_delta;
+					texture = get_animation_texture(&game->ant_animation, &creature_arr->animation_timer[creature]);
 				}
-				s_texture texture = get_animation_texture(&game->ant_animation, &creature_arr->animation_timer[creature]);
+				else {
+					texture = game->ant_animation.texture_arr[0];
+				}
 
 				draw_texture_keep_aspect(
 					g_r, pos, e_layer_creature, get_creature_size(creature), color_arr[color_index], texture,
@@ -1024,7 +1028,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		score goal display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				s_len_str str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
+				s_len_str str;
+				if(game->show_total_nectar) {
+					str = format_text("%i / %i (%i)", play_state->resource_count, c_resource_to_win, play_state->total_resource);
+				}
+				else {
+					str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
+				}
 				s_v2 text_pos = center_text_on_rect(str, game->font, c_base_pos - c_base_size * 0.5f, c_base_size, 40, true, true);
 				// text_pos.y += font_size * 0.1f;
 				draw_text(g_r, str, text_pos, 0, 40, make_color(1), false, game->font, game->world_render_pass_arr[0]);
@@ -1104,7 +1114,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			if(show_ui) {
-				draw_text(g_r, format_text("%i / %i", play_state->resource_count, c_resource_to_win), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+				if(game->show_total_nectar) {
+					draw_text(g_r, format_text("%i / %i (%i)", play_state->resource_count, c_resource_to_win, game->play_state.total_resource), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+				}
+				else {
+					draw_text(g_r, format_text("%i / %i", play_state->resource_count, c_resource_to_win), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+				}
 
 				if(!game->hide_timer) {
 					s_time_data time_data = update_count_to_time_data(game->play_state.update_count, c_update_delay);
@@ -2444,10 +2459,11 @@ func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser
 func void do_options_menu(b8 in_play_mode)
 {
 	s_v2 button_size = c_base_button_size2;
-	button_size.x += 100;
+	button_size.x += 220;
+	button_size.y += 12;
 	s_ui_optional optional = zero;
 	s_play_state* play_state = &game->play_state;
-	int button_count = in_play_mode ? 6 : 5;
+	int button_count = in_play_mode ? 10 : 8;
 	optional.size_x = button_size.x;
 	optional.size_y = button_size.y;
 
@@ -2469,6 +2485,10 @@ func void do_options_menu(b8 in_play_mode)
 	}
 	if(ui_button(format_text("Dash to mouse: %s", game->dash_to_keyboard ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->dash_to_keyboard = !game->dash_to_keyboard;
+		game->asking_for_restart_confirmation = false;
+	}
+	if(ui_button(format_text("Show total nectar: %s", game->show_total_nectar ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
+		game->show_total_nectar = !game->show_total_nectar;
 		game->asking_for_restart_confirmation = false;
 	}
 	if(ui_button(format_text("Timer: %s", game->hide_timer ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
@@ -2519,4 +2539,10 @@ func void go_back_to_prev_state()
 	}
 	set_state_next_frame(state.state);
 	game->should_pop_state = true;
+}
+
+func void add_resource(int amount)
+{
+	game->play_state.resource_count += amount;
+	game->play_state.total_resource += amount;
 }

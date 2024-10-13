@@ -90,20 +90,24 @@ void main()
 	vec4 color;
 	vec4 texture_color;
 	vec4 in_color = vec4(v_color.rgb * v_color.a, v_color.a);
+	vec4 mix_color = vec4(v_mix_color.rgb, 1.0);
 
 	if((v_flags & 1) != 0) {
 		texture_color = texture(in_texture, v_uv);
 		if((v_flags & 8) != 0) {
+			mix_color *= texture_color.r;
 			color = vec4(texture_color.r) * in_color;
 		}
 		else {
+			mix_color *= texture_color.a * in_color.a;
 			color = texture_color * in_color;
 		}
 		color.rgb = mix(color.rgb, v_mix_color.rgb, v_mix_weight);
 	}
 	else {
+		mix_color *= in_color.a;
 		color = in_color;
-		color.rgb = mix(color.rgb, v_mix_color.rgb, v_mix_weight);
+		color.rgb = mix(color.rgb, mix_color.rgb, v_mix_weight);
 	}
 
 	if((v_flags & 4) != 0) {

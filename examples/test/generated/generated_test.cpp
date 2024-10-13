@@ -66,3 +66,4 @@ func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser
 func void do_options_menu(b8 in_play_mode);
 func e_state get_state();
 func void go_back_to_prev_state();
+func void add_resource(int amount);

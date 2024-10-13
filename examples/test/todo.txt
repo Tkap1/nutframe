@@ -22,7 +22,12 @@ bar for the win condition?
 
 display total resource ever gotten
 
+we need a separate depth only pass that ignores pixels with alpha < 1 in order to have the shadows work properly with entity borders
+
 add confirmation to exit button
+
+clicking a button should consuem the mouse or something. currently if you click the options button in the main menu
+	you will also enable auto level
 
 make power ups add to time instead of refreshing? it just feels bad to get them again once you have them
 	maybe nerf duration to compensate?
