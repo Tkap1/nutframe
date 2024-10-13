@@ -2383,6 +2383,32 @@ static float v2_angle(s_v2 v)
 	return atan2f(v.y, v.x);
 }
 
+static float v2_length(s_v2 a)
+{
+	return sqrtf(a.x * a.x + a.y * a.y);
+}
+
+static s_v2 v2_normalized(s_v2 v)
+{
+	s_v2 result;
+	float length = v2_length(v);
+	if(length != 0)
+	{
+		result.x = v.x / length;
+		result.y = v.y / length;
+	}
+	else
+	{
+		result = v;
+	}
+	return result;
+}
+
+static s_v2 v2_dir_from_to(s_v2 from, s_v2 to)
+{
+	return v2_normalized(to - from);
+}
+
 template <typename t>
 static t max(t a, t b)
 {
@@ -2542,11 +2568,6 @@ static float fract(float x)
 	return x - (int)x;
 }
 
-static float v2_length(s_v2 a)
-{
-	return sqrtf(a.x * a.x + a.y * a.y);
-}
-
 static float v2_distance(s_v2 a, s_v2 b)
 {
 	return v2_length(a - b);
@@ -2581,22 +2602,6 @@ static s_v4 lerp(s_v4 a, s_v4 b, float t)
 	result.y = lerp(a.y, b.y, t);
 	result.z = lerp(a.z, b.z, t);
 	result.w = lerp(a.w, b.w, t);
-	return result;
-}
-
-static s_v2 v2_normalized(s_v2 v)
-{
-	s_v2 result;
-	float length = v2_length(v);
-	if(length != 0)
-	{
-		result.x = v.x / length;
-		result.y = v.y / length;
-	}
-	else
-	{
-		result = v;
-	}
 	return result;
 }
 

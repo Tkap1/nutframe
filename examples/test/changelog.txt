@@ -18,17 +18,19 @@
 - Can no longer get stuck in the free upgrade menu
 - Free upgrade no longer triggers when in the winning animation
 - Can no longer lose while in the winning animation
-
+===============================================================================================
 
 *Misc*
 - Picking up a power up that you already have adds to the duration rather than refreshing
 
 *Bug fixes*
 - Fixed a bug where you would get stuck in the victory animation if you didn't already have a user name
-
+===============================================================================================
 
 *Misc*
+- Added an option to dash towards the mouse instead of last walk direction (on by default)
 - Dash looks slightly cooler
 
 *Bug fixes*
 
+===============================================================================================

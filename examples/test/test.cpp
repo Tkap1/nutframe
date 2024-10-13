@@ -203,6 +203,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		reset game end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+	s_v2 mouse_world = game->play_state.cam.screen_to_world(g_mouse);
 
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 	s_bot_arr* bot_arr = &game->play_state.bot_arr;
@@ -320,6 +321,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 
 					if(player->cooldown_dash_timer <= 0 && (is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_right_mouse))) {
+						if(!game->dash_to_keyboard) {
+							player->dash_dir = v2_dir_from_to(player->pos, mouse_world);
+						}
 						state->has_player_performed_any_action = true;
 						dir = player->dash_dir;
 						player->dashing = true;
@@ -677,13 +681,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		game->asking_for_restart_confirmation = false;
 	}
 
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-	s_bot_arr* bot_arr = &game->play_state.bot_arr;
-
 	{
 		s_v2 pos = lerp(game->play_state.player.prev_pos, game->play_state.player.pos, interp_dt);
 		game->play_state.cam.pos = pos - c_base_res * (0.5f / game->play_state.cam.zoom);
 	}
+
+	s_v2 mouse_world = play_state->cam.screen_to_world(g_mouse);
+
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	s_bot_arr* bot_arr = &game->play_state.bot_arr;
 
 	s_m4 view = cam->get_matrix();
 
@@ -2438,7 +2444,7 @@ func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser
 func void do_options_menu(b8 in_play_mode)
 {
 	s_v2 button_size = c_base_button_size2;
-	button_size.x += 40;
+	button_size.x += 100;
 	s_ui_optional optional = zero;
 	s_play_state* play_state = &game->play_state;
 	int button_count = in_play_mode ? 6 : 5;
@@ -2459,6 +2465,10 @@ func void do_options_menu(b8 in_play_mode)
 	}
 	if(ui_button(format_text("Sounds: %s", game->sound_disabled ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->sound_disabled = !game->sound_disabled;
+		game->asking_for_restart_confirmation = false;
+	}
+	if(ui_button(format_text("Dash to mouse: %s", game->dash_to_keyboard ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
+		game->dash_to_keyboard = !game->dash_to_keyboard;
 		game->asking_for_restart_confirmation = false;
 	}
 	if(ui_button(format_text("Timer: %s", game->hide_timer ? "Off" : "On"), pos_area_get_advance(&area), optional)) {

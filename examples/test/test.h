@@ -494,6 +494,7 @@ struct s_game
 	b8 reset_game;
 	b8 pick_free_upgrade_automatically;
 	b8 next_state_is_temporary;
+	b8 dash_to_keyboard;
 
 	s_sarray<s_state, 16> state_stack;
 
