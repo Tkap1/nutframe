@@ -26,3 +26,9 @@
 *Bug fixes*
 - Fixed a bug where you would get stuck in the victory animation if you didn't already have a user name
 
+
+*Misc*
+- Dash looks slightly cooler
+
+*Bug fixes*
+

@@ -4742,10 +4742,6 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 				.vertex_path = "shaders/vertex.vertex",
 				.fragment_path = "shaders/light.fragment",
 			},
-			{
-				.vertex_path = "shaders/vertex.vertex",
-				.fragment_path = "shaders/dont_premultiply.fragment",
-			},
 		};
 
 		for(int shader_i = 0; shader_i < array_count(c_shader_paths); shader_i++) {
@@ -4972,6 +4968,24 @@ static b8 check_for_shader_errors(u32 id, char* out_error)
 	return true;
 }
 
+static void premultiply_alpha(void* data, int width, int height)
+{
+	u8* cursor = (u8*)data;
+	for(int y = 0; y < height; y += 1) {
+		for(int x = 0; x < width; x += 1) {
+			u8* red = cursor;
+			u8* green = cursor+1;
+			u8* blue = cursor+2;
+			u8 alpha8 = *(cursor+3);
+			float alphaf = alpha8 / 255.0f;
+			*red = (u8)roundf(*red * alphaf);
+			*green = (u8)roundf(*green * alphaf);
+			*blue = (u8)roundf(*blue * alphaf);
+			cursor += 4;
+		}
+	}
+}
+
 static s_texture load_texture(s_game_renderer* game_renderer, const char* path, e_filter in_filter_mode, e_wrap in_wrap_mode)
 {
 	if(g_do_embed) {
@@ -4998,6 +5012,7 @@ static s_texture load_texture(s_game_renderer* game_renderer, const char* path, 
 
 	int width, height, num_channels;
 	void* data = stbi_load_from_memory(embed_data[g_asset_index], embed_sizes[g_asset_index], &width, &height, &num_channels, 4);
+	premultiply_alpha(data, width, height);
 	s_texture result = load_texture_from_data(data, width, height, filter_mode, GL_RGBA, wrap_mode);
 	g_asset_index += 1;
 
@@ -5036,6 +5051,7 @@ static s_texture load_texture_from_file(const char* path, u32 filtering, int wra
 {
 	int width, height, num_channels;
 	void* data = stbi_load(path, &width, &height, &num_channels, 4);
+	premultiply_alpha(data, width, height);
 	assert(data);
 	s_texture texture = load_texture_from_data(data, width, height, filtering, GL_RGBA, wrap_mode);
 	stbi_image_free(data);
@@ -5183,6 +5199,7 @@ static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* 
 	return load_font_from_data(file_data, font_size, arena);
 }
 
+// @TODO(tkap, 13/10/2024): premultiply??
 static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* arena)
 {
 	s_font font = {};
@@ -5222,16 +5239,13 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 
 	u8* gl_bitmap = (u8*)la_get_zero(arena, sizeof(u8) * 1 * total_width * total_height);
 
-	for(int char_i = 0; char_i < max_chars; char_i++)
-	{
+	for(int char_i = 0; char_i < max_chars; char_i++) {
 		s_glyph* glyph = &font.glyph_arr[char_i];
 		u8* bitmap = bitmap_arr[char_i];
 		int column = char_i % columns;
 		int row = char_i / columns;
-		for(int y = 0; y < glyph->height; y++)
-		{
-			for(int x = 0; x < glyph->width; x++)
-			{
+		for(int y = 0; y < glyph->height; y++) {
+			for(int x = 0; x < glyph->width; x++) {
 				int current_x = floorfi((float)(column * (font_size + padding)));
 				int current_y = floorfi((float)(row * (font_size + padding)));
 				u8 src_pixel = bitmap[x + y * glyph->width];
@@ -5253,8 +5267,7 @@ static s_font load_font_from_data(u8* file_data, int font_size, s_lin_arena* are
 		// glyph->uv_max.y += 0.01f;
 	}
 
-	for(int bitmap_i = 0; bitmap_i < bitmap_count; bitmap_i++)
-	{
+	for(int bitmap_i = 0; bitmap_i < bitmap_count; bitmap_i++) {
 		stbtt_FreeBitmap(bitmap_arr[bitmap_i], NULL);
 	}
 

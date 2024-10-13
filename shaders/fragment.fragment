@@ -89,71 +89,32 @@ void main()
 {
 	vec4 color;
 	vec4 texture_color;
+	vec4 in_color = vec4(v_color.rgb * v_color.a, v_color.a);
 
 	if((v_flags & 1) != 0) {
 		texture_color = texture(in_texture, v_uv);
 		if((v_flags & 8) != 0) {
-			color = vec4(1.0, 1.0, 1.0, texture_color.r) * v_color;
+			color = vec4(texture_color.r) * in_color;
 		}
 		else {
-			color = texture_color * v_color;
+			color = texture_color * in_color;
 		}
 		color.rgb = mix(color.rgb, v_mix_color.rgb, v_mix_weight);
 	}
 	else {
-		color = v_color;
+		color = in_color;
 		color.rgb = mix(color.rgb, v_mix_color.rgb, v_mix_weight);
 	}
 
 	if((v_flags & 4) != 0) {
 		float smoothness = v_draw_size.y;
 		float d = distance(v_local_uv, vec2(0.5));
-		color.a *= smoothstep(0.49, smoothness, d);
+		float a = smoothstep(0.49, smoothness, d);
+		color.rgb *= a;
+		color.a *= a;
 	}
 
-	if(v_effect_id == 2) {
-		float r = time;
-		float d1 = distance(v_local_uv, vec2(0.5));
-		color.rgb = v_color.rgb;
-		color.a = smoothstep(0.49, 0.45, d1);
-
-		float d2 = distance(v_local_uv, vec2(0.7, 0.35));
-		float s = smoothstep(0.4, 0.2, d2);
-		color.rgb += vec3(s) * 0.3;
-		float n = texture(in_texture, (v_uv + v_texture_size * -1.0 * 0.0002) * 0.2).r;
-		n = clamp(n + 0.5, 0.0, 1.0);
-		color.rgb *= n;
-		// color.rgb *= n;
-	}
-
-	else if(v_effect_id == 3) {
-		color.rgb = vec3(0.0);
-		vec2 ar = vec2(1.0, u_base_res.x / u_base_res.y);
-		vec2 uv = v_local_uv;
-
-		for(int layer = 0; layer < 2; layer += 1) {
-			float t = time * (1.0 + float(layer) * 0.5);
-			float size = 4.0 - float(layer) * 2.0;
-			for(int i = 0; i < 20; i += 1) {
-				vec2 r = n22(vec2((float(i)+1.0)*123.0, (float(i)+1.0)*54321.0));
-				float d = distance(fract(uv*size+vec2(-t*0.01 + float(layer) * 0.2, t * 0.13)+r), vec2(0.5));
-				float bottom = 1.0 - (uv.y + -0.1 + sin2(t * 0.25) * 0.15);
-				float temp_x = uv.x;
-				temp_x += sin(time * 2.1 + uv.y * 25.0) * 0.1;
-				bottom *= abs((temp_x) * 2.0 - 1.0) * 20.0;
-				bottom = clamp(bottom, 0.0, 1.0);
-				float l = 0.0005/(d*d*bottom);
-				color.rgb += vec3(l * r.x, l * r.y, l * (r.x + r.y - 0.2));
-				color.rgb = min(color.rgb, vec3(1.0, 1.0, 1.0));
-			}
-			color.rgb *= 0.4 + (float(layer) * 0.1);
-			color.rgb *= uv.y * uv.y;
-		}
-		// color.rgb = pow(color.rgb, vec3(2.2));
-		color *= v_color;
-	}
-
-	else if(v_effect_id == 5) {
+	if(v_effect_id == 5) {
 		color.rgb = vec3(0.0);
 		vec2 uv = v_local_uv;
 		float center = 0.5;
@@ -162,34 +123,18 @@ void main()
 		float s0 = smoothstep(0.2, 0.1, d);
 		float s1 = smoothstep(0.5, 0.2, d);
 		color.rgb += vec3(s0);
-		color += v_color * s1;
+		color += in_color * s1;
 
 		vec2 p = vec2(gl_FragCoord.x, u_base_res.y - gl_FragCoord.y);
 		d = distance(v_pos.xy, p);
 		d = min(distance(v_draw_size, p), d);
-		color.a *= smoothstep(0.0, 32.0, d);
+		float a = smoothstep(0.0, 32.0, d);
+		color.rgb *= a;
+		color.a *= a;
 		// color.a *= smoothstep(64.0, 0.0, d);
 	}
 
-	// @Note(tkap, 31/05/2024): Light
-	else if(v_effect_id == 6) {
-		float d = distance(v_local_uv, vec2(0.5));
-		float max_d = 0.75;
-		// d /= 64;
-		// d = d * d;
-		// d = 1.0 / d;
-		d = smoothstep(max_d * 0.2, max_d * 0.1, d);
-		color.r = v_color.r * d;
-		color.g = v_color.g * d;
-		color.b = v_color.b * d;
-	}
-
-	else if(v_effect_id == 8) {
-		float d = distance(vec2(0.5), v_local_uv);
-		if(d <= 0.4) { discard; }
-	}
-
-	color = pma(color);
+	// color = pma(color);
 	if(color.a <= 0.0) { discard; }
 
 	out_color = color;

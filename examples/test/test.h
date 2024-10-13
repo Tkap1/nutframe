@@ -94,35 +94,21 @@ struct s_cells
 
 static_assert(c_max_creatures > c_num_creatures_to_lose);
 
-#define m_layer \
-X(background, 0) \
-X(shadow, 1) \
-X(base, 2) \
-X(broken_bot, 3) \
-X(creature, 3) \
-X(bot, 4) \
-X(player, 5) \
-X(hitbox, 5) \
-X(laser, 6) \
-X(particle, 6) \
-X(text, 7)
-
-#define X(name, index) e_layer_##name,
-
 enum e_layer
 {
-	m_layer
-	e_layer_count,
+	e_layer_background,
+	e_layer_crater,
+	e_layer_shadow,
+	e_layer_base,
+	e_layer_broken_bot,
+	e_layer_creature,
+	e_layer_bot,
+	e_layer_player,
+	e_layer_hitbox,
+	e_layer_laser,
+	e_layer_particle,
+	e_layer_text,
 };
-
-#undef X
-
-#define X(name, index) index,
-constexpr int c_layer_to_render_pass_index_arr[] = {
-	m_layer
-};
-static_assert(array_count(c_layer_to_render_pass_index_arr) == e_layer_count);
-#undef X
 
 enum e_upgrade
 {
@@ -520,12 +506,11 @@ struct s_game
 
 	s_play_state play_state;
 
-	s_carray<s_render_pass*, 8> world_render_pass_arr;
+	s_carray<s_render_pass*, 2> world_render_pass_arr;
 	s_render_pass* ui_render_pass0;
 	s_render_pass* ui_render_pass1;
 	s_render_pass* ui_render_pass2;
 	s_render_pass* ui_render_pass3;
-	s_render_pass* light_render_pass;
 
 	s_carray<s_sound*, e_sound_count> sound_arr;
 
@@ -547,7 +532,6 @@ struct s_game
 	float render_time;
 	s_framebuffer* particle_framebuffer;
 	s_framebuffer* text_framebuffer;
-	s_texture sheet;
 	s_texture noise;
 	s_rng rng;
 	s_font* font;

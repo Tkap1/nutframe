@@ -48,35 +48,34 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->initialized = true;
 		game->rng = make_rng(platform_data->get_random_seed());
 		g_r->set_vsync(true);
-		game->sheet = g_r->load_texture(renderer, "examples/speedjam5/sheet.png", e_wrap_clamp);
-		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png", e_wrap_clamp);
-		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png", e_wrap_clamp);
-		game->button_texture = g_r->load_texture(renderer, "examples/test/button.png", e_wrap_clamp);
-		game->tile_texture = g_r->load_texture(renderer, "examples/test/tile.png", e_wrap_clamp);
-		game->crater_texture = g_r->load_texture(renderer, "examples/test/crater.png", e_wrap_clamp);
-		game->rock_texture_arr[0] = g_r->load_texture(renderer, "examples/test/rock01.png", e_wrap_clamp);
-		game->rock_texture_arr[1] = g_r->load_texture(renderer, "examples/test/rock02.png", e_wrap_clamp);
-		game->broken_bot_texture = g_r->load_texture(renderer, "examples/test/broken_bot.png", e_wrap_clamp);
+		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png", e_filter_linear, e_wrap_clamp);
+		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png", e_filter_linear, e_wrap_clamp);
+		game->button_texture = g_r->load_texture(renderer, "examples/test/button.png", e_filter_linear, e_wrap_clamp);
+		game->tile_texture = g_r->load_texture(renderer, "examples/test/tile.png", e_filter_linear, e_wrap_clamp);
+		game->crater_texture = g_r->load_texture(renderer, "examples/test/crater.png", e_filter_linear, e_wrap_clamp);
+		game->rock_texture_arr[0] = g_r->load_texture(renderer, "examples/test/rock01.png", e_filter_linear, e_wrap_clamp);
+		game->rock_texture_arr[1] = g_r->load_texture(renderer, "examples/test/rock02.png", e_filter_linear, e_wrap_clamp);
+		game->broken_bot_texture = g_r->load_texture(renderer, "examples/test/broken_bot.png", e_filter_linear, e_wrap_clamp);
 
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_wrap_clamp));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_wrap_clamp));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone012.png", e_wrap_clamp));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone018.png", e_wrap_clamp));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone024.png", e_wrap_clamp));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone012.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone018.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone024.png", e_filter_linear, e_wrap_clamp));
 		game->bot_animation.fps = 12;
 
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant000.png", e_wrap_clamp));
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant006.png", e_wrap_clamp));
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant012.png", e_wrap_clamp));
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant018.png", e_wrap_clamp));
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant024.png", e_wrap_clamp));
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant000.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant006.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant012.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant018.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant024.png", e_filter_linear, e_wrap_clamp));
 		game->ant_animation.fps = 8;
 
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player000.png", e_wrap_clamp));
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player006.png", e_wrap_clamp));
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player012.png", e_wrap_clamp));
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player018.png", e_wrap_clamp));
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player024.png", e_wrap_clamp));
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player000.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player006.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player012.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player018.png", e_filter_linear, e_wrap_clamp));
+		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player024.png", e_filter_linear, e_wrap_clamp));
 		game->player_animation.fps = 12;
 
 		game->sound_arr[e_sound_creature_death00] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
@@ -104,7 +103,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->ui_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->ui_render_pass2 = make_render_pass(g_r, &platform_data->permanent_arena);
 		game->ui_render_pass3 = make_render_pass(g_r, &platform_data->permanent_arena);
-		game->light_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 		g_r->default_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 
 		g_r->game_speed_index = 5;
@@ -687,6 +685,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		game->play_state.cam.pos = pos - c_base_res * (0.5f / game->play_state.cam.zoom);
 	}
 
+	s_m4 view = cam->get_matrix();
+
+	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
+	g_r->clear_framebuffer(game->light_fbo, v4(0.75f, 0.75f, 0.75f, 1.0f), e_fbo_clear_color);
+
 	switch(get_state()) {
 
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		play state draw start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -694,8 +697,28 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			float laser_light_radius = sin_range(120, 128, game->render_time * 32.0f);
 
-			s_carray2<float, 256, 256> brightness_arr = zero;
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player buff visuals start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_player p = game->play_state.player;
+				s_v2 pos = lerp(p.prev_pos, p.pos, interp_dt);
+				for_enum(pickup_i, e_pickup) {
+					if(has_buff(pickup_i)) {
+						do_particles(8, pos, e_layer_particle, true, multiply_particle_data(c_buff_particle_data_arr[pickup_i], {.radius = 3, .speed = 3}));
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		player buff visuals end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw pickups start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				foreach_val(pickup_i, pickup, game->play_state.pickup_arr) {
+					do_particles(8, pickup.pos, e_layer_particle, false, c_buff_particle_data_arr[pickup.type]);
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw pickups end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+			s_carray2<float, 256, 256> brightness_arr = zero;
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_bounds bounds = get_cam_bounds_snap_to_tile_size(*cam);
@@ -714,11 +737,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						s_v4 color = make_color(bright);
 						brightness_arr[y - start_y][x - start_x] = bright;
 						s_v2 pos = v2(x, y) * c_tile_size;
-						draw_texture(g_r, pos, e_layer_background, v2(c_tile_size), color, game->tile_texture, get_render_pass(e_layer_background), {.flip_x = rng.rand_bool()}, {.origin_offset = c_origin_topleft});
+						draw_texture(g_r, pos, e_layer_background, v2(c_tile_size), color, game->tile_texture, game->world_render_pass_arr[0], {.flip_x = rng.rand_bool()}, {.origin_offset = c_origin_topleft});
 					}
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw background end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		doodads start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -735,87 +760,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					if(is_valid_index(x, y, 256, 256)) {
 						float brightness = at_most(1.0f, brightness_arr[y][x] * 1.1f);
 						draw_texture_keep_aspect(
-							g_r, pos, e_layer_background + 1, v2(size), make_color(brightness), game->crater_texture, get_render_pass(e_layer_background),
+							g_r, pos, e_layer_crater, v2(size), make_color(brightness), game->crater_texture, game->world_render_pass_arr[0],
 							{.flip_x = game->play_state.crater_flip_arr[crater_i]}, {.rotation = game->play_state.crater_rotation_arr[crater_i]}
 						);
 					}
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		doodads end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			#if 0
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		doodads start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				s_rng rng = make_rng(0);
-				s_bounds bounds = get_map_bounds();
-				for(int i = 0; i < 64; i += 1) {
-					int index = rng.randu() % 2;
-					s_v2 pos = v2(
-						rng.randf_range(bounds.min_x, bounds.max_x),
-						rng.randf_range(bounds.min_y, bounds.max_y)
-					);
-					draw_texture_keep_aspect(g_r, pos, e_layer_background + 1, v2(64), make_color(1), game->rock_texture_arr[index], get_render_pass(e_layer_background), {.flip_x = rng.rand_bool()});
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		doodads end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-			#endif
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw base start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				draw_texture_keep_aspect(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->base_texture, get_render_pass(e_layer_base));
-				draw_light(c_base_pos, c_base_size.x, make_color(0.5f), 0.0f);
+				draw_texture_keep_aspect(g_r, c_base_pos, e_layer_base, c_base_size, make_color(1), game->base_texture, game->world_render_pass_arr[0]);
+				g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw base end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				s_player* p = &game->play_state.player;
-				s_v2 pos = lerp(p->prev_pos, p->pos, interp_dt);
-				if(!p->dashing) {
-					p->animation_timer += g_delta;
-				}
-				s_texture texture = get_animation_texture(&game->player_animation, &p->animation_timer);
-				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), texture, get_render_pass(e_layer_player), {.flip_x = p->flip_x});
-				draw_light(pos, 256, make_color(0.5f), 0.0f);
-				draw_shadow(pos + v2(0, 32), 128, 0.5f, 0.1f);
-				if(p->dashing) {
-					s_v2 a = p->dash_start;
-					s_v2 b = pos;
-					float dist = v2_distance(a, b);
-					int steps = ceilfi(dist / (c_player_size.x * 0.1f));
-					for(int i = 0; i < steps; i += 1) {
-						float percent = index_count_safe_div(i, steps);
-						float alpha = 1.0f - index_count_safe_div(p->active_dash_timer, c_dash_duration);
-						s_v2 c = lerp(a, b, percent);
-						draw_texture(g_r, c, e_layer_player, c_player_size, v4(0.75f, 0.75f, 0.75f, alpha * percent), texture, get_render_pass(e_layer_creature), {.flip_x = p->flip_x});
-					}
-				}
-
-				foreach_val(target_i, target, p->laser_target_arr) {
-					if(!target.has_prev) {
-						target.from.prev_pos = p->prev_pos;
-						target.from.pos = p->pos;
-					}
-					draw_laser(target, laser_light_radius, make_color(0.5f, 0.1f, 0.1f), interp_dt);
-				}
-				if(game->show_hitboxes) {
-					draw_rect(g_r, pos, e_layer_hitbox, c_player_size, v4(0.0f, 0.5f, 0.0f, 0.5f), get_render_pass(e_layer_hitbox));
-					draw_circle(g_r, pos, e_layer_hitbox, get_player_harvest_range(), v4(0.0f, 0.0f, 0.5f, 0.5f), get_render_pass(e_layer_hitbox));
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player buff visuals start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				s_player p = game->play_state.player;
-				s_v2 pos = lerp(p.prev_pos, p.pos, interp_dt);
-				for_enum(pickup_i, e_pickup) {
-					if(has_buff(pickup_i)) {
-						do_particles(8, pos, e_layer_particle, true, multiply_particle_data(c_buff_particle_data_arr[pickup_i], {.radius = 3, .speed = 3}));
-					}
-				}
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		player buff visuals end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			for_creature_partial(creature) {
@@ -825,10 +784,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					make_color(1), /*make_color(0.605f, 0.531f, 0.168f),*/ make_color(0.332f, 0.809f, 0.660f), make_color(0.581f, 0.705f, 0.104f), make_color(0.434f, 0.172f, 0.290f),
 					make_color(0.473f, 0.549f, 0.744f), make_color(0.276f, 0.523f, 0.052f), make_color(0.076f, 0.185f, 0.868f), make_color(0.525f, 0.820f, 0.016f),
 				};
-				float size_multi = 1;
-				if(creature_arr->boss[creature]) {
-					size_multi = 3;
-				}
 
 				int color_index = creature_arr->tier[creature] % array_count(color_arr);
 				float mix_weight = 1.0f - (play_state->update_count - creature_arr->tick_when_last_damaged[creature]) / 5.0f;
@@ -842,14 +797,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 				draw_texture_keep_aspect(
 					g_r, pos, e_layer_creature, get_creature_size(creature), color_arr[color_index], texture,
-					get_render_pass(e_layer_creature), {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight}
+					game->world_render_pass_arr[0], {.flip_x = creature_arr->flip_x[creature]}, {.mix_weight = mix_weight}
 				);
-
-				draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.33f, 0.0f);
-
-				if(game->show_hitboxes) {
-					draw_rect(g_r, pos, e_layer_hitbox, get_creature_size(creature), v4(0.0f, 0.5f, 0.0f, 0.5f), get_render_pass(e_layer_hitbox));
-				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -857,9 +806,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				foreach_val(bot_i, bot, game->play_state.broken_bot_arr) {
 					draw_texture_keep_aspect(g_r, bot.pos, e_layer_broken_bot, c_bot_size, make_color(1), game->broken_bot_texture,
-						get_render_pass(e_layer_broken_bot), {}, {.rotation = bot.rotation}
+						game->world_render_pass_arr[0], {}, {.rotation = bot.rotation}
 					);
-					draw_shadow(bot.pos + v2(0, 10), 36, 0.5f, 0.0f);
 
 					do_particles(1, bot.pos, e_layer_particle, false, {
 						.shrink = 3,
@@ -874,14 +822,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						.color = v3(0.5f, 0.1f, 0.1f),
 						.color_rand = v3(0.1f, 0.1f, 0.1f),
 					});
-
-					if(game->show_hitboxes) {
-						draw_rect(g_r, bot.pos, e_layer_hitbox, c_bot_size, v4(0.0f, 0.5f, 0.0f, 0.5f), get_render_pass(e_layer_hitbox));
-					}
-
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw broken bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			for_bot_partial(bot) {
@@ -902,52 +847,93 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				bot_arr->animation_timer[bot] += g_delta;
 				s_texture texture = get_animation_texture(&game->bot_animation, &bot_arr->animation_timer[bot]);
 				float tilt = bot_arr->tilt_timer[bot] * 0.25f;
-				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, texture, get_render_pass(e_layer_bot), {}, {.rotation = tilt});
-
-				draw_shadow(pos + v2(0, 100), 32, 0.25f, 0.0f);
-				draw_light(pos, 48, make_color(0.33f), 0.0f);
-
-				foreach_val(target_i, target, bot_arr->laser_target_arr[bot]) {
-					if(!target.has_prev) {
-						target.from.prev_pos = bot_arr->prev_pos[bot];
-						target.from.pos = bot_arr->pos[bot];
-					}
-					draw_laser(target, laser_light_radius, make_color(0.1f, 0.5f, 0.1f), interp_dt);
-				}
-
-				if(game->show_hitboxes) {
-					draw_circle(g_r, pos, e_layer_hitbox, get_bot_harvest_range(), v4(0.0f, 0.0f, 0.5f, 0.5f), get_render_pass(e_layer_hitbox));
-				}
+				draw_texture_keep_aspect(g_r, pos, e_layer_bot, c_bot_size, color, texture, game->world_render_pass_arr[0], {}, {.rotation = tilt});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw pickups start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				foreach_val(pickup_i, pickup, game->play_state.pickup_arr) {
-					do_particles(8, pickup.pos, e_layer_particle, false, c_buff_particle_data_arr[pickup.type]);
+				s_player* p = &game->play_state.player;
+				s_v2 pos = lerp(p->prev_pos, p->pos, interp_dt);
+				s_texture texture = get_animation_texture(&game->player_animation, &p->animation_timer);
+				draw_texture(g_r, pos, e_layer_player, c_player_size, make_color(1), texture, game->world_render_pass_arr[0], {.flip_x = p->flip_x});
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw player end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		shadows start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				foreach_val(bot_i, bot, game->play_state.broken_bot_arr) {
+					draw_shadow(bot.pos + v2(0, 10), 36, 0.5f, 0.0f);
+				}
+
+				for_creature_partial(creature) {
+					if(!creature_arr->active[creature]) { continue; }
+					s_v2 pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
+					float size_multi = 1;
+					if(creature_arr->boss[creature]) {
+						size_multi = 3;
+					}
+					draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.33f, 0.0f);
+				}
+
+				for_bot_partial(bot) {
+					if(!bot_arr->active[bot]) { continue; }
+					s_v2 pos = lerp(bot_arr->prev_pos[bot], bot_arr->pos[bot], interp_dt);
+					draw_shadow(pos + v2(0, 100), 32, 0.25f, 0.0f);
+				}
+
+				{
+					s_player* p = &game->play_state.player;
+					s_v2 pos = lerp(p->prev_pos, p->pos, interp_dt);
+					draw_shadow(pos + v2(0, 32), 128, 0.5f, 0.1f);
+				}
+
+				g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->light_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_multiply_inv, .view = view, .projection = ortho});
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		shadows end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lights start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				draw_light(c_base_pos, c_base_size.x, make_color(0.5f), 0.0f);
+
+				{
+					s_player p = play_state->player;
+					s_v2 pos = lerp(p.prev_pos, p.pos, interp_dt);
+					draw_light(pos, 256, make_color(0.5f), 0.0f);
+
+					foreach_val(target_i, target, p.laser_target_arr) {
+						if(!target.has_prev) {
+							target.from.prev_pos = p.prev_pos;
+							target.from.pos = p.pos;
+						}
+						draw_laser(target, laser_light_radius, make_color(0.5f, 0.1f, 0.1f), interp_dt);
+					}
+				}
+
+				for_bot_partial(bot) {
+					if(!bot_arr->active[bot]) { continue; }
+					s_v2 pos = lerp(bot_arr->prev_pos[bot], bot_arr->pos[bot], interp_dt);
+					draw_light(pos, 48, make_color(0.33f), 0.0f);
+
+					foreach_val(target_i, target, bot_arr->laser_target_arr[bot]) {
+						if(!target.has_prev) {
+							target.from.prev_pos = bot_arr->prev_pos[bot];
+							target.from.pos = bot_arr->pos[bot];
+						}
+						draw_laser(target, laser_light_radius, make_color(0.1f, 0.5f, 0.1f), interp_dt);
+					}
 				}
 			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw pickups end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lights end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->light_fbo, {.blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
+
+			draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->light_fbo, game->world_render_pass_arr[0]);
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_multiply, .projection = ortho});
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				// if(is_key_down(g_input, c_left_mouse)) {
-				// // if(is_key_pressed(g_input, c_right_mouse)) {
-				// 	do_particles(10, g_mouse, e_layer_particle, {
-				// 		// .shrink = 0.5f,
-				// 		// .slowdown = 1.0f,
-				// 		.duration = 0.33f,
-				// 		.duration_rand = 1,
-				// 		.speed = 128,
-				// 		.speed_rand = 1,
-				// 		// .angle_rand = 1,
-				// 		// .radius = 16.0f,
-				// 		// .radius_rand = 0,
-				// 		.color = v3(0.2f, 0.1f, 0.1f),
-				// 		.color_rand = v3(0.5f, 0.5f, 0.5f),
-				// 	});
-				// }
-
 				foreach_ptr(particle_i, p, game->play_state.particle_arr) {
 					s_v4 color;
 					color.x = p->color.x;
@@ -966,7 +952,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					if(p->attached_to_player) {
 						offset = lerp(game->play_state.player.prev_pos, game->play_state.player.pos, interp_dt);
 					}
-					draw_circle(g_r, offset + p->pos, p->z, radius, color, get_render_pass(e_layer_particle));
+					draw_circle(g_r, offset + p->pos, p->z, radius, color, game->world_render_pass_arr[1]);
 					p->timer += (float)platform_data->frame_time;
 					if(percent_done >= 1) {
 						game->play_state.particle_arr.remove_and_swap(particle_i);
@@ -975,6 +961,122 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		player dash trail start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_player* p = &game->play_state.player;
+				s_v2 pos = lerp(p->prev_pos, p->pos, interp_dt);
+				if(!p->dashing) {
+					p->animation_timer += g_delta;
+				}
+				s_texture texture = get_animation_texture(&game->player_animation, &p->animation_timer);
+				if(p->dashing) {
+					s_v2 a = p->dash_start;
+					s_v2 b = pos;
+					float dist = v2_distance(a, b);
+					int steps = ceilfi(dist / (c_player_size.x * 0.1f));
+					for(int i = 0; i < steps; i += 1) {
+						float percent = index_count_safe_div(i, steps);
+						float alpha = 1.0f - index_count_safe_div(p->active_dash_timer, c_dash_duration);
+						s_v2 c = lerp(a, b, percent);
+						draw_texture(g_r, c, e_layer_player, c_player_size * 1.25f, v4(0.75f, 0.75f, 0.75f, alpha * percent), texture, game->world_render_pass_arr[1], {.flip_x = p->flip_x});
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		player dash trail end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->main_fbo, {.blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		hitboxes start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			if(game->show_hitboxes) {
+				for_creature_partial(creature) {
+					if(!creature_arr->active[creature]) { continue; }
+					s_v2 pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
+					draw_rect(g_r, pos, e_layer_hitbox, get_creature_size(creature), v4(0.0f, 0.5f, 0.0f, 0.5f), game->world_render_pass_arr[0]);
+				}
+
+				foreach_val(bot_i, bot, game->play_state.broken_bot_arr) {
+					draw_rect(g_r, bot.pos, e_layer_hitbox, c_bot_size, v4(0.0f, 0.5f, 0.0f, 0.5f), game->world_render_pass_arr[0]);
+				}
+
+				for_bot_partial(bot) {
+					if(!bot_arr->active[bot]) { continue; }
+					s_v2 pos = lerp(bot_arr->prev_pos[bot], bot_arr->pos[bot], interp_dt);
+					draw_circle(g_r, pos, e_layer_hitbox, get_bot_harvest_range(), v4(0.0f, 0.0f, 0.5f, 0.5f), game->world_render_pass_arr[0]);
+				}
+
+				{
+					s_player* p = &game->play_state.player;
+					s_v2 pos = lerp(p->prev_pos, p->pos, interp_dt);
+					draw_rect(g_r, pos, e_layer_hitbox, c_player_size, v4(0.0f, 0.5f, 0.0f, 0.5f), game->world_render_pass_arr[0]);
+					draw_circle(g_r, pos, e_layer_hitbox, get_player_harvest_range(), v4(0.0f, 0.0f, 0.5f, 0.5f), game->world_render_pass_arr[0]);
+				}
+			}
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hitboxes end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		score goal display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_len_str str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
+				s_v2 text_pos = center_text_on_rect(str, game->font, c_base_pos - c_base_size * 0.5f, c_base_size, 40, true, true);
+				// text_pos.y += font_size * 0.1f;
+				draw_text(g_r, str, text_pos, 0, 40, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		display controls tutorial start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			if(!game->hide_tutorial) {
+				s_v2 player_pos = lerp(play_state->player.prev_pos, play_state->player.pos, interp_dt);
+				player_pos += v2(0, 100);
+				float time_passed = play_state->update_count / (float)c_updates_per_second;
+				if(time_passed < 15) {
+					s_len_str text_arr[] = {
+						strlit("Move - WASD or Arrow keys"),
+						strlit("Dash - Space or Right click"),
+						strlit("Options - P or Escape"),
+						strlit("Zoom - Scroll wheel"),
+					};
+					float alpha = 1;
+					if(time_passed >= 14) {
+						alpha = range_lerp(time_passed, 14, 15, 1, 0);
+					}
+
+					s_v2 text_pos = player_pos;
+					for(int text_i = 0; text_i < array_count(text_arr); text_i += 1) {
+						float zoom = play_state->cam.zoom;
+						float font_size = clamp(32 / zoom, 2.0f, 70.0f);
+						draw_text(g_r, text_arr[text_i], text_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, game->world_render_pass_arr[0]);
+						text_pos.y += font_size;
+					}
+				}
+				if(time_passed >= 15 && time_passed <= 30) {
+					float zoom = play_state->cam.zoom;
+					float alpha = ease_linear_advanced(time_passed, 15.0f, 16.0f, 0.0f, 1.0f);
+					alpha *= ease_linear_advanced(time_passed, 29, 30, 1, 0);
+					float font_size = clamp(32 / zoom, 2.0f, 70.0f);
+					s_len_str text = strlit(
+						"Your goal is to get 50000 nectar, but before you can do that\n"
+						"you will need to use it to get stronger and force more ants to spawn,\n"
+						"thus increasing your nectar income."
+					);
+					draw_text(g_r, text, player_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, game->world_render_pass_arr[0]);
+				}
+				if(time_passed >= 30 && time_passed <= 45) {
+					float zoom = play_state->cam.zoom;
+					float alpha = ease_linear_advanced(time_passed, 30.0f, 31.0f, 0.0f, 1.0f);
+					alpha *= ease_linear_advanced(time_passed, 44, 45, 1, 0);
+					float font_size = clamp(32 / zoom, 2.0f, 70.0f);
+					s_len_str text = strlit(
+						"But be careful, as letting too many ants accumulate will be the end.\n"
+						"1000 ants would be too much to handle."
+					);
+					draw_text(g_r, text, player_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, game->world_render_pass_arr[0]);
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		display controls tutorial end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 
 			b8 show_ui = should_show_ui();
 			if(play_state->sub_state == e_sub_state_winning) {
@@ -1109,65 +1211,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		buff display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		score goal display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-				{
-					s_len_str str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
-					s_v2 text_pos = center_text_on_rect(str, game->font, c_base_pos - c_base_size * 0.5f, c_base_size, 40, true, true);
-					// text_pos.y += font_size * 0.1f;
-					draw_text(g_r, str, text_pos, 0, 40, make_color(1), false, game->font, get_render_pass(e_layer_text));
-				}
-				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		display controls tutorial start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-				if(!game->hide_tutorial) {
-					s_v2 player_pos = lerp(play_state->player.prev_pos, play_state->player.pos, interp_dt);
-					player_pos += v2(0, 100);
-					float time_passed = play_state->update_count / (float)c_updates_per_second;
-					if(time_passed < 15) {
-						s_len_str text_arr[] = {
-							strlit("Move - WASD or Arrow keys"),
-							strlit("Dash - Space or Right click"),
-							strlit("Options - P or Escape"),
-							strlit("Zoom - Scroll wheel"),
-						};
-						float alpha = 1;
-						if(time_passed >= 14) {
-							alpha = range_lerp(time_passed, 14, 15, 1, 0);
-						}
-
-						s_v2 text_pos = player_pos;
-						for(int text_i = 0; text_i < array_count(text_arr); text_i += 1) {
-							float zoom = play_state->cam.zoom;
-							float font_size = clamp(32 / zoom, 2.0f, 70.0f);
-							draw_text(g_r, text_arr[text_i], text_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, get_render_pass(e_layer_text));
-							text_pos.y += font_size;
-						}
-					}
-					if(time_passed >= 15 && time_passed <= 30) {
-						float zoom = play_state->cam.zoom;
-						float alpha = ease_linear_advanced(time_passed, 15.0f, 16.0f, 0.0f, 1.0f);
-						alpha *= ease_linear_advanced(time_passed, 29, 30, 1, 0);
-						float font_size = clamp(32 / zoom, 2.0f, 70.0f);
-						s_len_str text = strlit(
-							"Your goal is to get 50000 nectar, but before you can do that\n"
-							"you will need to use it to get stronger and force more ants to spawn,\n"
-							"thus increasing your nectar income."
-						);
-						draw_text(g_r, text, player_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, get_render_pass(e_layer_text));
-					}
-					if(time_passed >= 30 && time_passed <= 45) {
-						float zoom = play_state->cam.zoom;
-						float alpha = ease_linear_advanced(time_passed, 30.0f, 31.0f, 0.0f, 1.0f);
-						alpha *= ease_linear_advanced(time_passed, 44, 45, 1, 0);
-						float font_size = clamp(32 / zoom, 2.0f, 70.0f);
-						s_len_str text = strlit(
-							"But be careful, as letting too many ants accumulate will be the end.\n"
-							"1000 ants would be too much to handle."
-						);
-						draw_text(g_r, text, player_pos, 0, font_size, make_color(1.0f, alpha), true, game->font, get_render_pass(e_layer_text));
-					}
-				}
-				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		display controls tutorial end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lose progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
@@ -1481,31 +1524,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		invalid_default_case;
 	}
-
-	s_m4 view = cam->get_matrix();
-
-	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
-	g_r->clear_framebuffer(game->light_fbo, v4(0.75f, 0.75f, 0.75f, 1.0f), e_fbo_clear_color);
-
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[2], game->main_fbo, {.depth_mode = e_depth_mode_read_and_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[3], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[4], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[5], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[6], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
-
-	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lights start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-	{
-		// @Note(tkap, 06/10/2024): Shadows
-		g_r->end_render_pass(g_r, game->world_render_pass_arr[1], game->light_fbo, {.depth_mode = e_depth_mode_read_no_write, .blend_mode = e_blend_mode_multiply_inv, .view = view, .projection = ortho});
-
-		g_r->end_render_pass(g_r, game->light_render_pass, game->light_fbo, {.blend_mode = e_blend_mode_additive, .view = view, .projection = ortho});
-		draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->light_fbo, game->light_render_pass);
-		g_r->end_render_pass(g_r, game->light_render_pass, game->main_fbo, {.blend_mode = e_blend_mode_multiply, .projection = ortho});
-	}
-	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lights end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[7], game->main_fbo, {.depth_mode = e_depth_mode_no_read_yes_write, .blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 
 	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
@@ -2105,19 +2123,14 @@ func int count_alive_creatures()
 	return result;
 }
 
-func s_render_pass* get_render_pass(e_layer layer)
-{
-	return game->world_render_pass_arr[c_layer_to_render_pass_index_arr[layer]];
-}
-
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness)
 {
-	draw_circle(g_r, pos, 0, radius, color, game->light_render_pass, {.shader = 5, .circle_smoothness = smoothness});
+	draw_circle(g_r, pos, 0, radius, color, game->world_render_pass_arr[0], {.shader = 5, .circle_smoothness = smoothness});
 }
 
 func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness)
 {
-	draw_circle(g_r, pos, e_layer_shadow, radius, make_color(strength), game->world_render_pass_arr[1], {.shader = 5, .circle_smoothness = smoothness});
+	draw_circle(g_r, pos, e_layer_shadow, radius, make_color(strength), game->world_render_pass_arr[0], {.shader = 5, .circle_smoothness = smoothness});
 }
 
 func int get_bot_max_cargo_count()
@@ -2418,7 +2431,7 @@ func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser
 {
 	s_v2 from_pos = lerp(target.from.prev_pos, target.from.pos, interp_dt);
 	s_v2 to_pos = lerp(target.to.prev_pos, target.to.pos, interp_dt);
-	draw_line(g_r, from_pos, to_pos, e_layer_laser, c_laser_width, laser_color, get_render_pass(e_layer_laser), {}, {.effect_id = 5});
+	draw_line(g_r, from_pos, to_pos, e_layer_laser, c_laser_width, laser_color, game->world_render_pass_arr[1], {}, {.effect_id = 5});
 	draw_light(to_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
 }
 
