@@ -31,6 +31,7 @@
 - Added an option to dash towards the mouse instead of last walk direction (on by default)
 - Added an option to display how much total nectar you have acquired in the current run
 - Dash looks slightly cooler
+- You can now press enter instead of click the "Play" button
 
 *Bug fixes*
 - Fixed a bug where clicking the the "Options" button in the main menu would also count as a click for "Auto level"

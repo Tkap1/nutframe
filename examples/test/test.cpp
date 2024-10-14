@@ -1399,7 +1399,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				optional.size_x = button_size.x;
 				optional.size_y = button_size.y;
 				s_pos_area area = make_pos_area(wxy(0.0f, 0.0f), wxy(1.0f, 1.0f), button_size, 8, 2, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
-				if(ui_button(strlit("Play"), pos_area_get_advance(&area), optional)) {
+				if(ui_button(strlit("Play"), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_enter)) {
 					set_state_next_frame(e_state_play);
 					game->reset_game = true;
 				}
