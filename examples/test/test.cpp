@@ -221,6 +221,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			s_play_state* state = &game->play_state;
 
+			{
+				int index = state->update_count % c_nectar_gain_num_updates;
+				state->nectar_gain_arr[index] = 0;
+			}
+
 			if(can_go_to_level_up_state() && state->level_up_triggers > 0) {
 				state->sub_state = e_sub_state_level_up;
 				state->level_up_seed = g_platform_data->get_random_seed();
@@ -1152,11 +1157,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			if(show_ui) {
+				float nectar_per_second = get_nectar_per_second();
+				play_state->highest_nectar_gain_per_second = max(play_state->highest_nectar_gain_per_second, nectar_per_second);
 				if(game->show_total_nectar) {
-					draw_text(g_r, format_text("%i / %i (%i)", play_state->resource_count, c_resource_to_win, game->play_state.total_resource), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+					draw_text(g_r, format_text("%i / %i +%.1f/s (%i)", play_state->resource_count, c_resource_to_win, nectar_per_second, game->play_state.total_resource), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 				}
 				else {
-					draw_text(g_r, format_text("%i / %i", play_state->resource_count, c_resource_to_win), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+					draw_text(g_r, format_text("%i / %i +%.1f/s", play_state->resource_count, c_resource_to_win, nectar_per_second), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 				}
 
 				if(!game->hide_timer) {
@@ -1516,6 +1523,19 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				else {
 					go_back_to_prev_state();
+				}
+			}
+
+			{
+				s_pos_area area = make_pos_area(wxy(0.69f, 0.05f), c_base_res, v2(0, 40), 0, -1, e_pos_area_flag_vertical);
+				{
+					s_len_str text = format_text("Total nectar: %i", play_state->total_resource);
+					draw_text(g_r, text, pos_area_get_advance(&area), 10, 40, make_color(1), false, game->font, game->ui_render_pass1);
+				}
+
+				{
+					s_len_str text = format_text("Highest nectar/s: %.1f/s", play_state->highest_nectar_gain_per_second);
+					draw_text(g_r, text, pos_area_get_advance(&area), 10, 40, make_color(1), false, game->font, game->ui_render_pass1);
 				}
 			}
 
@@ -2691,6 +2711,9 @@ func void add_resource(int amount)
 {
 	game->play_state.resource_count += amount;
 	game->play_state.total_resource += amount;
+
+	int index = game->play_state.update_count % c_nectar_gain_num_updates;
+	game->play_state.nectar_gain_arr[index] += amount;
 }
 
 func b8 is_mouse_clicked()
@@ -2784,5 +2807,16 @@ func int get_creature_max_health(e_creature type, int tier, b8 is_boss)
 
 		invalid_default_case;
 	}
+	return result;
+}
+
+func float get_nectar_per_second()
+{
+	float result = 0;
+	for(int i = 0; i < c_nectar_gain_num_updates; i += 1) {
+		result += game->play_state.nectar_gain_arr[i];
+	}
+	float ratio = c_nectar_gain_num_updates / (float)c_updates_per_second;
+	result /= ratio;
 	return result;
 }

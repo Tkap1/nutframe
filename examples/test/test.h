@@ -39,6 +39,7 @@ global constexpr s_v2 c_base_button_size2 = v2(376, 44);
 global constexpr int c_win_animation_duration_in_ticks = c_updates_per_second * 3;
 global constexpr int c_invalid_entity = -1000000000;
 global constexpr int c_deposit_spawn_interval = 1200;
+global constexpr int c_nectar_gain_num_updates = c_updates_per_second * 5;
 
 enum e_creature
 {
@@ -488,6 +489,8 @@ struct s_play_state
 	s_carray<float, c_max_craters> crater_rotation_arr;
 	s_carray<b8, c_max_craters> crater_flip_arr;
 	int level_up_triggers;
+	s_carray<int, c_nectar_gain_num_updates> nectar_gain_arr;
+	float highest_nectar_gain_per_second;
 };
 
 

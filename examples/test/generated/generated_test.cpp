@@ -78,3 +78,4 @@ func s_v2 get_random_creature_spawn_pos();
 func b8 counts_towards_defeat(e_creature type);
 func b8 can_creature_move(e_creature type);
 func int get_creature_max_health(e_creature type, int tier, b8 is_boss);
+func float get_nectar_per_second();

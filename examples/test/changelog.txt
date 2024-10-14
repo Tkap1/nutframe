@@ -42,3 +42,11 @@
 - Fixed a bug where clicking the the "Options" button in the main menu would also count as a click for "Auto level"
 - Fixed a bug where ants would rarely flash without being hit
 ===============================================================================================
+
+*Misc*
+- Added a nectar per second display
+- Victory screen now displays total nectar obtained
+- Victory screen now displays highest nectar per second
+
+*Bug fixes*
+===============================================================================================
