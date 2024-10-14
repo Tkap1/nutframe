@@ -34,7 +34,7 @@
 - Added an option for smooth camera (on by default)
 - Added an option to display how much total nectar you have acquired in the current run
 - Dash looks slightly cooler
-- You can now press enter instead of click the "Play" button
+- You can now press enter instead of clicking the "Play" button
 - Power ups now show their duration
 - "Exit" button now asks for confirmation
 
@@ -48,6 +48,4 @@
 - Added a nectar per second display
 - Victory screen now displays total nectar obtained
 - Victory screen now displays highest nectar per second
-
-*Bug fixes*
 ===============================================================================================

@@ -198,7 +198,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				int level = state->upgrade_level_arr[e_upgrade_broken_bot_spawn];
 				if(level > 0) {
 					s_auto_tick_timer* t = &state->spawn_broken_bot_timer;
-					t->duration = 600;
 					t->speed = 1 + ((level - 1) * 25 / 100.0f);
 					int to_spawn = t->tick();
 					for(int i = 0; i < to_spawn; i += 1) {
