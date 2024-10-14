@@ -14,16 +14,13 @@ polish:
 	smooth camera movement
 
 
-buff display should go down to reflect duration
-
 bar for the win condition?
 
 we need a separate depth only pass that ignores pixels with alpha < 1 in order to have the shadows work properly with entity borders
 dont show tutorial after it has been shown once
 
-add confirmation to exit button
-
 Maybe allow drones to get chain too, but if you want it different to the player, instead of chain, allow it to multi attack, so extra beams directly from drone to enemy.
+
 Scrollable leaderboard.
 
 Maybe under the 3 free upgrades have some special choices, like 2. that are random, and maybe they are able to convert points. eg.

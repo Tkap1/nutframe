@@ -63,6 +63,7 @@ func b8 can_go_to_level_up_state();
 func b8 should_show_ui();
 func int pick_weighted(f64* arr, int count, s_rng* rng);
 func float ticks_to_seconds(int ticks);
+func s_carray<float, 3> ticks_to_seconds2(int ticks, float interp_dt);
 func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser_color, float interp_dt);
 func void do_options_menu(b8 in_play_mode);
 func e_state get_state();

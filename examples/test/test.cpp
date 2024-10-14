@@ -724,7 +724,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw pickups end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
 			s_carray2<float, 256, 256> brightness_arr = zero;
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -1222,12 +1221,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_v2 size = v2(32);
 					s_pos_area area = make_pos_area(wxy(0.005f, 0.07f), wxy(1.0f, 0.07f), size, 8, -1, 0);
 					s_v4 color_arr[] = {
-						make_color(0, 1, 0), make_color(1, 0, 0), make_color(0, 0, 1),
+						make_color(0, 0.5f, 0), make_color(0.5f, 0, 0), make_color(0, 0, 0.5f),
 					};
 					for_enum(pickup_i, e_pickup) {
 						s_v2 pos = pos_area_get_advance(&area);
 						if(has_buff(pickup_i)) {
 							draw_rect(g_r, pos, 0, size, color_arr[pickup_i], game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+
+							s_carray<float, 3> data = ticks_to_seconds2(play_state->player.buff_arr[pickup_i].ticks_left + 1, interp_dt);
+							draw_text(
+								g_r, format_text("%.0f", at_most(99.0f, ceilf(data[1]))), pos + size * 0.5f + v2(0.0f, 2.0f), 0,
+								30, make_color(1), true, game->font, game->ui_render_pass1
+							);
 						}
 					}
 				}
@@ -2490,6 +2495,15 @@ func int pick_weighted(f64* arr, int count, s_rng* rng)
 func float ticks_to_seconds(int ticks)
 {
 	float result = ticks / (float)c_updates_per_second;
+	return result;
+}
+
+func s_carray<float, 3> ticks_to_seconds2(int ticks, float interp_dt)
+{
+	s_carray<float, 3> result;
+	result[0] = ticks_to_seconds(ticks - 1);
+	result[2] = ticks_to_seconds(ticks);
+	result[1] = lerp(result[0], result[2], interp_dt);
 	return result;
 }
 
