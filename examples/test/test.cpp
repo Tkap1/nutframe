@@ -680,7 +680,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		else {
 			game->play_state.sub_state = e_sub_state_pause;
 		}
-		game->asking_for_restart_confirmation = false;
 	}
 
 	{
@@ -1408,11 +1407,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					if constexpr(c_are_we_on_web) {
 						on_leaderboard_score_submitted();
 					}
-					game->asking_for_restart_confirmation = false;
 				}
 				if(ui_button(strlit("Options"), pos_area_get_advance(&area), optional)) {
 					state->sub_state = e_sub_state_pause;
-					game->asking_for_restart_confirmation = false;
 				}
 			}
 
@@ -1557,6 +1554,17 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo, game->world_render_pass_arr[0]);
 	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], g_r->default_fbo, {.projection = ortho});
 
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		reset ui start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	{
+		auto t = &game->ui_table;
+		for(int i = 0; i < game->ui_table.max_elements(); i += 1) {
+			if(t->used[i] && !t->values[i].present) {
+				t->used[i] = false;
+			}
+		}
+	}
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		reset ui end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 }
 
 #ifdef m_build_dll
@@ -1698,7 +1706,10 @@ func s_m4 get_camera_view(s_camera3d cam)
 func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 {
 	b8 result = false;
-	s_parse_ui_id parse_result = parse_ui_id(id_str);
+	s_parse_ui_id id = parse_ui_id(id_str);
+
+	s_ui_data* data = get_or_create_ui_data(id.id);
+	data->present = true;
 
 	float font_size = 48;
 	if(optional.font_size > 0) {
@@ -1731,9 +1742,9 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	draw_texture(g_r, pos, 0, size, brighter(color, color_multi), game->button_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 
 	{
-		s_v2 text_pos = center_text_on_rect(id_str, game->font, pos, size, font_size, true, true);
+		s_v2 text_pos = center_text_on_rect(id.text, game->font, pos, size, font_size, true, true);
 		text_pos.y += font_size * 0.1f;
-		draw_text(g_r, parse_result.text, text_pos, 1, font_size, make_color(color_multi), false, game->font, game->ui_render_pass1);
+		draw_text(g_r, id.text, text_pos, 1, font_size, make_color(color_multi), false, game->font, game->ui_render_pass1);
 	}
 
 	if(hovered && optional.description.len > 0) {
@@ -1752,6 +1763,36 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 		draw_text(g_r, optional.description, text_pos, 0, temp_font_size, make_color(1), false, game->font, game->ui_render_pass3);
 	}
 
+	if(result) {
+		s_ui_iterator it = zero;
+		while(for_ui_data(&it)) {
+			if(it.element != data) {
+				it.element->asking_for_confirmation = false;
+			}
+		}
+	}
+
+	return result;
+}
+
+func b8 ui_button_with_confirmation(s_len_str id_str, s_len_str confirmation_str, s_v2 pos, s_ui_optional optional)
+{
+	b8 result = false;
+	s_parse_ui_id id = parse_ui_id(id_str);
+	s_ui_data* data = get_or_create_ui_data(id.id);
+	if(data->asking_for_confirmation) {
+		s_len_str str = format_text("%.*s##%.*s", expand_str(confirmation_str), expand_str(id_str));
+		result = ui_button(str, pos, optional);
+		if(result) {
+			data->asking_for_confirmation = false;
+		}
+	}
+	else {
+		b8 button_result = ui_button(id_str, pos, optional);
+		if(button_result) {
+			data->asking_for_confirmation = true;
+		}
+	}
 	return result;
 }
 
@@ -2474,54 +2515,39 @@ func void do_options_menu(b8 in_play_mode)
 	s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 8, button_count, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
 	if(in_play_mode && ui_button(strlit("Resume"), pos_area_get_advance(&area), optional)) {
 		play_state->sub_state = e_sub_state_default;
-		game->asking_for_restart_confirmation = false;
 	}
 	if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), optional)) {
 		set_state_next_frame(e_state_leaderboard);
 		if constexpr(c_are_we_on_web) {
 			on_leaderboard_score_submitted();
 		}
-		game->asking_for_restart_confirmation = false;
 	}
 	if(ui_button(format_text("Sounds: %s", game->sound_disabled ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->sound_disabled = !game->sound_disabled;
-		game->asking_for_restart_confirmation = false;
 	}
 	if(ui_button(format_text("Dash to mouse: %s", game->dash_to_keyboard ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->dash_to_keyboard = !game->dash_to_keyboard;
-		game->asking_for_restart_confirmation = false;
 	}
 	if(ui_button(format_text("Show total nectar: %s", game->show_total_nectar ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
 		game->show_total_nectar = !game->show_total_nectar;
-		game->asking_for_restart_confirmation = false;
 	}
 	if(ui_button(format_text("Timer: %s", game->hide_timer ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->hide_timer = !game->hide_timer;
-		game->asking_for_restart_confirmation = false;
 	}
 	if(ui_button(format_text("Tutorial: %s", game->hide_tutorial ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->hide_tutorial = !game->hide_tutorial;
-		game->asking_for_restart_confirmation = false;
 	}
 	if(ui_button(format_text("Auto level: %s", game->pick_free_upgrade_automatically ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
 		game->pick_free_upgrade_automatically = !game->pick_free_upgrade_automatically;
-		game->asking_for_restart_confirmation = false;
 	}
-	if(in_play_mode && ui_button(game->asking_for_restart_confirmation ? strlit("Are you sure?") : strlit("Restart"), pos_area_get_advance(&area), optional)) {
-		if(game->asking_for_restart_confirmation) {
-			game->reset_game = true;
-		}
-		else {
-			game->asking_for_restart_confirmation = true;
-		}
+	if(in_play_mode && ui_button_with_confirmation(strlit("Restart"), strlit("Are you sure?"), pos_area_get_advance(&area), optional)) {
+		game->reset_game = true;
 	}
 	if(!in_play_mode && ui_button(strlit("Back"), pos_area_get_advance(&area), optional)) {
 		game->main_menu.sub_state = e_sub_state_default;
-		game->asking_for_restart_confirmation = false;
 	}
-	if(in_play_mode && ui_button(strlit("Exit"), pos_area_get_advance(&area), optional)) {
+	if(in_play_mode && ui_button_with_confirmation(strlit("Exit"), strlit("Are you sure?"), pos_area_get_advance(&area), optional)) {
 		go_back_to_prev_state();
-		game->asking_for_restart_confirmation = false;
 	}
 
 }
@@ -2554,4 +2580,27 @@ func void add_resource(int amount)
 func b8 is_mouse_clicked()
 {
 	return !game->click_consumed && is_key_pressed(g_input, c_left_mouse);
+}
+
+func s_ui_data* get_or_create_ui_data(u32 id)
+{
+	s_ui_data* data = game->ui_table.get(id);
+	if(!data) {
+		data = game->ui_table.set(id, zero);
+		*data = zero;
+	}
+	return data;
+}
+
+func bool for_ui_data(s_ui_iterator* it)
+{
+	auto t = &game->ui_table;
+	for(int i = it->index; i < t->max_elements(); i += 1) {
+		it->index = i + 1;
+		if(t->used[i]) {
+			it->element = &t->values[i];
+			return true;
+		}
+	}
+	return false;
 }

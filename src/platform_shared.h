@@ -192,6 +192,8 @@ enum e_wrap
 #define log_info(...) printf(__VA_ARGS__); printf("\n")
 #define log_error(...) printf(__VA_ARGS__); printf("\n")
 
+#define expand_str(s) (s).len, (s).str
+
 #define breakable_block__(a, b) for(int a##b = 1; a##b--;)
 #define breakable_block_(a) breakable_block__(tkinternal_condblock, a)
 #define breakable_block breakable_block_(__LINE__)
@@ -6013,6 +6015,7 @@ struct s_hashmap
 	value_type* set(key_type key, value_type value);
 	value_type* get(key_type key);
 	b8 remove(key_type key);
+	constexpr int max_elements() { return n; }
 };
 
 template <typename key_type, typename value_type, int n>

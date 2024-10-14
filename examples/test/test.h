@@ -486,11 +486,22 @@ struct s_state
 	e_state state;
 };
 
+struct s_ui_data
+{
+	b8 present;
+	b8 asking_for_confirmation;
+};
+
+struct s_ui_iterator
+{
+	int index;
+	s_ui_data* element;
+};
+
 struct s_game
 {
 	b8 initialized;
 	b8 show_hitboxes;
-	b8 asking_for_restart_confirmation;
 	b8 should_pop_state;
 	b8 reset_game;
 	b8 pick_free_upgrade_automatically;
@@ -498,6 +509,8 @@ struct s_game
 	b8 dash_to_keyboard;
 	b8 show_total_nectar;
 	b8 click_consumed;
+
+	s_hashmap<u32, s_ui_data, 1024> ui_table;
 
 	s_sarray<s_state, 16> state_stack;
 
