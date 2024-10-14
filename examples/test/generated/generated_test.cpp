@@ -67,3 +67,4 @@ func void do_options_menu(b8 in_play_mode);
 func e_state get_state();
 func void go_back_to_prev_state();
 func void add_resource(int amount);
+func b8 is_mouse_clicked();

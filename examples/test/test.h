@@ -497,6 +497,7 @@ struct s_game
 	b8 next_state_is_temporary;
 	b8 dash_to_keyboard;
 	b8 show_total_nectar;
+	b8 click_consumed;
 
 	s_sarray<s_state, 16> state_stack;
 

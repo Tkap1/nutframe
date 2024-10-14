@@ -624,6 +624,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	s_m4 ortho = m4_orthographic(0, c_base_res.x, c_base_res.y, 0, -100, 100);
 
+	game->click_consumed = false;
+
 	g_delta = (float)platform_data->frame_time;
 	game->render_time += g_delta;
 
@@ -1714,7 +1716,8 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	b8 hovered = mouse_collides_rect_topleft(g_mouse, pos, size);
 	s_v4 color = make_color(0.6f);
 
-	if(hovered && is_key_pressed(g_input, c_left_mouse)) {
+	if(hovered && is_mouse_clicked()) {
+		game->click_consumed = true;
 		result = true;
 	}
 
@@ -2545,4 +2548,9 @@ func void add_resource(int amount)
 {
 	game->play_state.resource_count += amount;
 	game->play_state.total_resource += amount;
+}
+
+func b8 is_mouse_clicked()
+{
+	return !game->click_consumed && is_key_pressed(g_input, c_left_mouse);
 }

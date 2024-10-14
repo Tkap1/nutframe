@@ -34,5 +34,5 @@
 
 
 *Bug fixes*
-
+- Fixed a bug where clicking the the "Options" button in the main menu would also count as a click for "Auto level"
 ===============================================================================================
