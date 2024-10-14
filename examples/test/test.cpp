@@ -136,6 +136,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		memset(&game->play_state, 0, sizeof(game->play_state));
 		game->play_state.cam.zoom = 1;
+		game->play_state.cam.target_zoom = 1;
 
 		game->play_state.next_pickup_to_drop = game->rng.randu() % e_pickup_count;
 
@@ -145,6 +146,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			game->play_state.player.prev_pos = pos;
 			game->play_state.player.dash_dir = v2(1, 0);
 			game->play_state.player.curr_level = 1;
+			game->play_state.cam.pos = pos;
+			game->play_state.cam.target_pos = pos;
 		}
 
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn broken bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -633,12 +636,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	s_camera2d* cam = &play_state->cam;
 
 	if(g_input->wheel_movement > 0) {
-		cam->zoom *= 1.1f;
+		cam->target_zoom *= 1.1f;
 	}
 	else if(g_input->wheel_movement < 0) {
-		cam->zoom *= 0.9f;
+		cam->target_zoom *= 0.9f;
 	}
-	cam->zoom = clamp(cam->zoom, 0.2f, 5.0f);
+	cam->target_zoom = clamp(cam->target_zoom, 0.2f, 5.0f);
 
 	#ifdef m_debug
 	if(is_key_pressed(g_input, c_key_add)) {
@@ -684,7 +687,17 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	{
 		s_v2 pos = lerp(game->play_state.player.prev_pos, game->play_state.player.pos, interp_dt);
-		game->play_state.cam.pos = pos - c_base_res * (0.5f / game->play_state.cam.zoom);
+		game->play_state.cam.target_pos = pos;
+		game->play_state.cam.offset = c_half_res;
+
+		{
+			float dt = game->do_instant_camera ? 1.0f : 0.04f;
+			game->play_state.cam.pos = lerp_snap(game->play_state.cam.pos, game->play_state.cam.target_pos, dt, v2(1.0f));
+		}
+		{
+			float dt = game->do_instant_camera ? 1.0f : 0.1f;
+			game->play_state.cam.zoom = lerp_snap(game->play_state.cam.zoom, game->play_state.cam.target_zoom, dt, 0.001f);
+		}
 	}
 
 	s_v2 mouse_world = play_state->cam.screen_to_world(g_mouse);
@@ -1592,9 +1605,10 @@ func s_v2 index_to_pos(s_v2i index, int tile_size)
 
 s_m4 s_camera2d::get_matrix()
 {
-	s_m4 m = m4_scale(v3(zoom, zoom, 1));
+	s_m4 m = m4_identity();
+	m = m4_multiply(m, m4_translate(v3(offset.x, offset.y, 0)));
+	m = m4_multiply(m, m4_scale(v3(zoom, zoom, 1)));
 	m = m4_multiply(m, m4_translate(v3(-pos.x, -pos.y, 0)));
-
 	return m;
 }
 
@@ -2244,20 +2258,20 @@ func s_bounds get_map_bounds()
 func s_bounds get_cam_bounds(s_camera2d cam)
 {
 	s_bounds bounds = zero;
-	bounds.min_x = cam.pos.x;
-	bounds.min_y = cam.pos.y;
-	bounds.max_x = cam.pos.x + c_base_res.x / cam.zoom;
-	bounds.max_y = cam.pos.y + c_base_res.y / cam.zoom;
+	bounds.min_x = cam.pos.x - cam.offset.x / cam.zoom;
+	bounds.min_y = cam.pos.y - cam.offset.y / cam.zoom;
+	bounds.max_x = cam.pos.x + (c_base_res.x - cam.offset.x) / cam.zoom;
+	bounds.max_y = cam.pos.y + (c_base_res.y - cam.offset.y) / cam.zoom;
 	return bounds;
 }
 
 func s_bounds get_cam_bounds_snap_to_tile_size(s_camera2d cam)
 {
 	s_bounds bounds = zero;
-	bounds.min_x = cam.pos.x;
-	bounds.min_y = cam.pos.y;
-	bounds.max_x = cam.pos.x + c_base_res.x / cam.zoom;
-	bounds.max_y = cam.pos.y + c_base_res.y / cam.zoom;
+	bounds.min_x = cam.pos.x - cam.offset.x / cam.zoom;
+	bounds.min_y = cam.pos.y - cam.offset.y / cam.zoom;
+	bounds.max_x = cam.pos.x + (c_base_res.x - cam.offset.x) / cam.zoom;
+	bounds.max_y = cam.pos.y + (c_base_res.y - cam.offset.y) / cam.zoom;
 
 	float x_diff = fmodf(bounds.min_x, c_tile_size);
 	float y_diff = fmodf(bounds.min_y, c_tile_size);
@@ -2522,7 +2536,7 @@ func void do_options_menu(b8 in_play_mode)
 	button_size.y += 12;
 	s_ui_optional optional = zero;
 	s_play_state* play_state = &game->play_state;
-	int button_count = in_play_mode ? 10 : 8;
+	int button_count = in_play_mode ? 11 : 9;
 	optional.size_x = button_size.x;
 	optional.size_y = button_size.y;
 
@@ -2541,6 +2555,9 @@ func void do_options_menu(b8 in_play_mode)
 	}
 	if(ui_button(format_text("Dash to mouse: %s", game->dash_to_keyboard ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->dash_to_keyboard = !game->dash_to_keyboard;
+	}
+	if(ui_button(format_text("Smooth camera: %s", game->do_instant_camera ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
+		game->do_instant_camera = !game->do_instant_camera;
 	}
 	if(ui_button(format_text("Show total nectar: %s", game->show_total_nectar ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
 		game->show_total_nectar = !game->show_total_nectar;

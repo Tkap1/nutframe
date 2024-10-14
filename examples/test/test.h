@@ -382,13 +382,18 @@ global constexpr s_particle_data c_buff_particle_data_arr[] = {
 struct s_camera2d
 {
 	s_v2 pos;
+	s_v2 target_pos;
+	s_v2 offset;
 	float zoom;
+	float target_zoom;
 
 	s_v2 world_to_screen(s_v2 v)
 	{
 		s_v2 result = v;
 		result.x -= pos.x;
 		result.y -= pos.y;
+		result.x += offset.x;
+		result.y += offset.y;
 		result *= zoom;
 		return result;
 	}
@@ -396,6 +401,8 @@ struct s_camera2d
 	s_v2 screen_to_world(s_v2 v)
 	{
 		s_v2 result = v;
+		result.x -= offset.x;
+		result.y -= offset.y;
 		result.x /= zoom;
 		result.y /= zoom;
 		result.x += pos.x;
@@ -509,6 +516,7 @@ struct s_game
 	b8 dash_to_keyboard;
 	b8 show_total_nectar;
 	b8 click_consumed;
+	b8 do_instant_camera;
 
 	s_hashmap<u32, s_ui_data, 1024> ui_table;
 

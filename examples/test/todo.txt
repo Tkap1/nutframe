@@ -32,3 +32,8 @@ Maybe the leaderboard screen should show your final build when you finished.
 
 name both bars at the top, me & 5 other people thought there were hitpoints because of the red color
 
+this is an idea i am just bouncing, what if the yellow stuff had it's own yellow laser and the damage proportional to how much nectar is stored making
+player to decide if to send money or not
+
+stop me if I am being annoying, I have one more idea, what if there was an upgrade that would make the queen so that she dosent attack
+anymore and instead fires her laser at drones in an area "overcharging them", could be good addition for drone builds and make them move around a bit
