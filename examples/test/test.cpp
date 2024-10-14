@@ -265,15 +265,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				while(state->spawn_creature_timer >= spawn_delay) {
 
 					state->spawn_creature_timer -= spawn_delay;
-					float angle = game->rng.randf_range(0, tau);
-					float dist = game->rng.randf_range(c_base_size.x * 2.0f, c_base_size.x * 4.0f);
-					s_v2 offset = v2(
-						cosf(angle) * dist,
-						sinf(angle) * dist
-					);
-					s_v2 pos = c_base_pos + offset;
-					pos = constrain_pos(pos, get_map_bounds());
-
+					s_v2 pos = get_random_creature_spawn_pos();
 					int tier = get_creature_spawn_tier();
 					if(game->rng.chance100(1)) {
 						tier += 2;
@@ -285,6 +277,24 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		spawn creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn deposits start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				int target_time = c_deposit_spawn_interval * state->deposits_spawned;
+				if(state->update_count >= target_time) {
+					state->deposits_spawned += 1;
+
+					int tier = get_creature_spawn_tier();
+					if(game->rng.chance100(1)) {
+						tier += 2;
+					}
+					else if(game->rng.chance100(10)) {
+						tier += 1;
+					}
+					make_deposit(get_random_creature_spawn_pos(), tier);
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		spawn deposits end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		update player start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
@@ -382,8 +392,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							laser_target.from.pos = prev_pos;
 							laser_target.to = {creature_arr->prev_pos[curr_target], creature_arr->pos[curr_target]};
 							player->laser_target_arr.add(laser_target);
-							b8 killed = damage_creature(curr_target, player_damage);
-							if(killed) {
+							s_damage_creature damage_result = damage_creature(curr_target, player_damage);
+							if(damage_result.resource_gain_from_deposit > 0) {
+								add_resource(damage_result.resource_gain_from_deposit);
+							}
+							else if(damage_result.creature_died) {
 								add_resource(get_creature_resource_reward(creature_arr->tier[curr_target], creature_arr->boss[curr_target]));
 							}
 							// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		add laser end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -443,18 +456,20 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			for_creature_partial(creature) {
 				if(!creature_arr->active[creature]) { continue; }
 				int time_passed = state->update_count - creature_arr->tick_when_last_damaged[creature];
-				if(time_passed > 300) {
-					creature_arr->roam_timer[creature] += 1;
-					if(creature_arr->roam_timer[creature] >= c_creature_roam_delay) {
-						creature_arr->roam_timer[creature] -= c_creature_roam_delay;
-						float angle_to_base = v2_angle(c_base_pos - creature_arr->pos[creature]);
-						angle_to_base += pi * 0.25f;
-						s_v2 dir = v2_from_angle(angle_to_base);
-						creature_arr->target_pos[creature] = creature_arr->pos[creature] + dir * c_creature_roam_distance;
-						creature_arr->flip_x[creature] = dir.x < 0;
+				if(can_creature_move(creature_arr->type[creature])) {
+					if(time_passed > 300) {
+						creature_arr->roam_timer[creature] += 1;
+						if(creature_arr->roam_timer[creature] >= c_creature_roam_delay) {
+							creature_arr->roam_timer[creature] -= c_creature_roam_delay;
+							float angle_to_base = v2_angle(c_base_pos - creature_arr->pos[creature]);
+							angle_to_base += pi * 0.25f;
+							s_v2 dir = v2_from_angle(angle_to_base);
+							creature_arr->target_pos[creature] = creature_arr->pos[creature] + dir * c_creature_roam_distance;
+							creature_arr->flip_x[creature] = dir.x < 0;
+						}
 					}
+					creature_arr->pos[creature] = go_towards(creature_arr->pos[creature], creature_arr->target_pos[creature], c_creature_speed);
 				}
-				creature_arr->pos[creature] = go_towards(creature_arr->pos[creature], creature_arr->target_pos[creature], c_creature_speed);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		update creatures end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -499,15 +514,22 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 								for(int hit_i = 0; hit_i < hit_count; hit_i += 1) {
 									bot_arr->harvest_timer[bot] = 0;
 									blacklist.add(curr_target);
-									b8 killed = damage_creature(curr_target, bot_damage);
-									if(killed) {
-										bot_arr->cargo[bot] += get_creature_resource_reward(creature_arr->tier[curr_target], creature_arr->boss[curr_target]);
+									s_damage_creature damage_result = damage_creature(curr_target, bot_damage);
+									int to_add = 0;
+									if(damage_result.resource_gain_from_deposit > 0) {
+										to_add = damage_result.resource_gain_from_deposit;
+									}
+									else if(damage_result.creature_died) {
+										to_add = get_creature_resource_reward(creature_arr->tier[curr_target], creature_arr->boss[curr_target]);
+									}
+									if(to_add > 0) {
+										bot_arr->cargo[bot] += to_add;
 										bot_arr->cargo_count[bot] += 1;
 										if(bot_arr->cargo_count[bot] >= max_cargo) {
 											bot_arr->state[bot] = e_bot_state_going_back_to_base;
 											pick_new_target = false;
 										}
-										else if(hit_i == 0) {
+										else if(hit_i == 0 && damage_result.creature_died) {
 											pick_new_target = true;
 										}
 									}
@@ -798,6 +820,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw creatures start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			for_creature_partial(creature) {
 				if(!creature_arr->active[creature]) { continue; }
+				e_creature type = creature_arr->type[creature];
 				s_v2 pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
 				s_v4 color_arr[] = {
 					make_color(1), make_color(0.332f, 0.809f, 0.660f), make_color(0.581f, 0.705f, 0.104f), make_color(0.434f, 0.172f, 0.290f),
@@ -809,13 +832,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				mix_weight = clamp(mix_weight, 0.0f, 1.0f);
 
 				s_texture texture;
-				b8 moving = v2_distance(creature_arr->target_pos[creature], creature_arr->pos[creature]) > 1;
-				if(moving) {
-					creature_arr->animation_timer[creature] += g_delta;
-					texture = get_animation_texture(&game->ant_animation, &creature_arr->animation_timer[creature]);
+				if(can_creature_move(type)) {
+					b8 moving = v2_distance(creature_arr->target_pos[creature], creature_arr->pos[creature]) > 1;
+					if(moving) {
+						creature_arr->animation_timer[creature] += g_delta;
+						texture = get_animation_texture(&game->ant_animation, &creature_arr->animation_timer[creature]);
+					}
+					else {
+						texture = game->ant_animation.texture_arr[0];
+					}
 				}
 				else {
-					texture = game->ant_animation.texture_arr[0];
+					texture = game->base_texture;
 				}
 
 				draw_texture_keep_aspect(
@@ -894,10 +922,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				for_creature_partial(creature) {
 					if(!creature_arr->active[creature]) { continue; }
 					s_v2 pos = lerp(creature_arr->prev_pos[creature], creature_arr->pos[creature], interp_dt);
-					float size_multi = 1;
-					if(creature_arr->boss[creature]) {
-						size_multi = 3;
-					}
+					float size_multi = get_creature_size_multi(creature);
 					draw_shadow(pos + v2(0, 10), 36 * size_multi, 0.33f, 0.0f);
 				}
 
@@ -1850,20 +1875,37 @@ func int make_creature(s_v2 pos, int tier, b8 boss)
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
 	int entity = make_entity(creature_arr->active, creature_arr->id, &creature_arr->index_data, c_max_creatures);
 	if(entity >= 0) {
+		e_creature type = e_creature_ant;
+		creature_arr->type[entity] = type;
 		creature_arr->pos[entity] = pos;
 		creature_arr->prev_pos[entity] = pos;
 		creature_arr->target_pos[entity] = pos;
 		creature_arr->tier[entity] = tier;
-		creature_arr->curr_health[entity] = 20 * (tier + 1);
+		creature_arr->boss[entity] = boss;
 		creature_arr->roam_timer[entity] = 0;
 		creature_arr->targeted[entity] = false;
-		creature_arr->boss[entity] = boss;
 		creature_arr->animation_timer[entity] = 0;
-		creature_arr->tick_when_last_damaged[entity] = 0;
+		creature_arr->tick_when_last_damaged[entity] = -10000;
+		creature_arr->curr_health[entity] = get_creature_max_health(type, tier, boss);
+	}
+	return entity;
+}
 
-		if(boss) {
-			creature_arr->curr_health[entity] *= 10;
-		}
+func int make_deposit(s_v2 pos, int tier)
+{
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	int entity = make_entity(creature_arr->active, creature_arr->id, &creature_arr->index_data, c_max_creatures);
+	if(entity >= 0) {
+		e_creature type = e_creature_deposit;
+		creature_arr->type[entity] = type;
+		creature_arr->pos[entity] = pos;
+		creature_arr->prev_pos[entity] = pos;
+		creature_arr->tier[entity] = tier;
+		creature_arr->boss[entity] = false;
+		creature_arr->targeted[entity] = false;
+		creature_arr->tick_when_last_damaged[entity] = -10000;
+		creature_arr->flip_x[entity] = false;
+		creature_arr->curr_health[entity] = get_creature_max_health(type, tier, false);
 	}
 	return entity;
 }
@@ -1910,10 +1952,25 @@ func int get_creature(s_entity_index index)
 	return c_invalid_entity;
 }
 
-// @Note(tkap, 05/10/2024): Return true if creature died. Return false if creature still alive
-func b8 damage_creature(int creature, int damage)
+func s_damage_creature damage_creature(int creature, int damage)
 {
+	s_damage_creature result = zero;
 	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	e_creature type = creature_arr->type[creature];
+	int tier = creature_arr->tier[creature];
+	b8 is_boss = creature_arr->boss[creature];
+	b8 is_deposit = type == e_creature_deposit;
+
+	if(is_deposit) {
+		constexpr int step = 10;
+		int health_after_damage = at_least(0, creature_arr->curr_health[creature] - damage);
+		int prev_threshold = (get_creature_max_health(type, tier, is_boss) - creature_arr->curr_health[creature]) / step;
+		int next_threshold = (get_creature_max_health(type, tier, is_boss) - health_after_damage) / step;
+		int resource_from_deposit = next_threshold - prev_threshold;
+		int double_val = game->play_state.upgrade_level_arr[e_upgrade_double_harvest] > 0 ? 2 : 1;
+		result.resource_gain_from_deposit = resource_from_deposit * double_val;
+	}
+
 	creature_arr->curr_health[creature] -= damage;
 	creature_arr->tick_when_last_damaged[creature] = game->play_state.update_count;
 	if(creature_arr->curr_health[creature] <= 0) {
@@ -1932,22 +1989,23 @@ func b8 damage_creature(int creature, int damage)
 			.color_rand = v3(0.1f, 0.1f, 0.1f),
 		});
 
-		float chance = 1;
-		if(creature_arr->boss[creature]) {
-			chance = 10;
+		if(!is_deposit) {
+			float chance = 1;
+			if(is_boss) {
+				chance = 10;
+			}
+			if(game->rng.chance100(chance)) {
+				make_pickup(creature_arr->pos[creature], (e_pickup)game->play_state.next_pickup_to_drop);
+				circular_index_add(&game->play_state.next_pickup_to_drop, 1, e_pickup_count);
+			}
+
+			int level_up_count = add_exp(&game->play_state.player, get_creature_exp_reward(tier, is_boss));
+			game->play_state.level_up_triggers += level_up_count;
 		}
+		result.creature_died = true;
 
-		if(game->rng.chance100(chance)) {
-			make_pickup(creature_arr->pos[creature], (e_pickup)game->play_state.next_pickup_to_drop);
-			circular_index_add(&game->play_state.next_pickup_to_drop, 1, e_pickup_count);
-		}
-
-		int level_up_count = add_exp(&game->play_state.player, get_creature_exp_reward(creature_arr->tier[creature], creature_arr->boss[creature]));
-		game->play_state.level_up_triggers += level_up_count;
-
-		return true;
 	}
-	return false;
+	return result;
 }
 
 func void remove_entity(int entity, b8* active, s_entity_index_data* index_data)
@@ -2203,7 +2261,9 @@ func int count_alive_creatures()
 	int result = 0;
 	for_creature_partial(creature) {
 		if(!creature_arr->active[creature]) { continue; }
-		result += 1;
+		if(counts_towards_defeat(creature_arr->type[creature])) {
+			result += 1;
+		}
 	}
 	return result;
 }
@@ -2225,8 +2285,28 @@ func int get_bot_max_cargo_count()
 
 func s_v2 get_creature_size(int creature)
 {
-	float multi = game->play_state.creature_arr.boss[creature] ? 3.0f : 1.0f;
+	float multi = get_creature_size_multi(creature);
 	return c_creature_size * multi;
+}
+
+func float get_creature_size_multi(int creature)
+{
+	s_creature_arr* creature_arr = &game->play_state.creature_arr;
+	e_creature type = creature_arr->type[creature];
+
+	switch(type) {
+		case e_creature_ant: {
+			float multi = creature_arr->boss[creature] ? 3.0f : 1.0f;
+			return multi;
+		} break;
+
+		case e_creature_deposit: {
+			return 2;
+		} break;
+
+		invalid_default_case;
+	}
+	return 1;
 }
 
 func s_entity_index creature_to_entity_index(int creature)
@@ -2634,4 +2714,70 @@ func bool for_ui_data(s_ui_iterator* it)
 		}
 	}
 	return false;
+}
+
+func s_v2 get_random_creature_spawn_pos()
+{
+	float angle = game->rng.randf_range(0, tau);
+	float dist = game->rng.randf_range(c_base_size.x * 2.0f, c_base_size.x * 4.0f);
+	s_v2 offset = v2(
+		cosf(angle) * dist,
+		sinf(angle) * dist
+	);
+	s_v2 pos = c_base_pos + offset;
+	pos = constrain_pos(pos, get_map_bounds());
+	return pos;
+}
+
+func b8 counts_towards_defeat(e_creature type)
+{
+	switch(type) {
+		case e_creature_ant: {
+			return true;
+		} break;
+
+		case e_creature_deposit: {
+			return false;
+		} break;
+
+		invalid_default_case;
+	}
+	return false;
+}
+
+func b8 can_creature_move(e_creature type)
+{
+	switch(type) {
+		case e_creature_ant: {
+			return true;
+		} break;
+
+		case e_creature_deposit: {
+			return false;
+		} break;
+
+		invalid_default_case;
+	}
+	return false;
+}
+
+func int get_creature_max_health(e_creature type, int tier, b8 is_boss)
+{
+	int result = 0;
+
+	switch(type) {
+		case e_creature_ant: {
+			result = 20 * (tier + 1);
+			if(is_boss) {
+				result *= 10;
+			}
+		} break;
+
+		case e_creature_deposit: {
+			result = 400 * (tier + 1);
+		} break;
+
+		invalid_default_case;
+	}
+	return result;
 }

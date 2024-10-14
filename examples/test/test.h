@@ -14,7 +14,7 @@ global constexpr s_v2 c_creature_size = v2(64);
 global constexpr s_v2 c_bot_size = v2(64);
 global constexpr s_v2 c_base_size = v2(512);
 global constexpr s_v2i c_sprite_size = v2i(64, 64);
-global constexpr int c_max_creatures = 1024;
+global constexpr int c_max_creatures = 2048;
 global constexpr int c_max_bots = 4096;
 // global constexpr int c_leaderboard_id = 24824;
 global constexpr int c_leaderboard_id = 24910;
@@ -38,6 +38,13 @@ global constexpr float c_dash_speed = 24;
 global constexpr s_v2 c_base_button_size2 = v2(376, 44);
 global constexpr int c_win_animation_duration_in_ticks = c_updates_per_second * 3;
 global constexpr int c_invalid_entity = -1000000000;
+global constexpr int c_deposit_spawn_interval = 1200;
+
+enum e_creature
+{
+	e_creature_ant,
+	e_creature_deposit,
+};
 
 enum e_sub_state
 {
@@ -264,6 +271,7 @@ struct s_creature_arr
 	int curr_health[c_max_creatures];
 	int tier[c_max_creatures];
 	int tick_when_last_damaged[c_max_creatures];
+	e_creature type[c_max_creatures];
 	float animation_timer[c_max_creatures];
 	s_v2 prev_pos[c_max_creatures];
 	s_v2 pos[c_max_creatures];
@@ -457,6 +465,7 @@ struct s_play_state
 	b8 has_player_performed_any_action;
 	int next_pickup_to_drop;
 	int win_ticks;
+	int deposits_spawned;
 	u64 level_up_seed;
 	e_sub_state sub_state;
 	int next_entity_id;
@@ -503,6 +512,12 @@ struct s_ui_iterator
 {
 	int index;
 	s_ui_data* element;
+};
+
+struct s_damage_creature
+{
+	b8 creature_died;
+	int resource_gain_from_deposit;
 };
 
 struct s_game
