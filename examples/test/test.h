@@ -40,6 +40,7 @@ global constexpr int c_win_animation_duration_in_ticks = c_updates_per_second * 
 global constexpr int c_invalid_entity = -1000000000;
 global constexpr int c_deposit_spawn_interval = 1200;
 global constexpr int c_nectar_gain_num_updates = c_updates_per_second * 5;
+global constexpr int c_max_broken_drones = 1024;
 
 enum e_creature
 {
@@ -132,6 +133,7 @@ enum e_upgrade
 	e_upgrade_double_harvest,
 	e_upgrade_bot_cargo_count,
 	e_upgrade_player_chain,
+	e_upgrade_broken_bot_spawn,
 	e_upgrade_count,
 };
 
@@ -156,6 +158,7 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 5000, .max_upgrades = 1, .name = "x2 harvest", .key = c_key_c},
 	{.base_cost = 100, .max_upgrades = 19, .name = "+ drone cargo", .key = c_key_j},
 	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain", .key = c_key_t},
+	{.base_cost = 50, .max_upgrades = 15, .name = "+ broken drone", .key = c_key_y},
 };
 
 enum e_pickup
@@ -461,6 +464,18 @@ struct s_broken_bot
 	s_v2 pos;
 };
 
+struct s_auto_tick_timer
+{
+	int curr;
+	int duration;
+	float speed = 1;
+
+	int tick();
+	float get_duration_in_seconds();
+	float get_rate_in_seconds();
+	int get_modified_duration();
+};
+
 struct s_play_state
 {
 	b8 has_player_performed_any_action;
@@ -483,7 +498,7 @@ struct s_play_state
 	int update_count_at_win_time;
 	s_sarray<s_visual_effect, 1024> visual_effect_arr;
 	s_sarray<s_pickup, 128> pickup_arr;
-	s_sarray<s_broken_bot, 128> broken_bot_arr;
+	s_sarray<s_broken_bot, c_max_broken_drones> broken_bot_arr;
 	s_carray<s_v2, c_max_craters> crater_pos_arr;
 	s_carray<float, c_max_craters> crater_size_arr;
 	s_carray<float, c_max_craters> crater_rotation_arr;
@@ -491,6 +506,7 @@ struct s_play_state
 	int level_up_triggers;
 	s_carray<int, c_nectar_gain_num_updates> nectar_gain_arr;
 	float highest_nectar_gain_per_second;
+	s_auto_tick_timer spawn_broken_bot_timer;
 };
 
 

@@ -138,6 +138,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->play_state.cam.zoom = 1;
 		game->play_state.cam.target_zoom = 1;
 
+		game->play_state.spawn_broken_bot_timer = make_auto_tick_timer(0, 600);
+
 		game->play_state.next_pickup_to_drop = game->rng.randu() % e_pickup_count;
 
 		{
@@ -152,38 +154,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn broken bots start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		{
-			s_bounds bounds = get_map_bounds();
-			// @Note(tkap, 06/10/2024): Left
-			for(int i = 0; i < 2; i += 1) {
-				s_v2 pos = v2(
-					game->rng.randf_range(bounds.min_x, bounds.min_x + 500),
-					game->rng.randf_range(bounds.min_y, bounds.max_y)
-				);
-				game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
-			}
-			// @Note(tkap, 06/10/2024): Right
-			for(int i = 0; i < 2; i += 1) {
-				s_v2 pos = v2(
-					game->rng.randf_range(bounds.max_x - 500, bounds.max_x),
-					game->rng.randf_range(bounds.min_y, bounds.max_y)
-				);
-				game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
-			}
-			// @Note(tkap, 06/10/2024): Top
-			for(int i = 0; i < 2; i += 1) {
-				s_v2 pos = v2(
-					game->rng.randf_range(bounds.min_x, bounds.max_x),
-					game->rng.randf_range(bounds.min_y, bounds.min_y + 500)
-				);
-				game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
-			}
-			// @Note(tkap, 06/10/2024): Bottom
-			for(int i = 0; i < 2; i += 1) {
-				s_v2 pos = v2(
-					game->rng.randf_range(bounds.min_x, bounds.max_x),
-					game->rng.randf_range(bounds.max_y - 500, bounds.max_y)
-				);
-				game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = pos});
+			s_carray<s_v2, 8> broken_bot_pos_arr = get_broken_bot_pos_arr(&game->rng);
+			for(int i = 0; i < broken_bot_pos_arr.max_elements(); i += 1) {
+				game->play_state.broken_bot_arr.add({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = broken_bot_pos_arr[i]});
 			}
 		}
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		spawn broken bots end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -220,6 +193,21 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		case e_state_play: {
 
 			s_play_state* state = &game->play_state;
+
+			{
+				int level = state->upgrade_level_arr[e_upgrade_broken_bot_spawn];
+				if(level > 0) {
+					s_auto_tick_timer* t = &state->spawn_broken_bot_timer;
+					t->duration = 600;
+					t->speed = 1 + ((level - 1) * 25 / 100.0f);
+					int to_spawn = t->tick();
+					for(int i = 0; i < to_spawn; i += 1) {
+						s_carray<s_v2, 8> broken_bot_pos_arr = get_broken_bot_pos_arr(&game->rng);
+						int rand_index = game->rng.randu() % broken_bot_pos_arr.max_elements();
+						game->play_state.broken_bot_arr.add_checked({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = broken_bot_pos_arr[rand_index]});
+					}
+				}
+			}
 
 			{
 				int index = state->update_count % c_nectar_gain_num_updates;
@@ -1183,8 +1171,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						s_carray<e_upgrade, e_upgrade_count> upgrade_arr;
 					};
 					s_carray<s_row, c_rows> row_arr = zero;
-					row_arr[0].upgrade_count = 4;
-					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range, e_upgrade_player_chain}};
+					row_arr[0].upgrade_count = 5;
+					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range, e_upgrade_player_chain, e_upgrade_broken_bot_spawn}};
 					row_arr[1].upgrade_count = 5;
 					row_arr[1].upgrade_arr = {{e_upgrade_buy_bot, e_upgrade_bot_damage, e_upgrade_bot_movement_speed, e_upgrade_bot_cargo_count, e_upgrade_bot_harvest_range}};
 					row_arr[2].upgrade_count = 3;
@@ -2530,6 +2518,15 @@ func s_len_str get_upgrade_tooltip(e_upgrade id)
 			result = format_text("Player attack chains to nearby enemies\n\nCurrent: %i", get_player_hits() - 1);
 		} break;
 
+		case e_upgrade_broken_bot_spawn: {
+			float rate = game->play_state.spawn_broken_bot_timer.get_rate_in_seconds();
+			int level = game->play_state.upgrade_level_arr[e_upgrade_broken_bot_spawn];
+			if(level <= 0) {
+				rate = 0;
+			}
+			result = format_text("Periodically spawn broken drones\nCurrent: %0.2f/s", rate);
+		} break;
+
 		invalid_default_case;
 
 	}
@@ -2818,5 +2815,93 @@ func float get_nectar_per_second()
 	}
 	float ratio = c_nectar_gain_num_updates / (float)c_updates_per_second;
 	result /= ratio;
+	return result;
+}
+
+int s_auto_tick_timer::tick()
+{
+	assert(curr >= 0);
+	assert(duration > 0);
+
+	constexpr int scale = 100;
+	int result = 0;
+	int modified_duration = get_modified_duration();
+	assert(modified_duration > 0);
+	curr += scale;
+	while(curr >= modified_duration) {
+		result += 1;
+		curr -= modified_duration;
+	}
+	return result;
+}
+
+float s_auto_tick_timer::get_duration_in_seconds()
+{
+	float result = get_modified_duration() / (float)(c_updates_per_second * 100);
+	return result;
+}
+
+float s_auto_tick_timer::get_rate_in_seconds()
+{
+	float result = 1.0f / get_duration_in_seconds();
+	return result;
+}
+
+func s_auto_tick_timer make_auto_tick_timer(int curr, int duration)
+{
+	assert(curr >= 0);
+	assert(duration > 0);
+
+	return {
+		.curr = curr,
+		.duration = duration,
+	};
+}
+
+int s_auto_tick_timer::get_modified_duration()
+{
+	assert(speed > 0);
+	int result = roundfi(duration * 100 / speed);
+	return result;
+}
+
+func s_carray<s_v2, 8> get_broken_bot_pos_arr(s_rng* rng)
+{
+	s_carray<s_v2, 8> result;
+	s_bounds bounds = get_map_bounds();
+
+	// @Note(tkap, 06/10/2024): Left
+	for(int i = 0; i < 2; i += 1) {
+		s_v2 pos = v2(
+			rng->randf_range(bounds.min_x, bounds.min_x + 500),
+			rng->randf_range(bounds.min_y, bounds.max_y)
+		);
+		result[i] = pos;
+	}
+	// @Note(tkap, 06/10/2024): Right
+	for(int i = 0; i < 2; i += 1) {
+		s_v2 pos = v2(
+			rng->randf_range(bounds.max_x - 500, bounds.max_x),
+			rng->randf_range(bounds.min_y, bounds.max_y)
+		);
+		result[i + 2] = pos;
+	}
+	// @Note(tkap, 06/10/2024): Top
+	for(int i = 0; i < 2; i += 1) {
+		s_v2 pos = v2(
+			rng->randf_range(bounds.min_x, bounds.max_x),
+			rng->randf_range(bounds.min_y, bounds.min_y + 500)
+		);
+		result[i + 4] = pos;
+	}
+	// @Note(tkap, 06/10/2024): Bottom
+	for(int i = 0; i < 2; i += 1) {
+		s_v2 pos = v2(
+			rng->randf_range(bounds.min_x, bounds.max_x),
+			rng->randf_range(bounds.max_y - 500, bounds.max_y)
+		);
+		result[i + 6] = pos;
+	}
+
 	return result;
 }

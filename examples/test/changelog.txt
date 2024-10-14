@@ -44,6 +44,7 @@
 ===============================================================================================
 
 *Misc*
+- Added an upgrade to spawn broken drones
 - Added a nectar per second display
 - Victory screen now displays total nectar obtained
 - Victory screen now displays highest nectar per second
