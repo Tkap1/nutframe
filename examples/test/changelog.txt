@@ -29,6 +29,7 @@
 
 *Misc*
 - Added nectar deposits that spawn every 20 seconds. They are upgraded by creature tier. They give +1 nectar for every 10 damage done to them
+- x2 harvest upgrade now also gives -5 creature tier
 - Added an option to dash towards the mouse instead of last walk direction (on by default)
 - Added an option for smooth camera (on by default)
 - Added an option to display how much total nectar you have acquired in the current run

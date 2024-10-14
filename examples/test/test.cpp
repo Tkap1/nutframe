@@ -2188,7 +2188,12 @@ func f64 get_creature_spawn_delay()
 
 func int get_creature_spawn_tier()
 {
-	return game->play_state.upgrade_level_arr[e_upgrade_creature_tier];
+	int result = game->play_state.upgrade_level_arr[e_upgrade_creature_tier];
+	if(game->play_state.upgrade_level_arr[e_upgrade_double_harvest] > 0) {
+		result -= 5;
+	}
+	result = at_least(0, result);
+	return result;
 }
 
 func float get_player_harvest_range()
@@ -2481,7 +2486,7 @@ func s_len_str get_upgrade_tooltip(e_upgrade id)
 		} break;
 
 		case e_upgrade_creature_tier: {
-			int val = game->play_state.upgrade_level_arr[e_upgrade_creature_tier];
+			int val = get_creature_spawn_tier();
 			result = format_text("Creatures are stronger and more rewarding\n\nCurrent: %i", val);
 		} break;
 
@@ -2494,7 +2499,7 @@ func s_len_str get_upgrade_tooltip(e_upgrade id)
 		} break;
 
 		case e_upgrade_double_harvest: {
-			result = format_text("Gain double nectar from harvesting");
+			result = format_text("Gain double nectar from harvesting\n-5 creature tier");
 		} break;
 
 		case e_upgrade_bot_cargo_count: {
