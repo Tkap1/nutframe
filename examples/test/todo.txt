@@ -9,8 +9,6 @@ if player kills an enemy, chance for a pickup that does something??
 
 place a turret down?
 
-ants seem to flash randomly??
-
 polish:
 	smooth zoom
 	smooth camera movement
@@ -37,8 +35,3 @@ Maybe the leaderboard screen should show your final build when you finished.
 
 name both bars at the top, me & 5 other people thought there were hitpoints because of the red color
 
-maybe disable zooming on game start. obviously its meta to start game, then instantly pause and zoom out, and if u dont get proper free drone spawns, you restart. you probably wanna discourage that behavior, since its not fun
-
-also not really sure about this. but i feel like the random power ups can be pretty frustrating at times. maybe make them collectable and then the player can consume them themselves when they need them. but im not sure if this would mess with the fun too much
-
-+ or make the powerup time stack in some way or another, i hate accidentally collecting a powerup just as i picked up another one and it ends up getting wasted

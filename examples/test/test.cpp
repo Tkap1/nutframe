@@ -1799,6 +1799,7 @@ func int make_creature(s_v2 pos, int tier, b8 boss)
 		creature_arr->targeted[entity] = false;
 		creature_arr->boss[entity] = boss;
 		creature_arr->animation_timer[entity] = 0;
+		creature_arr->tick_when_last_damaged[entity] = 0;
 
 		if(boss) {
 			creature_arr->curr_health[entity] *= 10;

@@ -32,7 +32,7 @@
 - Added an option to display how much total nectar you have acquired in the current run
 - Dash looks slightly cooler
 
-
 *Bug fixes*
 - Fixed a bug where clicking the the "Options" button in the main menu would also count as a click for "Auto level"
+- Fixed a bug where ants would rarely flash without being hit
 ===============================================================================================
