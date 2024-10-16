@@ -87,3 +87,4 @@ func float get_nectar_per_second();
 func s_auto_tick_timer make_auto_tick_timer(int curr, int duration);
 func s_carray<s_v2, 8> get_broken_bot_pos_arr(s_rng* rng);
 func int get_upgrade_cost(e_upgrade id);
+func void do_leaderboard_stuff();

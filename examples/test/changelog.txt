@@ -57,3 +57,6 @@
 *Misc*
 - Added icons for upgrades
 - Free upgrades are now sorted based on their cost
+
+*Bug fixes*
+- Fixed a bug where the leaderboard screen showed stats nectar stats even if you were not coming from a victory

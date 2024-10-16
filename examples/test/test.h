@@ -180,6 +180,7 @@ enum e_state
 	e_state_main_menu,
 	e_state_play,
 	e_state_leaderboard,
+	e_state_win_leaderboard,
 	e_state_input_name,
 };
 
@@ -456,7 +457,6 @@ struct s_ui_optional
 
 struct s_leaderboard_state
 {
-	b8 coming_from_win;
 	b8 received;
 };
 

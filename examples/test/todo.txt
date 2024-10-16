@@ -54,6 +54,3 @@ escape in options menu should go to main menu? or just previous state
 
 how about making deposits their own struct but we make some kind of collider struct that both creatures and deposits have? then when we check for collision
 	we loop over all colliders? idk
-
-dont show highest nectar etc unless coming from victory
-make victory leaderboard and leaderboard different state?

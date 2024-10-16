@@ -595,8 +595,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 						if(state->win_ticks >= c_win_animation_duration_in_ticks) {
 							if constexpr(c_are_we_on_web) {
 								if(platform_data->leaderboard_nice_name.len > 0) {
-									set_state_next_frame(e_state_leaderboard);
-									game->leaderboard_state.coming_from_win = true;
+									set_state_next_frame(e_state_win_leaderboard);
 									platform_data->submit_leaderboard_score(
 										game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
 									);
@@ -607,8 +606,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 								}
 							}
 							else {
-								set_state_next_frame(e_state_leaderboard);
-								game->leaderboard_state.coming_from_win = true;
+								set_state_next_frame(e_state_win_leaderboard);
 								game->play_state.update_count_at_win_time = game->play_state.update_count;
 							}
 						}
@@ -1496,19 +1494,22 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		case e_state_leaderboard: {
 
-			b8 want_to_reset = false;
-			if(game->leaderboard_state.coming_from_win && is_key_pressed(g_input, c_key_r)) {
-				want_to_reset = true;
+			do_leaderboard_stuff();
+
+			if(
+				ui_button(strlit("Back"), c_base_res * v2(0.75f, 0.92f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y})
+				|| is_key_pressed(g_input, c_key_escape)
+			) {
+				go_back_to_prev_state();
 			}
 
-			if(!game->leaderboard_state.received) {
-				draw_text(g_r, strlit("Getting leaderboard..."), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
-			}
-			else if(game->leaderboard_arr.count <= 0) {
-				draw_text(g_r, strlit("No scores yet :("), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
-			}
+		} break;
 
-			if(game->leaderboard_state.coming_from_win) {
+		case e_state_win_leaderboard: {
+
+			do_leaderboard_stuff();
+
+			{
 				s_time_data data = update_count_to_time_data(game->play_state.update_count_at_win_time, c_update_delay);
 				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 				draw_text(g_r, text, c_half_res * v2(1.0f, 0.2f), 10, 64, make_color(1), true, game->font, game->ui_render_pass1);
@@ -1516,39 +1517,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				draw_text(g_r, strlit("Press R to restart..."), c_half_res * v2(1.0f, 0.4f), 10, sin_range(48, 60, game->render_time * 8.0f), make_color(0.66f), true, game->font, game->ui_render_pass1);
 			}
 
-			constexpr int c_max_visible_entries = 10;
-			s_v2 pos = c_half_res * v2(1.0f, 0.7f);
-			for(int entry_i = 0; entry_i < at_most(c_max_visible_entries + 1, game->leaderboard_arr.count); entry_i++) {
-				s_leaderboard_entry entry = game->leaderboard_arr[entry_i];
-				s_time_data data = update_count_to_time_data(entry.time, c_update_delay);
-				s_v4 color = make_color(0.8f);
-				int rank_number = entry_i + 1;
-				if(entry_i == c_max_visible_entries || strcmp(platform_data->leaderboard_public_uid.data, entry.internal_name.data) == 0) {
-					color = rgb(0xD3A861);
-					rank_number = entry.rank;
-				}
-				char* name = entry.internal_name.data;
-				if(entry.nice_name.len > 0) {
-					name = entry.nice_name.data;
-				}
-				draw_text(g_r, format_text("%i %s", rank_number, name), v2(c_base_res.x * 0.1f, pos.y - 24), 10, 32, color, false, game->font, game->ui_render_pass1);
-				s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-				draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font, game->ui_render_pass1);
-				pos.y += 48;
-			}
-
-			b8 win = game->leaderboard_state.coming_from_win;
+			b8 want_to_reset = is_key_pressed(g_input, c_key_r);
 			if(
-				ui_button(win ? strlit("Restart") : strlit("Back"), c_base_res * v2(0.75f, 0.92f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y})
+				ui_button(strlit("Restart"), c_base_res * v2(0.75f, 0.92f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y})
 				|| is_key_pressed(g_input, c_key_escape) || want_to_reset
 			) {
-				if(win) {
-					go_back_to_prev_state();
-					game->reset_game = true;
-				}
-				else {
-					go_back_to_prev_state();
-				}
+				go_back_to_prev_state();
+				game->reset_game = true;
 			}
 
 			{
@@ -1924,8 +1899,7 @@ func b8 ui_button_with_confirmation(s_len_str id_str, s_len_str confirmation_str
 func void on_set_leaderboard_name(b8 success)
 {
 	if(success) {
-		set_state_next_frame(e_state_leaderboard);
-		game->leaderboard_state.coming_from_win = true;
+		set_state_next_frame(e_state_win_leaderboard);
 		g_platform_data->submit_leaderboard_score(
 			game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
 		);
@@ -2337,7 +2311,9 @@ func b8 set_state_next_frame(e_state new_state)
 	if(game->next_state >= 0) { return false; }
 
 	switch(new_state)	{
-		case e_state_leaderboard: {
+		case e_state_leaderboard:
+		case e_state_win_leaderboard:
+		{
 			game->leaderboard_state = zero;
 			game->leaderboard_arr.count = 0;
 		} break;
@@ -2998,4 +2974,35 @@ func int get_upgrade_cost(e_upgrade id)
 	int curr_level = game->play_state.upgrade_level_arr[id];
 	int cost = data.base_cost * (curr_level + 1);
 	return cost;
+}
+
+func void do_leaderboard_stuff()
+{
+	if(!game->leaderboard_state.received) {
+		draw_text(g_r, strlit("Getting leaderboard..."), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
+	}
+	else if(game->leaderboard_arr.count <= 0) {
+		draw_text(g_r, strlit("No scores yet :("), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
+	}
+
+	constexpr int c_max_visible_entries = 10;
+	s_v2 pos = c_half_res * v2(1.0f, 0.7f);
+	for(int entry_i = 0; entry_i < at_most(c_max_visible_entries + 1, game->leaderboard_arr.count); entry_i++) {
+		s_leaderboard_entry entry = game->leaderboard_arr[entry_i];
+		s_time_data data = update_count_to_time_data(entry.time, c_update_delay);
+		s_v4 color = make_color(0.8f);
+		int rank_number = entry_i + 1;
+		if(entry_i == c_max_visible_entries || strcmp(g_platform_data->leaderboard_public_uid.data, entry.internal_name.data) == 0) {
+			color = rgb(0xD3A861);
+			rank_number = entry.rank;
+		}
+		char* name = entry.internal_name.data;
+		if(entry.nice_name.len > 0) {
+			name = entry.nice_name.data;
+		}
+		draw_text(g_r, format_text("%i %s", rank_number, name), v2(c_base_res.x * 0.1f, pos.y - 24), 10, 32, color, false, game->font, game->ui_render_pass1);
+		s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
+		draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font, game->ui_render_pass1);
+		pos.y += 48;
+	}
 }
