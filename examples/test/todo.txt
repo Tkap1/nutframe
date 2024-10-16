@@ -44,3 +44,14 @@ drone crash speed KEKG. i wanna go pure crash speed for new drone spawns i have 
 	soulfoam: collect em all
 
 upgrades related to deposits?
+
+drone kills
+player kills
+
+highest nectar and stuff should only show up if we are coming from win
+
+escape in options menu should go to main menu? or just previous state
+coffee lava icons
+
+how about making deposits their own struct but we make some kind of collider struct that both creatures and deposits have? then when we check for collision
+	we loop over all colliders? idk

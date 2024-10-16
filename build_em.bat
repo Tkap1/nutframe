@@ -9,7 +9,7 @@ set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl"
 set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
 set comp=!comp! -I"..\..\libs"
 set comp=!comp! -lSDL2_mixer
-@REM set comp=!comp! -lopenal
+set comp=!comp! -lopenal
 set comp=!comp! -lwebsocket.js
 set comp=!comp! -lidbfs.js
 set comp=!comp! -sSTACK_SIZE=1048576

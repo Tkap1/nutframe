@@ -195,20 +195,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			s_play_state* state = &game->play_state;
 
 			{
-				int level = state->upgrade_level_arr[e_upgrade_broken_bot_spawn];
-				if(level > 0) {
-					s_auto_tick_timer* t = &state->spawn_broken_bot_timer;
-					t->speed = 1 + ((level - 1) * 25 / 100.0f);
-					int to_spawn = t->tick();
-					for(int i = 0; i < to_spawn; i += 1) {
-						s_carray<s_v2, 8> broken_bot_pos_arr = get_broken_bot_pos_arr(&game->rng);
-						int rand_index = game->rng.randu() % broken_bot_pos_arr.max_elements();
-						game->play_state.broken_bot_arr.add_checked({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = broken_bot_pos_arr[rand_index]});
-					}
-				}
-			}
-
-			{
 				int index = state->update_count % c_nectar_gain_num_updates;
 				state->nectar_gain_arr[index] = 0;
 			}
@@ -228,6 +214,20 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			if(game_is_paused()) {
 				break;
+			}
+
+			{
+				int level = state->upgrade_level_arr[e_upgrade_broken_bot_spawn];
+				if(level > 0) {
+					s_auto_tick_timer* t = &state->spawn_broken_bot_timer;
+					t->speed = 1 + ((level - 1) * 25 / 100.0f);
+					int to_spawn = t->tick();
+					for(int i = 0; i < to_spawn; i += 1) {
+						s_carray<s_v2, 8> broken_bot_pos_arr = get_broken_bot_pos_arr(&game->rng);
+						int rand_index = game->rng.randu() % broken_bot_pos_arr.max_elements();
+						game->play_state.broken_bot_arr.add_checked({.rotation = game->rng.randf_range(-0.25f, 0.25f), .pos = broken_bot_pos_arr[rand_index]});
+					}
+				}
 			}
 
 			s_cells cells = zero;

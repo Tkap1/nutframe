@@ -5775,7 +5775,6 @@ static void clear_framebuffer(s_framebuffer* fbo, s_v4 clear_color, int in_flags
 	int flags = 0;
 	if(in_flags & e_fbo_clear_color) {
 		flags |= GL_COLOR_BUFFER_BIT;
-		gl(glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w));
 	}
 	if(in_flags & e_fbo_clear_depth) {
 		glDepthMask(GL_TRUE);

@@ -49,3 +49,7 @@
 - Victory screen now displays total nectar obtained
 - Victory screen now displays highest nectar per second
 ===============================================================================================
+
+*Bug fixes*
+- Fixed a bug where broken drones would keep spawning while the game was paused
+===============================================================================================
