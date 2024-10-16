@@ -158,7 +158,7 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 5000, .max_upgrades = 1, .name = "x2 harvest", .key = c_key_c},
 	{.base_cost = 100, .max_upgrades = 19, .name = "+ drone cargo", .key = c_key_j},
 	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain", .key = c_key_t},
-	{.base_cost = 50, .max_upgrades = 15, .name = "+ broken drone", .key = c_key_y},
+	{.base_cost = 50, .max_upgrades = 15, .name = "+ broken drone", .key = c_key_l},
 };
 
 enum e_pickup
@@ -428,10 +428,26 @@ struct s_camera2d
 	s_m4 get_matrix();
 };
 
+
+struct s_ui_data
+{
+	b8 present;
+	b8 asking_for_confirmation;
+};
+
+struct s_button_interaction
+{
+	b8 hovered;
+	b8 clicked;
+	s_v2 size;
+	s_ui_data* data;
+	s_parse_ui_id id;
+};
+
 struct s_ui_optional
 {
-	b8 darken;
 	s_len_str description;
+	float darken = 1.0f;
 	float font_size;
 	float tooltip_font_size;
 	float size_x;
@@ -521,12 +537,6 @@ struct s_state
 	e_state state;
 };
 
-struct s_ui_data
-{
-	b8 present;
-	b8 asking_for_confirmation;
-};
-
 struct s_ui_iterator
 {
 	int index;
@@ -584,6 +594,7 @@ struct s_game
 	s_texture broken_bot_texture;
 	s_texture crater_texture;
 	s_carray<s_texture, 2> rock_texture_arr;
+	s_carray<s_texture, e_upgrade_count> upgrade_button_texture_arr;
 
 	s_leaderboard_state leaderboard_state;
 	s_input_name_state input_name_state;

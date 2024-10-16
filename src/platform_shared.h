@@ -3170,7 +3170,7 @@ struct s_game_renderer
 	s_render_pass* default_render_pass;
 	s_sarray<s_framebuffer, c_max_framebuffers> framebuffer_arr;
 
-	s_sarray<s_texture, 32> texture_arr;
+	s_sarray<s_texture, 64> texture_arr;
 	s_sarray<s_shader, c_max_shaders> shader_arr;
 	s_sarray<s_font, 4> fonts;
 };
@@ -6434,4 +6434,47 @@ static float index_count_safe_div(int i, int in_count)
 	int count = in_count - 1;
 	if(count <= 0) { return 1; }
 	return i / (float)count;
+}
+
+static s_len_str cleanup_zero_digits(s_len_str str)
+{
+	int dot_index = -1;
+	int first_zero = -1;
+	for(int i = 0; i < str.len; i += 1) {
+		if(str[i] == '.') {
+			dot_index = i;
+		}
+		else if(dot_index >= 0) {
+			if(first_zero == -1 && str[i] == '0') {
+				first_zero = i;
+			}
+			else if(first_zero >= 0) {
+				first_zero = -1;
+			}
+		}
+	}
+	if(first_zero >= 0) {
+		if(first_zero == dot_index + 1) {
+			str.len -= str.len - dot_index;
+		}
+		else {
+			str.len -= str.len - first_zero;
+		}
+	}
+	return str;
+}
+
+static s_len_str shorten_number(int in_num)
+{
+	float num = (float)in_num;
+	int index = 0;
+	char* suffix_arr[] = {"", "k", "m", "b", "t"};
+	while(num >= 1000) {
+		num /= 1000;
+		index += 1;
+	}
+	s_len_str result = format_text("%.1f", num);
+	result = cleanup_zero_digits(result);
+	result = format_text("%.*s%s", expand_str(result), suffix_arr[index]);
+	return result;
 }

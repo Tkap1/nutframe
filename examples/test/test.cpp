@@ -57,6 +57,20 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->rock_texture_arr[1] = g_r->load_texture(renderer, "examples/test/rock02.png", e_filter_linear, e_wrap_clamp);
 		game->broken_bot_texture = g_r->load_texture(renderer, "examples/test/broken_bot.png", e_filter_linear, e_wrap_clamp);
 
+		game->upgrade_button_texture_arr[e_upgrade_buy_bot] = g_r->load_texture(renderer, "examples/test/drone_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_player_damage] = g_r->load_texture(renderer, "examples/test/damage_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_bot_damage] = g_r->load_texture(renderer, "examples/test/drone_damage_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_player_movement_speed] = g_r->load_texture(renderer, "examples/test/speed_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_bot_movement_speed] = g_r->load_texture(renderer, "examples/test/drone_speed_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_spawn_rate] = g_r->load_texture(renderer, "examples/test/spawn_rate_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_creature_tier] = g_r->load_texture(renderer, "examples/test/creature_tier.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_player_harvest_range] = g_r->load_texture(renderer, "examples/test/player_range_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_bot_harvest_range] = g_r->load_texture(renderer, "examples/test/drone_range_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_double_harvest] = g_r->load_texture(renderer, "examples/test/2x_harvest_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_bot_cargo_count] = g_r->load_texture(renderer, "examples/test/drone_cargo_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_player_chain] = g_r->load_texture(renderer, "examples/test/player_chain_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_broken_bot_spawn] = g_r->load_texture(renderer, "examples/test/broken_drone_icon.png", e_filter_nearest, e_wrap_clamp);
+
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_filter_linear, e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_filter_linear, e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone012.png", e_filter_linear, e_wrap_clamp));
@@ -1164,27 +1178,29 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					constexpr float padding = 8;
 					constexpr float font_size = 24;
 					constexpr int c_rows = 3;
+					constexpr float c_hotkey_font_size = 21;
 					struct s_row
 					{
 						int upgrade_count;
 						s_carray<e_upgrade, e_upgrade_count> upgrade_arr;
 					};
 					s_carray<s_row, c_rows> row_arr = zero;
-					row_arr[0].upgrade_count = 5;
-					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range, e_upgrade_player_chain, e_upgrade_broken_bot_spawn}};
-					row_arr[1].upgrade_count = 5;
-					row_arr[1].upgrade_arr = {{e_upgrade_buy_bot, e_upgrade_bot_damage, e_upgrade_bot_movement_speed, e_upgrade_bot_cargo_count, e_upgrade_bot_harvest_range}};
+					row_arr[0].upgrade_count = 4;
+					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range, e_upgrade_player_chain}};
+					row_arr[1].upgrade_count = 6;
+					row_arr[1].upgrade_arr = {{e_upgrade_buy_bot, e_upgrade_bot_damage, e_upgrade_bot_movement_speed, e_upgrade_bot_cargo_count, e_upgrade_bot_harvest_range, e_upgrade_broken_bot_spawn}};
 					row_arr[2].upgrade_count = 3;
 					row_arr[2].upgrade_arr = {{e_upgrade_spawn_rate, e_upgrade_creature_tier, e_upgrade_double_harvest}};
-					s_v2 panel_pos = v2(0.0f, c_base_res.y - (c_base_button_size.y + padding) * 3);
-					s_v2 panel_size = v2(c_base_res.x, c_base_button_size.y + padding);
-					s_carray<s_pos_area, c_rows> area_arr;
-					s_v2 button_size = v2(370, 32);
-					area_arr[0] = make_pos_area(v2(padding, 0.0f) + panel_pos, panel_size, button_size, padding, -1, e_pos_area_flag_center_y);
-					area_arr[1] = make_pos_area(v2(padding, 0.0f) + panel_pos + v2(0.0f, panel_size.y), panel_size, button_size, padding, -1, e_pos_area_flag_center_y);
-					area_arr[2] = make_pos_area(v2(padding, 0.0f) + panel_pos + v2(0.0f, panel_size.y * 2), panel_size, button_size, padding, -1, e_pos_area_flag_center_y);
-					b8 played_buy_bot_sound = false;
-					b8 played_upgrade_sound = false;
+					s_v2 button_size = v2(54);
+					s_v2 panel_pos = v2(0.0f, c_base_res.y - (button_size.y + padding) * 4.3f);
+					s_v2 panel_size = v2(c_base_res.x, button_size.y + padding);
+					s_carray<s_pos_area, c_rows * 2> area_arr;
+					s_pos_area temp0 = make_vertical_layout(panel_pos + v2(padding * 2 + button_size.x * 0.5f, -16.0f), button_size * v2(1.0f, 1.7f), padding, 0);
+					s_pos_area temp1 = make_vertical_layout(panel_pos + v2(padding * 2, 0.0f), button_size * v2(1.0f, 1.7f), padding, 0);
+					for(int i = 0; i < 3; i += 1) {
+						area_arr[i * 2] = make_horizontal_layout(pos_area_get_advance(&temp0), button_size * v2(1.7f, 1.0f), padding, 0);
+						area_arr[i * 2 + 1] = make_horizontal_layout(pos_area_get_advance(&temp1), button_size * v2(1.7f, 1.0f), padding, 0);
+					}
 					for(int row_i = 0; row_i < c_rows; row_i += 1) {
 						s_row row = row_arr[row_i];
 						for(int upgrade_i = 0; upgrade_i < row.upgrade_count; upgrade_i += 1) {
@@ -1198,11 +1214,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							optional.font_size = font_size;
 							optional.size_x = button_size.x;
 							optional.size_y = button_size.y;
-							optional.darken = cost > play_state->resource_count;
+							optional.darken = cost > play_state->resource_count ? 0.33f : 1.0f;
+
+							if(!over_limit) {
+								s_len_str cost_str = shorten_number(cost);
+								draw_text(
+									g_r, format_text("%.*s[%c]", expand_str(cost_str), (char)data.key), pos_area_get_advance(&area_arr[row_i * 2]), 0,
+									c_hotkey_font_size, make_color(1), true, game->font, game->ui_render_pass1
+								);
+							}
+
 							if(
 								!over_limit &&
-								(ui_button(
-									format_text("%s (%i) [%c]", data.name, cost, (char)data.key), pos_area_get_advance(&area_arr[row_i]), optional
+								(ui_texture_button(
+									format_text("%s", data.name), pos_area_get_advance(&area_arr[row_i * 2 + 1]),
+									game->upgrade_button_texture_arr[upgrade_id], optional
 								) || is_key_pressed(g_input, data.key))
 							) {
 								int buy_count = 1;
@@ -1224,18 +1250,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 										int bot = make_bot(c_base_pos);
 										if(bot >= 0) {
 											purchased = true;
-											if(!played_buy_bot_sound) {
-												play_sound_group(e_sound_group_buy_bot);
-												played_buy_bot_sound = true;
-											}
+											play_sound_group(e_sound_group_buy_bot);
 										}
 									}
 									else {
 										purchased = true;
-										if(!played_upgrade_sound) {
-											play_sound_group(e_sound_group_upgrade);
-											played_upgrade_sound = true;
-										}
+										play_sound_group(e_sound_group_upgrade);
 									}
 									if(purchased) {
 										play_state->upgrade_level_arr[upgrade_id] += 1;
@@ -1361,17 +1381,27 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					choice_arr.add(element);
 				}
 
+				// @Note(tkap, 16/10/2024): Sort in ascending order
+				if(get_upgrade_cost(choice_arr[0]) > get_upgrade_cost(choice_arr[1])) {
+					swap(&choice_arr[0], &choice_arr[1]);
+				}
+				if(get_upgrade_cost(choice_arr[1]) > get_upgrade_cost(choice_arr[2])) {
+					swap(&choice_arr[1], &choice_arr[2]);
+				}
+				if(get_upgrade_cost(choice_arr[0]) > get_upgrade_cost(choice_arr[2])) {
+					swap(&choice_arr[0], &choice_arr[2]);
+				}
+
 				int picked_choice = -1;
 				s_ui_optional optional = zero;
-				s_v2 button_size = c_base_button_size2;
-				button_size.x += 200;
-				button_size.y += 16;
+				s_v2 button_size = v2(128);
 				optional.size_x = button_size.x;
 				optional.size_y = button_size.y;
 				optional.font_size = 40;
 				optional.tooltip_font_size = 40;
 
-				s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), button_size, 32, 3, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
+				constexpr float font_size = 48;
+				s_pos_area area = make_pos_area(wxy(0.0f, 0.0f), wxy(1.0f, 1.0f), button_size + v2(128.0f, 0.0f), 32, 3, e_pos_area_flag_center_x | e_pos_area_flag_center_y);
 				int highest_cost = 0;
 				int highest_cost_index = 0;
 				for(int choice_i = 0; choice_i < 3; choice_i += 1) {
@@ -1384,7 +1414,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						highest_cost_index = choice_i;
 					}
 					optional.description = get_upgrade_tooltip(upgrade_id);
-					if(ui_button(format_text("%s (%i) [%c]", data.name, cost, c_key_1 + choice_i), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_1 + choice_i)) {
+
+					s_v2 pos = pos_area_get_advance(&area) + button_size * v2(0.5f, 0.0f);
+					s_v2 text_pos = pos + v2(button_size.x * 0.5f, -font_size * 0.6f);
+					s_len_str cost_str = shorten_number(cost);
+					draw_text(g_r, format_text("%.*s[%c]", expand_str(cost_str), (char)(c_key_1 + choice_i)), text_pos, 0, font_size, make_color(1), true, game->font, game->ui_render_pass1);
+					if(
+						ui_texture_button(format_text("%s", data.name), pos, game->upgrade_button_texture_arr[upgrade_id], optional) ||
+						is_key_pressed(g_input, c_key_1 + choice_i)
+					) {
 						picked_choice = choice_i;
 					}
 				}
@@ -1754,76 +1792,112 @@ func s_m4 get_camera_view(s_camera3d cam)
 	return look_at(cam.pos, cam.pos + cam.target, v3(0, -1, 0));
 }
 
-func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
+func s_button_interaction ui_button_interaction(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 {
-	b8 result = false;
-	s_parse_ui_id id = parse_ui_id(id_str);
+	s_button_interaction result = zero;
 
-	s_ui_data* data = get_or_create_ui_data(id.id);
-	data->present = true;
+	result.id = parse_ui_id(id_str);
+	result.data = get_or_create_ui_data(result.id.id);
+	result.data->present = true;
 
-	float font_size = 48;
-	if(optional.font_size > 0) {
-		font_size = optional.font_size;
-	}
-
-	s_v2 size = c_base_button_size;
+	result.size = c_base_button_size;
 	if(optional.size_x > 0) {
-		size.x = optional.size_x;
+		result.size.x = optional.size_x;
 	}
 	if(optional.size_y > 0) {
-		size.y = optional.size_y;
+		result.size.y = optional.size_y;
 	}
 
-	b8 hovered = mouse_collides_rect_topleft(g_mouse, pos, size);
-	s_v4 color = make_color(0.6f);
+	result.hovered = mouse_collides_rect_topleft(g_mouse, pos, result.size);
 
-	if(hovered && is_mouse_clicked()) {
+	if(result.hovered && is_mouse_clicked()) {
 		game->click_consumed = true;
-		result = true;
-	}
+		result.clicked = true;
 
-	if(hovered) {
-		color = make_color(1);
-	}
-	float color_multi = 1;
-	if(optional.darken) {
-		color_multi = 0.5f;
-	}
-	draw_texture(g_r, pos, 0, size, brighter(color, color_multi), game->button_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
-
-	{
-		s_v2 text_pos = center_text_on_rect(id.text, game->font, pos, size, font_size, true, true);
-		text_pos.y += font_size * 0.1f;
-		draw_text(g_r, id.text, text_pos, 1, font_size, make_color(color_multi), false, game->font, game->ui_render_pass1);
-	}
-
-	if(hovered && optional.description.len > 0) {
-		float temp_font_size = font_size * 1.6f;
-		if(optional.tooltip_font_size > 0) {
-			temp_font_size = optional.tooltip_font_size;
-		}
-		s_v2 text_size = get_text_size(optional.description, game->font, temp_font_size);
-		float padding = 16;
-		s_v2 panel_size = text_size + v2(padding * 2);
-		s_v2 panel_pos = g_mouse - v2(0.0f, panel_size.y);
-		s_rectf panel = fit_rect(panel_pos, panel_size, c_base_res_bounds);
-		s_v2 text_pos = panel.pos + v2(padding);
-		text_pos.y += 4;
-		draw_rect(g_r, panel.pos, 0, panel.size, hex_rgb_plus_alpha(0x9E8642, 0.85f), game->ui_render_pass2, {}, {.origin_offset = c_origin_topleft});
-		draw_text(g_r, optional.description, text_pos, 0, temp_font_size, make_color(1), false, game->font, game->ui_render_pass3);
-	}
-
-	if(result) {
 		s_ui_iterator it = zero;
 		while(for_ui_data(&it)) {
-			if(it.element != data) {
+			if(it.element != result.data) {
 				it.element->asking_for_confirmation = false;
 			}
 		}
 	}
 
 	return result;
+}
+
+func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
+{
+	s_button_interaction interaction = ui_button_interaction(id_str, pos, optional);
+
+	float font_size = 48;
+	if(optional.font_size > 0) {
+		font_size = optional.font_size;
+	}
+
+	s_v4 color = make_color(0.6f);
+
+	if(interaction.hovered) {
+		color = make_color(1);
+	}
+	float color_multi = optional.darken;
+	draw_texture(g_r, pos, 0, interaction.size, brighter(color, color_multi), game->button_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+
+	{
+		s_v2 text_pos = center_text_on_rect(interaction.id.text, game->font, pos, interaction.size, font_size, true, true);
+		text_pos.y += font_size * 0.1f;
+		draw_text(g_r, interaction.id.text, text_pos, 1, font_size, make_color(color_multi), false, game->font, game->ui_render_pass1);
+	}
+
+	if(interaction.hovered && optional.description.len > 0) {
+		float temp_font_size = font_size * 1.6f;
+		if(optional.tooltip_font_size > 0) {
+			temp_font_size = optional.tooltip_font_size;
+		}
+		do_button_tooltip(optional.description, temp_font_size);
+	}
+
+	return interaction.clicked;
+}
+
+func b8 ui_texture_button(s_len_str id_str, s_v2 pos, s_texture texture, s_ui_optional optional)
+{
+	s_button_interaction interaction = ui_button_interaction(id_str, pos, optional);
+
+	float font_size = 48;
+	if(optional.font_size > 0) {
+		font_size = optional.font_size;
+	}
+
+	s_v4 color = make_color(0.7f);
+
+	if(interaction.hovered) {
+		color = make_color(1);
+	}
+	float color_multi = optional.darken;
+	draw_texture(g_r, pos, 0, interaction.size, brighter(color, color_multi), texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+
+	if(interaction.hovered && optional.description.len > 0) {
+		float temp_font_size = font_size * 1.6f;
+		if(optional.tooltip_font_size > 0) {
+			temp_font_size = optional.tooltip_font_size;
+		}
+		do_button_tooltip(optional.description, temp_font_size);
+	}
+
+	return interaction.clicked;
+}
+
+func void do_button_tooltip(s_len_str description, float font_size)
+{
+	s_v2 text_size = get_text_size(description, game->font, font_size);
+	float padding = 16;
+	s_v2 panel_size = text_size + v2(padding * 2);
+	s_v2 panel_pos = g_mouse - v2(0.0f, panel_size.y);
+	s_rectf panel = fit_rect(panel_pos, panel_size, c_base_res_bounds);
+	s_v2 text_pos = panel.pos + v2(padding);
+	text_pos.y += 4;
+	draw_rect(g_r, panel.pos, 0, panel.size, hex_rgb_plus_alpha(0x9E8642, 0.85f), game->ui_render_pass2, {}, {.origin_offset = c_origin_topleft});
+	draw_text(g_r, description, text_pos, 0, font_size, make_color(1), false, game->font, game->ui_render_pass3);
 }
 
 func b8 ui_button_with_confirmation(s_len_str id_str, s_len_str confirmation_str, s_v2 pos, s_ui_optional optional)
@@ -2153,6 +2227,19 @@ func s_pos_area make_pos_area(s_v2 pos, s_v2 size, s_v2 element_size, float spac
 	}
 
 	return area;
+}
+
+func s_pos_area make_horizontal_layout(s_v2 pos, s_v2 element_size, float spacing, int flags)
+{
+	s_pos_area result = make_pos_area(pos, v2(0), element_size, spacing, -1, flags);
+	return result;
+}
+
+func s_pos_area make_vertical_layout(s_v2 pos, s_v2 element_size, float spacing, int flags)
+{
+	flags |= e_pos_area_flag_vertical;
+	s_pos_area result = make_pos_area(pos, v2(0), element_size, spacing, -1, flags);
+	return result;
 }
 
 func s_v2 pos_area_get_advance(s_pos_area* area)
@@ -2903,4 +2990,12 @@ func s_carray<s_v2, 8> get_broken_bot_pos_arr(s_rng* rng)
 	}
 
 	return result;
+}
+
+func int get_upgrade_cost(e_upgrade id)
+{
+	s_upgrade_data data = c_upgrade_data[id];
+	int curr_level = game->play_state.upgrade_level_arr[id];
+	int cost = data.base_cost * (curr_level + 1);
+	return cost;
 }
