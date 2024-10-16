@@ -2738,7 +2738,9 @@ func void do_options_menu(b8 in_play_mode)
 	if(in_play_mode && ui_button_with_confirmation(strlit("Restart"), strlit("Are you sure?"), pos_area_get_advance(&area), optional)) {
 		game->reset_game = true;
 	}
-	if(!in_play_mode && ui_button(strlit("Back"), pos_area_get_advance(&area), optional)) {
+	if(
+		!in_play_mode && (ui_button(strlit("Back"), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_escape))
+	) {
 		game->main_menu.sub_state = e_sub_state_default;
 	}
 	if(in_play_mode && ui_button_with_confirmation(strlit("Exit"), strlit("Are you sure?"), pos_area_get_advance(&area), optional)) {
