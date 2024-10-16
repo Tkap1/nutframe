@@ -57,6 +57,7 @@
 *Misc*
 - Added icons for upgrades
 - Free upgrades are now sorted based on their cost
+- Victory screen now displays player kills and drone kills
 
 *Bug fixes*
 - Fixed a bug where the leaderboard screen showed stats nectar stats even if you were not coming from a victory

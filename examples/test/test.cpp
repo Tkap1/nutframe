@@ -399,6 +399,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 							laser_target.to = {creature_arr->prev_pos[curr_target], creature_arr->pos[curr_target]};
 							player->laser_target_arr.add(laser_target);
 							s_damage_creature damage_result = damage_creature(curr_target, player_damage);
+							if(damage_result.creature_died) {
+								state->num_player_kills += 1;
+							}
 							if(damage_result.resource_gain_from_deposit > 0) {
 								add_resource(damage_result.resource_gain_from_deposit);
 							}
@@ -522,6 +525,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 									blacklist.add(curr_target);
 									s_damage_creature damage_result = damage_creature(curr_target, bot_damage);
 									int to_add = 0;
+									if(damage_result.creature_died) {
+										state->num_bot_kills += 1;
+									}
 									if(damage_result.resource_gain_from_deposit > 0) {
 										to_add = damage_result.resource_gain_from_deposit;
 									}
@@ -618,6 +624,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check win condition end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			int statistics_index = circular_index(state->update_count / 60, c_max_statistics_index);
+			state->num_player_kills_arr[statistics_index] = state->num_player_kills;
+			state->num_bot_kills_arr[statistics_index] = state->num_bot_kills;
 
 			if(state->has_player_performed_any_action) {
 				state->update_count += 1;
@@ -1497,7 +1507,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			do_leaderboard_stuff();
 
 			if(
-				ui_button(strlit("Back"), c_base_res * v2(0.75f, 0.92f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y})
+				ui_button(strlit("Back"), wxy(0.75f, 0.92f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y})
 				|| is_key_pressed(g_input, c_key_escape)
 			) {
 				go_back_to_prev_state();
@@ -1526,6 +1536,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				game->reset_game = true;
 			}
 
+			if(ui_button(strlit("Stats (WIP)"), c_base_res * v2(0.75f, 0.86f), {.size_x = c_base_button_size2.x, .size_y = c_base_button_size2.y})) {
+				set_state_next_frame(e_state_stats);
+			}
+
 			{
 				s_pos_area area = make_pos_area(wxy(0.69f, 0.05f), c_base_res, v2(0, 40), 0, -1, e_pos_area_flag_vertical);
 				{
@@ -1537,6 +1551,71 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_len_str text = format_text("Highest nectar/s: %.1f/s", play_state->highest_nectar_gain_per_second);
 					draw_text(g_r, text, pos_area_get_advance(&area), 10, 40, make_color(1), false, game->font, game->ui_render_pass1);
 				}
+
+				{
+					s_len_str text = format_text("Player kills: %i", play_state->num_player_kills);
+					draw_text(g_r, text, pos_area_get_advance(&area), 10, 40, make_color(1), false, game->font, game->ui_render_pass1);
+				}
+
+				{
+					s_len_str text = format_text("Drone kills: %i", play_state->num_bot_kills);
+					draw_text(g_r, text, pos_area_get_advance(&area), 10, 40, make_color(1), false, game->font, game->ui_render_pass1);
+				}
+			}
+
+		} break;
+
+		case e_state_stats: {
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		graph start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				int count = game->play_state.update_count / 60;
+				float width = c_base_res.x / (float)count;
+				s_v2 base_pos = wxy(0.0f, 1.0f);
+				int max_value = max(game->play_state.num_player_kills, game->play_state.num_bot_kills);
+
+				struct s_foo
+				{
+					int index;
+					int val;
+					s_v2 pos;
+				};
+
+				s_carray<s_v4, 2> color_arr = {
+					make_color(1.0f, 0.450f, 0.097f), make_color(0.442f, 0.770f, 0.726f)
+				};
+				s_carray<int*, 2> arr = {game->play_state.num_player_kills_arr.elements, game->play_state.num_bot_kills_arr.elements};
+				s_carray<s_len_str, 2> str_arr = {strlit("Player kills: "), strlit("Drone kills: ")};
+				s_foo foo = zero;
+				b8 hovered = false;
+				for(int i = 0; i < arr.max_elements(); i += 1) {
+					s_v2 prev_pos = base_pos;
+					for(int point_i = 0; point_i < count; point_i += 1) {
+						int curr_val = arr[i][point_i];
+						// @TODO(tkap, 16/10/2024): handle 0 kills
+						float p = curr_val / (float)max_value;
+						s_v2 pos = base_pos;
+						pos.x += point_i * width;
+						pos.y -=  c_base_res.y * p;
+						draw_line(g_r, prev_pos, pos, 0, 2, color_arr[i], game->ui_render_pass0);
+						prev_pos = pos;
+
+						if(mouse_collides_rect_center(g_mouse, pos, v2(32))) {
+							foo = {.index = i, .val = curr_val, .pos = pos};
+							hovered = true;
+						}
+					}
+				}
+				if(hovered) {
+					draw_text(g_r, format_text("%.*s%i", expand_str(str_arr[foo.index]), foo.val), foo.pos, 10, 32, make_color(1), true, game->font, game->ui_render_pass1);
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		graph end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			s_ui_optional optional = zero;
+			optional.size_x = c_base_button_size2.x;
+			optional.size_y = c_base_button_size2.y;
+			if(ui_button(strlit("Back"), wxy(0.75f, 0.92f), optional)) {
+				go_back_to_prev_state();
 			}
 
 		} break;

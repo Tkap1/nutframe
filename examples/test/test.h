@@ -41,6 +41,7 @@ global constexpr int c_invalid_entity = -1000000000;
 global constexpr int c_deposit_spawn_interval = 1200;
 global constexpr int c_nectar_gain_num_updates = c_updates_per_second * 5;
 global constexpr int c_max_broken_drones = 1024;
+global constexpr int c_max_statistics_index = 3600; // @Note(tkap, 16/10/2024): 1 save every second, 1 hour worth of data
 
 enum e_creature
 {
@@ -182,6 +183,7 @@ enum e_state
 	e_state_leaderboard,
 	e_state_win_leaderboard,
 	e_state_input_name,
+	e_state_stats,
 };
 
 struct s_leaderboard_entry
@@ -523,6 +525,12 @@ struct s_play_state
 	s_carray<int, c_nectar_gain_num_updates> nectar_gain_arr;
 	float highest_nectar_gain_per_second;
 	s_auto_tick_timer spawn_broken_bot_timer;
+
+	int num_player_kills;
+	s_carray<int, c_max_statistics_index> num_player_kills_arr;
+
+	int num_bot_kills;
+	s_carray<int, c_max_statistics_index> num_bot_kills_arr;
 };
 
 
