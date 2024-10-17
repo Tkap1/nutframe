@@ -1077,22 +1077,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .view = view, .projection = ortho});
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		hitboxes end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		score goal display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			{
-				s_len_str str;
-				if(game->show_total_nectar) {
-					str = format_text("%i / %i (%i)", play_state->resource_count, c_resource_to_win, play_state->total_resource);
-				}
-				else {
-					str = format_text("%i / %i", play_state->resource_count, c_resource_to_win);
-				}
-				s_v2 text_pos = center_text_on_rect(str, game->font, c_base_pos - c_base_size * 0.5f, c_base_size, 40, true, true);
-				// text_pos.y += font_size * 0.1f;
-				draw_text(g_r, str, text_pos, 0, 40, make_color(1), false, game->font, game->world_render_pass_arr[0]);
-			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		score goal display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		display controls tutorial start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(!game->hide_tutorial) {
 				s_v2 player_pos = lerp(play_state->player.prev_pos, play_state->player.pos, interp_dt);
@@ -1166,19 +1150,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 			if(show_ui) {
-				float nectar_per_second = get_nectar_per_second();
-				play_state->highest_nectar_gain_per_second = max(play_state->highest_nectar_gain_per_second, nectar_per_second);
-				if(game->show_total_nectar) {
-					draw_text(g_r, format_text("%i / %i +%.1f/s (%i)", play_state->resource_count, c_resource_to_win, nectar_per_second, game->play_state.total_resource), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
-				}
-				else {
-					draw_text(g_r, format_text("%i / %i +%.1f/s", play_state->resource_count, c_resource_to_win, nectar_per_second), v2(4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
-				}
 
 				if(!game->hide_timer) {
 					s_time_data time_data = update_count_to_time_data(game->play_state.update_count, c_update_delay);
 					s_len_str text = format_text("%02i:%02i.%03i", time_data.minutes, time_data.seconds, time_data.ms);
-					draw_text(g_r, text, v2(4, 36), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
+					draw_text(g_r, text, v2(4, 4), 0, 32, make_color(1), false, game->font, game->ui_render_pass1);
 				}
 
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		upgrade buttons start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -1299,50 +1275,49 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		buff display end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lose progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
-					int alive_creatures = count_alive_creatures();
-					float defeat_progress = alive_creatures / (float)c_num_creatures_to_lose;
-					float shake_intensity = 0;
-					if(defeat_progress > 0.75f) { shake_intensity = range_lerp(defeat_progress, 0.75f, 1.0f, 2.0f, 5.0f); }
-					else if(defeat_progress > 0.5f) { shake_intensity = range_lerp(defeat_progress, 0.5f, 0.75f, 1.0f, 2.0f); }
-					s_v2 offset = v2(
-						game->rng.randf32_11() * shake_intensity,
-						game->rng.randf32_11() * shake_intensity
-					);
-					s_v2 pos = wxy(0.33f, 0.02f) + offset;
-					s_v2 size = wxy(0.33f, 0.025f);
-					draw_rect(g_r, pos, 0, size, make_color(0.25f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
-					float width = defeat_progress * c_base_res.x * 0.33f;
-					draw_rect(g_r, pos, 1, v2(width, size.y), make_color(0.66f, 0.1f, 0.1f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+					s_v2 bar_size = wxy(0.33f, 0.025f);
+					s_pos_area area = make_vertical_layout(v2(0, 16), bar_size, 8, e_pos_area_flag_center_x);
 
-					draw_text(
-						g_r, format_text("%i", alive_creatures), pos + size * 0.5f + v2(0.0f, 3.0f), 0,
-						24, make_color(1), true, game->font, game->ui_render_pass1
-					);
-				}
-				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lose progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		level up progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-				{
-					s64 required_exp = get_required_exp_to_level(play_state->player.curr_level);
-					float level_progress = play_state->player.curr_exp / (float)required_exp;
-					s_v4 color = v4(0.0f, 0.474f, 0.945f, 1.0f);
-					float width = level_progress * c_base_res.x * 0.33f;
-					s_v2 pos = wxy(0.33f, 0.07f);
-					s_v2 size = wxy(0.33f, 0.025f);
-					draw_rect(
-						g_r, pos, 0, size, brighter(color, 0.5f), game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft}
-					);
-					draw_rect(
-						g_r, pos, 1, v2(width, size.y), color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft}
-					);
-					draw_text(
-						g_r, format_text("%i", play_state->player.curr_level), pos + size * 0.5f + v2(0.0f, 3.0f), 0,
-						24, make_color(1), true, game->font, game->ui_render_pass1
-					);
+					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		win progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+					{
+						float nectar_per_second = get_nectar_per_second();
+						float progress = play_state->resource_count / (float)c_resource_to_win;
+						s_v4 color = make_color(0.786f, 0.615f, 0.252f);
+						s_v2 pos = pos_area_get_advance(&area);
+						s_len_str str = format_text("%i / %i +%.1f/s", play_state->resource_count, c_resource_to_win, nectar_per_second);
+						draw_progress_bar(pos, bar_size, brighter(color, 0.5f), color, str, progress);
+					}
+					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		win progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		lose progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+					{
+						int alive_creatures = count_alive_creatures();
+						float defeat_progress = alive_creatures / (float)c_num_creatures_to_lose;
+						float shake_intensity = 0;
+						if(defeat_progress > 0.75f) { shake_intensity = range_lerp(defeat_progress, 0.75f, 1.0f, 2.0f, 5.0f); }
+						else if(defeat_progress > 0.5f) { shake_intensity = range_lerp(defeat_progress, 0.5f, 0.75f, 1.0f, 2.0f); }
+						s_v2 offset = v2(
+							game->rng.randf32_11() * shake_intensity,
+							game->rng.randf32_11() * shake_intensity
+						);
+						s_v2 pos = pos_area_get_advance(&area) + offset;
+						s_len_str str = format_text("%i / %i", alive_creatures, c_num_creatures_to_lose);
+						draw_progress_bar(pos, bar_size, make_color(0.25f, 0.1f, 0.1f), make_color(0.66f, 0.1f, 0.1f), str, defeat_progress);
+					}
+					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		lose progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+					// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		level up progress start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+					{
+						s64 required_exp = get_required_exp_to_level(play_state->player.curr_level);
+						float level_progress = play_state->player.curr_exp / (float)required_exp;
+						s_v4 color = v4(0.0f, 0.474f, 0.945f, 1.0f);
+						s_v2 pos = pos_area_get_advance(&area);
+						draw_progress_bar(pos, bar_size, brighter(color, 0.5f), color, format_text("%i", play_state->player.curr_level), level_progress);
+					}
+					// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		level up progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 				}
-				// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		level up progress end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			}
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		options pause menu start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -2291,7 +2266,7 @@ func s_pos_area make_horizontal_layout(s_v2 pos, s_v2 element_size, float spacin
 func s_pos_area make_vertical_layout(s_v2 pos, s_v2 element_size, float spacing, int flags)
 {
 	flags |= e_pos_area_flag_vertical;
-	s_pos_area result = make_pos_area(pos, v2(0), element_size, spacing, -1, flags);
+	s_pos_area result = make_pos_area(pos, c_base_res, element_size, spacing, -1, flags);
 	return result;
 }
 
@@ -2779,7 +2754,7 @@ func void do_options_menu(b8 in_play_mode)
 	button_size.y += 12;
 	s_ui_optional optional = zero;
 	s_play_state* play_state = &game->play_state;
-	int button_count = in_play_mode ? 11 : 9;
+	int button_count = in_play_mode ? 10 : 8;
 	optional.size_x = button_size.x;
 	optional.size_y = button_size.y;
 
@@ -2801,9 +2776,6 @@ func void do_options_menu(b8 in_play_mode)
 	}
 	if(ui_button(format_text("Smooth camera: %s", game->do_instant_camera ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->do_instant_camera = !game->do_instant_camera;
-	}
-	if(ui_button(format_text("Show total nectar: %s", game->show_total_nectar ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
-		game->show_total_nectar = !game->show_total_nectar;
 	}
 	if(ui_button(format_text("Timer: %s", game->hide_timer ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->hide_timer = !game->hide_timer;
@@ -3085,5 +3057,19 @@ func void do_leaderboard_stuff()
 		s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
 		draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font, game->ui_render_pass1);
 		pos.y += 48;
+	}
+}
+
+func void draw_progress_bar(s_v2 pos, s_v2 size, s_v4 under_size, s_v4 over_size, s_len_str str, float progress)
+{
+	draw_rect(g_r, pos, 0, size, under_size, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	float width = progress * size.x;
+	draw_rect(g_r, pos, 1, v2(width, size.y), over_size, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+
+	if(str.len > 0) {
+		draw_text(
+			g_r, str, pos + size * 0.5f + v2(0.0f, 3.0f), 0,
+			24, make_color(1), true, game->font, game->ui_render_pass1
+		);
 	}
 }
