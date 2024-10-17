@@ -55,6 +55,7 @@
 ===============================================================================================
 
 *Misc*
+- Added upgrades that improve nectar deposits
 - Added a UI bar for nectar
 - Added icons for upgrades
 - Free upgrades are now sorted based on their cost

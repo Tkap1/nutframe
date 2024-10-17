@@ -41,6 +41,8 @@ global constexpr int c_invalid_entity = -1000000000;
 global constexpr int c_nectar_gain_num_updates = c_updates_per_second * 5;
 global constexpr int c_max_broken_drones = 1024;
 global constexpr int c_max_statistics_index = 3600; // @Note(tkap, 16/10/2024): 1 save every second, 1 hour worth of data
+global constexpr float c_deposit_spawn_rate_buff_per_upgrade = 25;
+global constexpr int c_deposit_health_multi_per_upgrade = 60;
 
 enum e_creature
 {
@@ -134,6 +136,8 @@ enum e_upgrade
 	e_upgrade_bot_cargo_count,
 	e_upgrade_player_chain,
 	e_upgrade_broken_bot_spawn,
+	e_upgrade_deposit_spawn_rate,
+	e_upgrade_deposit_health,
 	e_upgrade_count,
 };
 
@@ -141,24 +145,25 @@ struct s_upgrade_data
 {
 	int base_cost;
 	int max_upgrades = 1000000;
-	char* name;
 	int key;
 };
 
 global constexpr s_upgrade_data c_upgrade_data[] = {
-	{.base_cost = 5, .max_upgrades = 3500, .name = "+ drone", .key = c_key_f},
-	{.base_cost = 5, .name = "+ player damage", .key = c_key_q},
-	{.base_cost = 20, .name = "+ drone damage", .key = c_key_g},
-	{.base_cost = 10, .max_upgrades = 20, .name = "+ player speed", .key = c_key_e},
-	{.base_cost = 40, .max_upgrades = 30, .name = "+ drone speed", .key = c_key_h},
-	{.base_cost = 20, .name = "+ spawn rate", .key = c_key_z},
-	{.base_cost = 100, .name = "+ creature tier", .key = c_key_x},
-	{.base_cost = 50, .max_upgrades = 40, .name = "+ player range", .key = c_key_r},
-	{.base_cost = 80, .max_upgrades = 50, .name = "+ drone range", .key = c_key_k},
-	{.base_cost = 5000, .max_upgrades = 1, .name = "x2 harvest", .key = c_key_c},
-	{.base_cost = 100, .max_upgrades = 19, .name = "+ drone cargo", .key = c_key_j},
-	{.base_cost = 500, .max_upgrades = 4, .name = "+ player chain", .key = c_key_t},
-	{.base_cost = 50, .max_upgrades = 15, .name = "+ broken drone", .key = c_key_l},
+	{.base_cost = 5, .max_upgrades = 3500, .key = c_key_f},
+	{.base_cost = 5, .key = c_key_q},
+	{.base_cost = 20, .key = c_key_g},
+	{.base_cost = 10, .max_upgrades = 20, .key = c_key_e},
+	{.base_cost = 40, .max_upgrades = 30, .key = c_key_h},
+	{.base_cost = 20, .key = c_key_z},
+	{.base_cost = 100, .key = c_key_x},
+	{.base_cost = 50, .max_upgrades = 40, .key = c_key_r},
+	{.base_cost = 80, .max_upgrades = 50, .key = c_key_k},
+	{.base_cost = 5000, .max_upgrades = 1, .key = c_key_c},
+	{.base_cost = 100, .max_upgrades = 19, .key = c_key_j},
+	{.base_cost = 500, .max_upgrades = 4, .key = c_key_t},
+	{.base_cost = 50, .max_upgrades = 15, .key = c_key_l},
+	{.base_cost = 50, .max_upgrades = 20, .key = c_key_v},
+	{.base_cost = 75, .key = c_key_b},
 };
 
 enum e_pickup

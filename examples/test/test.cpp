@@ -70,6 +70,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->upgrade_button_texture_arr[e_upgrade_bot_cargo_count] = g_r->load_texture(renderer, "examples/test/drone_cargo_icon.png", e_filter_nearest, e_wrap_clamp);
 		game->upgrade_button_texture_arr[e_upgrade_player_chain] = g_r->load_texture(renderer, "examples/test/player_chain_icon.png", e_filter_nearest, e_wrap_clamp);
 		game->upgrade_button_texture_arr[e_upgrade_broken_bot_spawn] = g_r->load_texture(renderer, "examples/test/broken_drone_icon.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_deposit_spawn_rate] = game->placeholder_texture;
+		game->upgrade_button_texture_arr[e_upgrade_deposit_health] = game->placeholder_texture;
 
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_filter_linear, e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_filter_linear, e_wrap_clamp));
@@ -296,7 +298,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn deposits start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				int count = state->spawn_deposit_timer.tick();
+				s_auto_timer* t = &state->spawn_deposit_timer;
+				t->speed = get_multiplier(state->upgrade_level_arr[e_upgrade_deposit_spawn_rate], c_deposit_spawn_rate_buff_per_upgrade);
+				int count = t->tick();
 				for(int i = 0; i < count; i += 1) {
 
 					int tier = get_creature_spawn_tier();
@@ -1186,8 +1190,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range, e_upgrade_player_chain}};
 					row_arr[1].upgrade_count = 6;
 					row_arr[1].upgrade_arr = {{e_upgrade_buy_bot, e_upgrade_bot_damage, e_upgrade_bot_movement_speed, e_upgrade_bot_cargo_count, e_upgrade_bot_harvest_range, e_upgrade_broken_bot_spawn}};
-					row_arr[2].upgrade_count = 3;
-					row_arr[2].upgrade_arr = {{e_upgrade_spawn_rate, e_upgrade_creature_tier, e_upgrade_double_harvest}};
+					row_arr[2].upgrade_count = 5;
+					row_arr[2].upgrade_arr = {{e_upgrade_spawn_rate, e_upgrade_creature_tier, e_upgrade_double_harvest, e_upgrade_deposit_spawn_rate, e_upgrade_deposit_health}};
 					s_v2 button_size = v2(54);
 					s_v2 panel_pos = v2(0.0f, c_base_res.y - (button_size.y + padding) * 4.3f);
 					s_v2 panel_size = v2(c_base_res.x, button_size.y + padding);
@@ -1224,7 +1228,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 							if(
 								!over_limit &&
 								(ui_texture_button(
-									format_text("%s", data.name), pos_area_get_advance(&area_arr[row_i * 2 + 1]),
+									format_text("upgrade%i", upgrade_id), pos_area_get_advance(&area_arr[row_i * 2 + 1]),
 									game->upgrade_button_texture_arr[upgrade_id], optional
 								) || is_key_pressed(g_input, data.key))
 							) {
@@ -1416,7 +1420,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_len_str cost_str = shorten_number(cost);
 					draw_text(g_r, format_text("%.*s[%c]", expand_str(cost_str), (char)(c_key_1 + choice_i)), text_pos, 0, font_size, make_color(1), true, game->font, game->ui_render_pass1);
 					if(
-						ui_texture_button(format_text("%s", data.name), pos, game->upgrade_button_texture_arr[upgrade_id], optional) ||
+						ui_texture_button(format_text("upgrade%i", upgrade_id), pos, game->upgrade_button_texture_arr[upgrade_id], optional) ||
 						is_key_pressed(g_input, c_key_1 + choice_i)
 					) {
 						picked_choice = choice_i;
@@ -2656,6 +2660,7 @@ func int count_alive_bots()
 func s_len_str get_upgrade_tooltip(e_upgrade id)
 {
 	s_len_str result = zero;
+	int level = game->play_state.upgrade_level_arr[id];
 	switch(id) {
 		case e_upgrade_buy_bot: {
 			result = format_text("+1 drone\n\nCurrent: %i", count_alive_bots());
@@ -2709,11 +2714,19 @@ func s_len_str get_upgrade_tooltip(e_upgrade id)
 
 		case e_upgrade_broken_bot_spawn: {
 			float rate = game->play_state.spawn_broken_bot_timer.get_rate_in_seconds();
-			int level = game->play_state.upgrade_level_arr[e_upgrade_broken_bot_spawn];
 			if(level <= 0) {
 				rate = 0;
 			}
 			result = format_text("Periodically spawn broken drones\nCurrent: %0.2f/s", rate);
+		} break;
+
+		case e_upgrade_deposit_spawn_rate: {
+			float rate = game->play_state.spawn_deposit_timer.get_rate_in_seconds();
+			result = format_text("Nectar deposits spawn %.0f%% faster\nCurrent: %0.2f/s", c_deposit_spawn_rate_buff_per_upgrade, rate);
+		} break;
+
+		case e_upgrade_deposit_health: {
+			result = format_text("Nectar deposits contain %i%% increased nectar\nCurrent: %i%%", c_deposit_health_multi_per_upgrade, level * c_deposit_health_multi_per_upgrade);
 		} break;
 
 		invalid_default_case;
@@ -2987,7 +3000,7 @@ func int get_creature_max_health(e_creature type, int tier, b8 is_boss)
 		} break;
 
 		case e_creature_deposit: {
-			result = 400 * (tier + 1);
+			result = floorfi(400 * (tier + 1) * get_multiplier(game->play_state.upgrade_level_arr[e_upgrade_deposit_health], (float)c_deposit_health_multi_per_upgrade));
 		} break;
 
 		invalid_default_case;
@@ -3129,4 +3142,11 @@ func void draw_progress_bar(s_v2 pos, s_v2 size, s_v4 under_size, s_v4 over_size
 			24, make_color(1), true, game->font, game->ui_render_pass1
 		);
 	}
+}
+
+func float get_multiplier(int level, float per_level)
+{
+	assert(level >= 0);
+	float result = 1.0f + (level * per_level / 100.0f);
+	return result;
 }
