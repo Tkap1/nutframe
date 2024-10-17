@@ -72,6 +72,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->upgrade_button_texture_arr[e_upgrade_broken_bot_spawn] = g_r->load_texture(renderer, "examples/test/broken_drone_icon.png", e_filter_nearest, e_wrap_clamp);
 		game->upgrade_button_texture_arr[e_upgrade_deposit_spawn_rate] = game->placeholder_texture;
 		game->upgrade_button_texture_arr[e_upgrade_deposit_health] = game->placeholder_texture;
+		game->upgrade_button_texture_arr[e_upgrade_dash_cooldown] = game->placeholder_texture;
 
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_filter_linear, e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_filter_linear, e_wrap_clamp));
@@ -165,6 +166,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		game->play_state.spawn_broken_bot_timer = make_auto_timer(0, 10);
 		game->play_state.spawn_deposit_timer = make_auto_timer(20, 20);
+
+		game->play_state.player.dash_cooldown_timer = make_timer(c_dash_cooldown, c_dash_cooldown);
+		game->play_state.player.wanted_to_dash_timestamp = -100000;
 
 		game->play_state.next_pickup_to_drop = game->rng.randu() % e_pickup_count;
 
@@ -319,6 +323,38 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_player* player = &game->play_state.player;
 				s_v2 dir = zero;
+				if(is_key_down(g_input, c_key_a) || is_key_down(g_input, c_key_left)) {
+					dir.x -= 1;
+					state->has_player_performed_any_action = true;
+				}
+				if(is_key_down(g_input, c_key_d) || is_key_down(g_input, c_key_right)) {
+					dir.x += 1;
+					state->has_player_performed_any_action = true;
+				}
+				if(is_key_down(g_input, c_key_w) || is_key_down(g_input, c_key_up)) {
+					dir.y -= 1;
+					state->has_player_performed_any_action = true;
+				}
+				if(is_key_down(g_input, c_key_s) || is_key_down(g_input, c_key_down)) {
+					dir.y += 1;
+					state->has_player_performed_any_action = true;
+				}
+				dir = v2_normalized(dir);
+
+				if(is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_right_mouse)) {
+					player->wanted_to_dash_timestamp = state->update_count;
+					if(game->dash_to_keyboard) {
+						if(v2_length(dir) > 0) {
+							player->next_dash_dir = dir;
+						}
+						else {
+							player->next_dash_dir = player->dash_dir;
+						}
+					}
+					else {
+						player->next_dash_dir = v2_dir_from_to(player->pos, mouse_world);
+					}
+				}
 
 				if(player->dashing) {
 					dir = player->dash_dir * c_dash_speed * (1.0f + get_player_movement_speed() / 20);
@@ -328,40 +364,17 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 				else {
-					at_least_add(&player->cooldown_dash_timer, -1, 0);
+					player->dash_cooldown_timer.speed = get_multiplier(state->upgrade_level_arr[e_upgrade_dash_cooldown], c_dash_cooldown_speed_per_upgrade);
+					player->dash_cooldown_timer.tick();
 
-					if(is_key_down(g_input, c_key_a) || is_key_down(g_input, c_key_left)) {
-						dir.x -= 1;
-						state->has_player_performed_any_action = true;
-					}
-					if(is_key_down(g_input, c_key_d) || is_key_down(g_input, c_key_right)) {
-						dir.x += 1;
-						state->has_player_performed_any_action = true;
-					}
-					if(is_key_down(g_input, c_key_w) || is_key_down(g_input, c_key_up)) {
-						dir.y -= 1;
-						state->has_player_performed_any_action = true;
-					}
-					if(is_key_down(g_input, c_key_s) || is_key_down(g_input, c_key_down)) {
-						dir.y += 1;
-						state->has_player_performed_any_action = true;
-					}
-					dir = v2_normalized(dir);
-
-					if(v2_length(dir) > 0) {
-						player->dash_dir = dir;
-					}
-
-					if(player->cooldown_dash_timer <= 0 && (is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_right_mouse))) {
-						if(!game->dash_to_keyboard) {
-							player->dash_dir = v2_dir_from_to(player->pos, mouse_world);
-						}
+					if(player->dash_cooldown_timer.ready && (state->update_count - player->wanted_to_dash_timestamp) <= 12) {
+						player->dash_cooldown_timer.reset();
+						player->dash_dir = player->next_dash_dir;
 						state->has_player_performed_any_action = true;
 						dir = player->dash_dir;
 						player->dashing = true;
 						player->dash_start = player->pos;
 						player->active_dash_timer = 0;
-						player->cooldown_dash_timer = c_dash_cooldown;
 						play_sound_group(e_sound_group_dash);
 					}
 
@@ -1186,8 +1199,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						s_carray<e_upgrade, e_upgrade_count> upgrade_arr;
 					};
 					s_carray<s_row, c_rows> row_arr = zero;
-					row_arr[0].upgrade_count = 4;
-					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range, e_upgrade_player_chain}};
+					row_arr[0].upgrade_count = 5;
+					row_arr[0].upgrade_arr = {{e_upgrade_player_damage, e_upgrade_player_movement_speed, e_upgrade_player_harvest_range, e_upgrade_player_chain, e_upgrade_dash_cooldown}};
 					row_arr[1].upgrade_count = 6;
 					row_arr[1].upgrade_arr = {{e_upgrade_buy_bot, e_upgrade_bot_damage, e_upgrade_bot_movement_speed, e_upgrade_bot_cargo_count, e_upgrade_bot_harvest_range, e_upgrade_broken_bot_spawn}};
 					row_arr[2].upgrade_count = 5;
@@ -2729,6 +2742,10 @@ func s_len_str get_upgrade_tooltip(e_upgrade id)
 			result = format_text("Nectar deposits contain %i%% increased nectar\nCurrent: %i%%", c_deposit_health_multi_per_upgrade, level * c_deposit_health_multi_per_upgrade);
 		} break;
 
+		case e_upgrade_dash_cooldown: {
+			result = format_text("%i%% faster dash cooldown\nCurrent: %i%%", c_dash_cooldown_speed_per_upgrade, c_dash_cooldown_speed_per_upgrade * level);
+		} break;
+
 		invalid_default_case;
 
 	}
@@ -3149,4 +3166,32 @@ func float get_multiplier(int level, float per_level)
 	assert(level >= 0);
 	float result = 1.0f + (level * per_level / 100.0f);
 	return result;
+}
+
+void s_timer::tick()
+{
+	assert(duration > 0);
+	curr = at_most(curr, duration);
+	curr += (float)c_update_delay * speed;
+	if(curr >= duration) {
+		ready = true;
+	}
+	else {
+		ready = false;
+	}
+}
+
+void s_timer::reset()
+{
+	curr -= duration;
+	ready = false;
+}
+
+func s_timer make_timer(float curr, float duration)
+{
+	assert(duration > 0);
+	return {
+		.curr = curr,
+		.duration = duration
+	};
 }

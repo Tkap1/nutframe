@@ -33,7 +33,7 @@ global constexpr s_v2 c_pickup_size = v2(64);
 global constexpr float c_tile_size = 256;
 global constexpr int c_max_craters = 32;
 global constexpr int c_dash_duration = 20;
-global constexpr int c_dash_cooldown = 50;
+global constexpr float c_dash_cooldown = 0.833f;
 global constexpr float c_dash_speed = 24;
 global constexpr s_v2 c_base_button_size2 = v2(376, 44);
 global constexpr int c_win_animation_duration_in_ticks = c_updates_per_second * 3;
@@ -43,6 +43,7 @@ global constexpr int c_max_broken_drones = 1024;
 global constexpr int c_max_statistics_index = 3600; // @Note(tkap, 16/10/2024): 1 save every second, 1 hour worth of data
 global constexpr float c_deposit_spawn_rate_buff_per_upgrade = 25;
 global constexpr int c_deposit_health_multi_per_upgrade = 60;
+global constexpr int c_dash_cooldown_speed_per_upgrade = 60;
 
 enum e_creature
 {
@@ -138,6 +139,7 @@ enum e_upgrade
 	e_upgrade_broken_bot_spawn,
 	e_upgrade_deposit_spawn_rate,
 	e_upgrade_deposit_health,
+	e_upgrade_dash_cooldown,
 	e_upgrade_count,
 };
 
@@ -164,6 +166,7 @@ global constexpr s_upgrade_data c_upgrade_data[] = {
 	{.base_cost = 50, .max_upgrades = 15, .key = c_key_l},
 	{.base_cost = 50, .max_upgrades = 20, .key = c_key_v},
 	{.base_cost = 75, .key = c_key_b},
+	{.base_cost = 20, .max_upgrades = 20, .key = c_key_y},
 };
 
 enum e_pickup
@@ -251,6 +254,19 @@ struct s_buff
 	int ticks_left;
 };
 
+
+struct s_timer
+{
+	b8 ready;
+	float curr;
+	float duration;
+	float speed = 1.0f;
+
+	void tick();
+	void reset();
+};
+
+
 struct s_player
 {
 	b8 flip_x;
@@ -258,10 +274,12 @@ struct s_player
 	int curr_level;
 	s64 curr_exp;
 	int active_dash_timer;
-	int cooldown_dash_timer;
 	int harvest_timer;
+	int wanted_to_dash_timestamp;
 	float animation_timer;
+	s_timer dash_cooldown_timer;
 	s_v2 dash_dir;
+	s_v2 next_dash_dir;
 	s_v2 prev_pos;
 	s_v2 pos;
 	s_v2 dash_start;

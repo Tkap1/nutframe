@@ -56,6 +56,7 @@
 
 *Misc*
 - Added upgrades that improve nectar deposits
+- Added upgrades that reduce dash cooldown
 - Added a UI bar for nectar
 - Added icons for upgrades
 - Free upgrades are now sorted based on their cost
