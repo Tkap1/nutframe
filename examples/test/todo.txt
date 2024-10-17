@@ -4,15 +4,9 @@ when player harvests creature, do some animation where the resource automaticall
 
 if player kills an enemy, chance for a pickup that does something??
 	like +10 resource
-	temporary buff?
 
 
 place a turret down?
-
-polish:
-	smooth zoom
-	smooth camera movement
-
 
 bar for the win condition?
 
@@ -35,20 +29,12 @@ name both bars at the top, me & 5 other people thought there were hitpoints beca
 this is an idea i am just bouncing, what if the yellow stuff had it's own yellow laser and the damage proportional to how much nectar is stored making
 player to decide if to send money or not
 
-stop me if I am being annoying, I have one more idea, what if there was an upgrade that would make the queen so that she dosent attack
+what if there was an upgrade that would make the queen so that she dosent attack
 anymore and instead fires her laser at drones in an area "overcharging them", could be good addition for drone builds and make them move around a bit
 
 what if ants can attack deposits and upgrade themselves
 
-drone crash speed KEKG. i wanna go pure crash speed for new drone spawns i have to collect, and build player speed
-	soulfoam: collect em all
-
 upgrades related to deposits?
-
-drone kills
-player kills
-
-highest nectar and stuff should only show up if we are coming from win
 
 how about making deposits their own struct but we make some kind of collider struct that both creatures and deposits have? then when we check for collision
 	we loop over all colliders? idk
