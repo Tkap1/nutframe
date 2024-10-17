@@ -38,7 +38,6 @@ global constexpr float c_dash_speed = 24;
 global constexpr s_v2 c_base_button_size2 = v2(376, 44);
 global constexpr int c_win_animation_duration_in_ticks = c_updates_per_second * 3;
 global constexpr int c_invalid_entity = -1000000000;
-global constexpr int c_deposit_spawn_interval = 1200;
 global constexpr int c_nectar_gain_num_updates = c_updates_per_second * 5;
 global constexpr int c_max_broken_drones = 1024;
 global constexpr int c_max_statistics_index = 3600; // @Note(tkap, 16/10/2024): 1 save every second, 1 hour worth of data
@@ -482,7 +481,7 @@ struct s_broken_bot
 	s_v2 pos;
 };
 
-struct s_auto_tick_timer
+struct s_auto_timer
 {
 	float curr;
 	float duration;
@@ -498,7 +497,6 @@ struct s_play_state
 	b8 has_player_performed_any_action;
 	int next_pickup_to_drop;
 	int win_ticks;
-	int deposits_spawned;
 	u64 level_up_seed;
 	e_sub_state sub_state;
 	int next_entity_id;
@@ -523,7 +521,8 @@ struct s_play_state
 	int level_up_triggers;
 	s_carray<int, c_nectar_gain_num_updates> nectar_gain_arr;
 	float highest_nectar_gain_per_second;
-	s_auto_tick_timer spawn_broken_bot_timer;
+	s_auto_timer spawn_broken_bot_timer;
+	s_auto_timer spawn_deposit_timer;
 
 	int num_player_kills;
 	s_carray<int, c_max_statistics_index> num_player_kills_arr;

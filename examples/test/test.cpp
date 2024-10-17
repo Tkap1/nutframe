@@ -161,7 +161,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->play_state.cam.zoom = 1;
 		game->play_state.cam.target_zoom = 1;
 
-		game->play_state.spawn_broken_bot_timer = make_auto_tick_timer(0, 10);
+		game->play_state.spawn_broken_bot_timer = make_auto_timer(0, 10);
+		game->play_state.spawn_deposit_timer = make_auto_timer(20, 20);
 
 		game->play_state.next_pickup_to_drop = game->rng.randu() % e_pickup_count;
 
@@ -242,7 +243,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				int level = state->upgrade_level_arr[e_upgrade_broken_bot_spawn];
 				if(level > 0) {
-					s_auto_tick_timer* t = &state->spawn_broken_bot_timer;
+					s_auto_timer* t = &state->spawn_broken_bot_timer;
 					t->speed = 1 + ((level - 1) * 25 / 100.0f);
 					int to_spawn = t->tick();
 					for(int i = 0; i < to_spawn; i += 1) {
@@ -295,9 +296,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		spawn deposits start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				int target_time = c_deposit_spawn_interval * state->deposits_spawned;
-				if(state->update_count >= target_time) {
-					state->deposits_spawned += 1;
+				int count = state->spawn_deposit_timer.tick();
+				for(int i = 0; i < count; i += 1) {
 
 					int tier = get_creature_spawn_tier();
 					if(game->rng.chance100(1)) {
@@ -3006,7 +3006,7 @@ func float get_nectar_per_second()
 	return result;
 }
 
-int s_auto_tick_timer::tick()
+int s_auto_timer::tick()
 {
 	assert(curr >= 0);
 	assert(duration > 0);
@@ -3020,13 +3020,13 @@ int s_auto_tick_timer::tick()
 	return result;
 }
 
-float s_auto_tick_timer::get_rate_in_seconds()
+float s_auto_timer::get_rate_in_seconds()
 {
 	float result = 1.0f / (duration / speed);
 	return result;
 }
 
-func s_auto_tick_timer make_auto_tick_timer(float curr, float duration)
+func s_auto_timer make_auto_timer(float curr, float duration)
 {
 	assert(curr >= 0);
 	assert(duration > 0);
