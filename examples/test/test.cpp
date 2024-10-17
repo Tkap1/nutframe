@@ -161,7 +161,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->play_state.cam.zoom = 1;
 		game->play_state.cam.target_zoom = 1;
 
-		game->play_state.spawn_broken_bot_timer = make_auto_tick_timer(0, 600);
+		game->play_state.spawn_broken_bot_timer = make_auto_tick_timer(0, 10);
 
 		game->play_state.next_pickup_to_drop = game->rng.randu() % e_pickup_count;
 
@@ -3011,31 +3011,22 @@ int s_auto_tick_timer::tick()
 	assert(curr >= 0);
 	assert(duration > 0);
 
-	constexpr int scale = 100;
 	int result = 0;
-	int modified_duration = get_modified_duration();
-	assert(modified_duration > 0);
-	curr += scale;
-	while(curr >= modified_duration) {
+	curr += (float)c_update_delay * speed;
+	while(curr >= duration) {
 		result += 1;
-		curr -= modified_duration;
+		curr -= duration;
 	}
-	return result;
-}
-
-float s_auto_tick_timer::get_duration_in_seconds()
-{
-	float result = get_modified_duration() / (float)(c_updates_per_second * 100);
 	return result;
 }
 
 float s_auto_tick_timer::get_rate_in_seconds()
 {
-	float result = 1.0f / get_duration_in_seconds();
+	float result = 1.0f / (duration / speed);
 	return result;
 }
 
-func s_auto_tick_timer make_auto_tick_timer(int curr, int duration)
+func s_auto_tick_timer make_auto_tick_timer(float curr, float duration)
 {
 	assert(curr >= 0);
 	assert(duration > 0);
@@ -3044,13 +3035,6 @@ func s_auto_tick_timer make_auto_tick_timer(int curr, int duration)
 		.curr = curr,
 		.duration = duration,
 	};
-}
-
-int s_auto_tick_timer::get_modified_duration()
-{
-	assert(speed > 0);
-	int result = roundfi(duration * 100 / speed);
-	return result;
 }
 
 func s_carray<s_v2, 8> get_broken_bot_pos_arr(s_rng* rng)

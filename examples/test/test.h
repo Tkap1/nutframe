@@ -484,14 +484,13 @@ struct s_broken_bot
 
 struct s_auto_tick_timer
 {
-	int curr;
-	int duration;
-	float speed = 1;
+	float curr;
+	float duration;
+	float speed = 1.0f;
 
 	int tick();
 	float get_duration_in_seconds();
 	float get_rate_in_seconds();
-	int get_modified_duration();
 };
 
 struct s_play_state

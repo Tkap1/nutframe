@@ -84,7 +84,7 @@ func b8 counts_towards_defeat(e_creature type);
 func b8 can_creature_move(e_creature type);
 func int get_creature_max_health(e_creature type, int tier, b8 is_boss);
 func float get_nectar_per_second();
-func s_auto_tick_timer make_auto_tick_timer(int curr, int duration);
+func s_auto_tick_timer make_auto_tick_timer(float curr, float duration);
 func s_carray<s_v2, 8> get_broken_bot_pos_arr(s_rng* rng);
 func int get_upgrade_cost(e_upgrade id);
 func void do_leaderboard_stuff();

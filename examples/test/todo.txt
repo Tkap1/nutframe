@@ -11,28 +11,30 @@ place a turret down?
 we need a separate depth only pass that ignores pixels with alpha < 1 in order to have the shadows work properly with entity borders
 dont show tutorial after it has been shown once
 
-Maybe allow drones to get chain too, but if you want it different to the player, instead of chain, allow it to multi attack, so extra beams directly from drone to enemy.
-
 Scrollable leaderboard.
 
 Maybe under the 3 free upgrades have some special choices, like 2. that are random, and maybe they are able to convert points. eg.
-+Player Damage x2, -Player Speed x1
-Allowing you to shift your build midgame.
+	+Player Damage x2, -Player Speed x1
+	Allowing you to shift your build midgame.
 
 Maybe random honey blobs drop that you can collect giving you 5 points. might be useful early, but can ignore later.
 Maybe the leaderboard screen should show your final build when you finished.
 
 name both bars at the top, me & 5 other people thought there were hitpoints because of the red color
 
-this is an idea i am just bouncing, what if the yellow stuff had it's own yellow laser and the damage proportional to how much nectar is stored making
-player to decide if to send money or not
-
-what if there was an upgrade that would make the queen so that she dosent attack
-anymore and instead fires her laser at drones in an area "overcharging them", could be good addition for drone builds and make them move around a bit
-
-what if ants can attack deposits and upgrade themselves
-
-upgrades related to deposits?
 
 how about making deposits their own struct but we make some kind of collider struct that both creatures and deposits have? then when we check for collision
 	we loop over all colliders? idk
+
+upgrades related to deposits?
+
+IDK:
+	what if ants can attack deposits and upgrade themselves
+
+	what if there was an upgrade that would make the queen so that she dosent attack
+		anymore and instead fires her laser at drones in an area "overcharging them", could be good addition for drone builds and make them move around a bit
+
+	what if the base had it's own yellow laser and the damage proportional to how much nectar is stored making
+		player to decide if to send money or not
+
+	Maybe allow drones to get chain too, but if you want it different to the player, instead of chain, allow it to multi attack, so extra beams directly from drone to enemy.
