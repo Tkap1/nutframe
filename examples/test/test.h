@@ -531,6 +531,10 @@ struct s_play_state
 
 	int num_bot_kills;
 	s_carray<int, c_max_statistics_index> num_bot_kills_arr;
+
+	s_carray<float, c_max_statistics_index> nectar_per_second_arr;
+	s_carray<int, c_max_statistics_index> nectar_arr;
+
 };
 
 
@@ -615,6 +619,8 @@ struct s_game
 	s_framebuffer* main_fbo;
 	s_framebuffer* light_fbo;
 	s_sarray<s_leaderboard_entry, c_max_leaderboard_entries> leaderboard_arr;
+
+	s_carray<b8, 4> statistics_show_arr;
 };
 
 #include "generated/generated_test.cpp"

@@ -6478,3 +6478,15 @@ static s_len_str shorten_number(int in_num)
 	result = format_text("%.*s%s", expand_str(result), suffix_arr[index]);
 	return result;
 }
+
+static b8 point_vs_line(s_v2 point, s_v2 from, s_v2 to, float thickness, float* out_dist)
+{
+	float d1 = v2_distance(point, from);
+	float d2 = v2_distance(point, to);
+	float d3 = d1 + d2;
+	float line_len = v2_distance(from, to);
+	if(out_dist) {
+		*out_dist = d3;
+	}
+	return (d3 >= line_len - thickness) && (d3 <= line_len + thickness);
+}

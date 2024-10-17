@@ -123,6 +123,15 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		game->next_state = -1;
 		set_state_next_frame(e_state_main_menu);
+
+		for(int i = 0; i < game->statistics_show_arr.max_elements(); i += 1) {
+			game->statistics_show_arr[i] = true;
+		}
+
+		#if defined(m_debug)
+		game->hide_tutorial = true;
+		game->pick_free_upgrade_automatically = true;
+		#endif
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		initialize end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -625,9 +634,13 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		check win condition end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			float nectar_per_second = get_nectar_per_second();
 			int statistics_index = circular_index(state->update_count / 60, c_max_statistics_index);
+			state->highest_nectar_gain_per_second = max(state->highest_nectar_gain_per_second, nectar_per_second);
 			state->num_player_kills_arr[statistics_index] = state->num_player_kills;
 			state->num_bot_kills_arr[statistics_index] = state->num_bot_kills;
+			state->nectar_per_second_arr[statistics_index] = nectar_per_second;
+			state->nectar_arr[statistics_index] = state->resource_count;
 
 			if(state->has_player_performed_any_action) {
 				state->update_count += 1;
@@ -1255,7 +1268,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		buff display start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 				{
 					s_v2 size = v2(32);
-					s_pos_area area = make_pos_area(wxy(0.005f, 0.07f), wxy(1.0f, 0.07f), size, 8, -1, 0);
+					s_pos_area area = make_pos_area(wxy(0.005f, 0.04f), wxy(1.0f, 0.07f), size, 8, -1, 0);
 					s_v4 color_arr[] = {
 						make_color(0, 0.5f, 0), make_color(0.5f, 0, 0), make_color(0, 0, 0.5f),
 					};
@@ -1543,55 +1556,115 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		case e_state_stats: {
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		graph start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				int count = game->play_state.update_count / 60;
-				float width = c_base_res.x / (float)count;
-				s_v2 base_pos = wxy(0.0f, 1.0f);
-				int max_value = max(game->play_state.num_player_kills, game->play_state.num_bot_kills);
-
-				struct s_foo
+				struct s_hovered_point
 				{
 					int index;
-					int val;
+					float val;
 					s_v2 pos;
 				};
 
-				s_carray<s_v4, 2> color_arr = {
-					make_color(1.0f, 0.450f, 0.097f), make_color(0.442f, 0.770f, 0.726f)
-				};
-				s_carray<int*, 2> arr = {game->play_state.num_player_kills_arr.elements, game->play_state.num_bot_kills_arr.elements};
-				s_carray<s_len_str, 2> str_arr = {strlit("Player kills: "), strlit("Drone kills: ")};
-				s_foo foo = zero;
+				int count = game->play_state.update_count / 60;
+				s_v2 base_pos = wxy(0.1f, 0.9f);
+				float max_val = 0;
+				s_hovered_point hovered_point = zero;
 				b8 hovered = false;
-				for(int i = 0; i < arr.max_elements(); i += 1) {
+				float smallest_dist = 9999999;
+
+				s_carray<s_v4, 4> color_arr = {
+					make_color(1.0f, 0.450f, 0.097f), make_color(0.442f, 0.770f, 0.726f), make_color(0.469f, 0.355f, 0.609f),
+					make_color(0.806f, 0.146f, 0.108f)
+				};
+				s_carray<void*, 4> ptr_arr = {
+					game->play_state.num_player_kills_arr.elements, game->play_state.num_bot_kills_arr.elements,
+					game->play_state.nectar_per_second_arr.elements, game->play_state.nectar_arr.elements
+				};
+				s_carray<s_len_str, 4> str_arr = {
+					strlit("Player kills"), strlit("Drone kills"), strlit("Nectar per second"),
+					strlit("Nectar")
+				};
+
+				// @Note(tkap, 17/10/2024): Toggle buttons
+				{
+					s_pos_area area = make_horizontal_layout(wxy(0.0f, 0.95f), c_base_button_size, 8, 0);
+					for(int i = 0; i < 4; i += 1) {
+						s_ui_optional optional = zero;
+						optional.font_size = 20;
+						if(!game->statistics_show_arr[i]) {
+							optional.darken = 0.5f;
+						}
+						if(ui_button(str_arr[i], pos_area_get_advance(&area), optional)) {
+							game->statistics_show_arr[i] = !game->statistics_show_arr[i];
+						}
+					}
+
+					pos_area_get_advance(&area);
+					if(ui_button(strlit("Back"), pos_area_get_advance(&area), {.font_size = 20})) {
+						go_back_to_prev_state();
+					}
+				}
+
+				// @Note(tkap, 17/10/2024): Figure out max value
+				for(int i = 0; i < ptr_arr.max_elements(); i += 1) {
+					if(!game->statistics_show_arr[i]) { continue; }
+					for(int point_i = 0; point_i < count; point_i += 1) {
+						float curr_val = 0;
+						if(i == 2) {
+							float* ptr = (float*)ptr_arr[i];
+							curr_val = ptr[point_i];
+						}
+						else {
+							int* ptr = (int*)ptr_arr[i];
+							curr_val = (float)ptr[point_i];
+						}
+						max_val = max(max_val, curr_val);
+					}
+				}
+
+				for(int i = 0; i < ptr_arr.max_elements(); i += 1) {
+					if(!game->statistics_show_arr[i]) { continue; }
 					s_v2 prev_pos = base_pos;
 					for(int point_i = 0; point_i < count; point_i += 1) {
-						int curr_val = arr[i][point_i];
-						// @TODO(tkap, 16/10/2024): handle 0 kills
-						float p = curr_val / (float)max_value;
-						s_v2 pos = base_pos;
-						pos.x += point_i * width;
-						pos.y -=  c_base_res.y * p;
-						draw_line(g_r, prev_pos, pos, 0, 2, color_arr[i], game->ui_render_pass0);
-						prev_pos = pos;
-
-						if(mouse_collides_rect_center(g_mouse, pos, v2(32))) {
-							foo = {.index = i, .val = curr_val, .pos = pos};
-							hovered = true;
+						float curr_val = 0;
+						if(i == 2) {
+							float* ptr = (float*)ptr_arr[i];
+							curr_val = ptr[point_i];
 						}
+						else {
+							int* ptr = (int*)ptr_arr[i];
+							curr_val = (float)ptr[point_i];
+						}
+						// @TODO(tkap, 16/10/2024): handle 0 kills
+						float p0 = index_count_safe_div(point_i, count);
+						float p1 = curr_val / max_val;
+						p0 *= 0.8f;
+						p1 *= 0.8f;
+						s_v2 pos = base_pos;
+						pos.x += p0 * c_base_res.x;
+						pos.y -= c_base_res.y * p1;
+
+						draw_line(g_r, prev_pos, pos, 0, 2, color_arr[i], game->ui_render_pass0);
+
+						float dist = 0;
+						if(point_vs_line(g_mouse, prev_pos, pos, 16, &dist)) {
+							if(dist < smallest_dist) {
+								smallest_dist = dist;
+								hovered_point = {.index = i, .val = curr_val, .pos = pos};
+								hovered = true;
+							}
+						}
+						prev_pos = pos;
 					}
 				}
 				if(hovered) {
-					draw_text(g_r, format_text("%.*s%i", expand_str(str_arr[foo.index]), foo.val), foo.pos, 10, 32, make_color(1), true, game->font, game->ui_render_pass1);
+					s_len_str str = format_text("%.*s: %.0f", expand_str(str_arr[hovered_point.index]), hovered_point.val);
+					s_v2 text_size = get_text_size(str, game->font, 32);
+					s_v2 pos = hovered_point.pos + v2(0, 8);
+					draw_circle(g_r, hovered_point.pos, 0, 4, make_color(0.486f, 0.848f, 0.895f), game->ui_render_pass2);
+					s_rectf rect = fit_rect(pos, text_size, c_base_res_bounds);
+					draw_text(g_r, str, rect.pos, 10, 32, make_color(1), false, game->font, game->ui_render_pass3);
 				}
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		graph end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-			s_ui_optional optional = zero;
-			optional.size_x = c_base_button_size2.x;
-			optional.size_y = c_base_button_size2.y;
-			if(ui_button(strlit("Back"), wxy(0.75f, 0.92f), optional)) {
-				go_back_to_prev_state();
-			}
 
 		} break;
 
