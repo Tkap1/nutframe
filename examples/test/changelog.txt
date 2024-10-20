@@ -65,3 +65,7 @@
 *Bug fixes*
 - Fixed a bug where the leaderboard screen showed nectar stats even if you were not coming from a victory
 ===============================================================================================
+
+*Misc*
+- Added a controls menu
+===============================================================================================

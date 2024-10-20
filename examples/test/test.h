@@ -44,6 +44,7 @@ global constexpr int c_max_statistics_index = 3600; // @Note(tkap, 16/10/2024): 
 global constexpr float c_deposit_spawn_rate_buff_per_upgrade = 25;
 global constexpr int c_deposit_health_multi_per_upgrade = 60;
 global constexpr int c_dash_cooldown_speed_per_upgrade = 60;
+global constexpr float c_base_font_size = 48;
 
 enum e_action
 {
@@ -52,6 +53,15 @@ enum e_action
 	e_action_up,
 	e_action_down,
 	e_action_dash,
+	e_action_count,
+};
+
+constexpr s_len_str c_action_name_arr[] = {
+	m_strlit("Move left"),
+	m_strlit("Move right"),
+	m_strlit("Move up"),
+	m_strlit("Move down"),
+	m_strlit("Dash"),
 };
 
 enum e_creature
@@ -67,6 +77,7 @@ enum e_sub_state
 	e_sub_state_defeat,
 	e_sub_state_level_up,
 	e_sub_state_winning,
+	e_sub_state_controls,
 };
 
 enum e_sound
@@ -480,6 +491,7 @@ struct s_button_interaction
 
 struct s_ui_optional
 {
+	b8 disabled;
 	s_len_str description;
 	float darken = 1.0f;
 	float font_size;
@@ -615,6 +627,9 @@ struct s_game
 	b8 dash_to_keyboard;
 	b8 click_consumed;
 	b8 do_instant_camera;
+	b8 waiting_for_key;
+	int target_action;
+	int target_key;
 
 	s_hold_input hold_input;
 	s_press_input press_input;

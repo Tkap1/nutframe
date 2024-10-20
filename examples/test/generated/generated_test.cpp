@@ -27,6 +27,7 @@ func s_pos_area make_pos_area(s_v2 pos, s_v2 size, s_v2 element_size, float spac
 func s_pos_area make_horizontal_layout(s_v2 pos, s_v2 element_size, float spacing, int flags);
 func s_pos_area make_vertical_layout(s_v2 pos, s_v2 element_size, float spacing, int flags);
 func s_v2 pos_area_get_advance(s_pos_area* area);
+func s_v2 pos_area_get_advance(s_pos_area* area, float advance_x, float advance_y);
 func int get_player_damage();
 func int get_bot_damage();
 func float get_player_movement_speed();
@@ -73,6 +74,7 @@ func float ticks_to_seconds(int ticks);
 func s_carray<float, 3> ticks_to_seconds2(int ticks, float interp_dt);
 func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser_color, float interp_dt);
 func void do_options_menu(b8 in_play_mode);
+func void do_controls_menu(b8 in_play_mode);
 func e_state get_state();
 func void go_back_to_prev_state();
 func void add_resource(int amount);

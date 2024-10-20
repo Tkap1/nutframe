@@ -1373,6 +1373,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		options pause menu end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			else if(play_state->sub_state == e_sub_state_controls) {
+				do_controls_menu(true);
+			}
+
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		level up menu start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(play_state->sub_state == e_sub_state_level_up) {
 
@@ -1520,6 +1524,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			if(state->sub_state == e_sub_state_pause) {
 				do_options_menu(false);
+			}
+
+			else if(state->sub_state == e_sub_state_controls) {
+				do_controls_menu(false);
 			}
 
 		} break;
@@ -1944,7 +1952,7 @@ func s_button_interaction ui_button_interaction(s_len_str id_str, s_v2 pos, s_ui
 		result.size.y = optional.size_y;
 	}
 
-	result.hovered = mouse_collides_rect_topleft(g_mouse, pos, result.size);
+	result.hovered = !optional.disabled && mouse_collides_rect_topleft(g_mouse, pos, result.size);
 
 	if(result.hovered && is_mouse_clicked()) {
 		game->click_consumed = true;
@@ -1965,7 +1973,7 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 {
 	s_button_interaction interaction = ui_button_interaction(id_str, pos, optional);
 
-	float font_size = 48;
+	float font_size = c_base_font_size;
 	if(optional.font_size > 0) {
 		font_size = optional.font_size;
 	}
@@ -2385,6 +2393,14 @@ func s_v2 pos_area_get_advance(s_pos_area* area)
 	return result;
 }
 
+func s_v2 pos_area_get_advance(s_pos_area* area, float advance_x, float advance_y)
+{
+	s_v2 result = area->pos;
+	area->pos.x += area->advance.x * advance_x;
+	area->pos.y += area->advance.y * advance_y;
+	return result;
+}
+
 func int get_player_damage()
 {
 	return 2 + game->play_state.upgrade_level_arr[e_upgrade_player_damage];
@@ -2798,7 +2814,7 @@ func int add_exp(s_player* player, int to_add)
 func b8 game_is_paused()
 {
 	e_sub_state s = game->play_state.sub_state;
-	return s == e_sub_state_pause || s == e_sub_state_defeat || s == e_sub_state_level_up;
+	return s == e_sub_state_pause || s == e_sub_state_defeat || s == e_sub_state_level_up || s == e_sub_state_controls;
 }
 
 func b8 can_pause()
@@ -2874,7 +2890,7 @@ func void do_options_menu(b8 in_play_mode)
 	button_size.y += 12;
 	s_ui_optional optional = zero;
 	s_play_state* play_state = &game->play_state;
-	int button_count = in_play_mode ? 10 : 8;
+	int button_count = in_play_mode ? 11 : 9;
 	optional.size_x = button_size.x;
 	optional.size_y = button_size.y;
 
@@ -2886,6 +2902,14 @@ func void do_options_menu(b8 in_play_mode)
 		set_state_next_frame(e_state_leaderboard);
 		if constexpr(c_are_we_on_web) {
 			on_leaderboard_score_submitted();
+		}
+	}
+	if(ui_button(strlit("Controls"), pos_area_get_advance(&area), optional)) {
+		if(in_play_mode) {
+			game->play_state.sub_state = e_sub_state_controls;
+		}
+		else {
+			game->main_menu.sub_state = e_sub_state_controls;
 		}
 	}
 	if(ui_button(format_text("Sounds: %s", game->sound_disabled ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
@@ -2917,7 +2941,79 @@ func void do_options_menu(b8 in_play_mode)
 	if(in_play_mode && ui_button_with_confirmation(strlit("Exit"), strlit("Are you sure?"), pos_area_get_advance(&area), optional)) {
 		go_back_to_prev_state();
 	}
+}
 
+func void do_controls_menu(b8 in_play_mode)
+{
+	s_v2 button_size = c_base_button_size2;
+	button_size.y += 12;
+	s_ui_optional optional = zero;
+	optional.size_x = button_size.x;
+	optional.size_y = button_size.y;
+	optional.disabled = game->waiting_for_key;
+	s_pos_area area = make_vertical_layout(wxy(0.15f, 0.3f), button_size, 8, 0);
+
+	if(game->waiting_for_key) {
+		draw_text(g_r, m_strlit("Press a key"), wxy(0.5f, 0.1f), 0, 64 * sin_range(1, 1.25f, game->render_time * 8.0f), make_color(1), true, game->font, game->ui_render_pass1);
+		draw_text(g_r, m_strlit("Press escape to cancel..."), wxy(0.5f, 0.18f), 0, 40, make_color(0.66f), true, game->font, game->ui_render_pass1);
+		foreach_val(event_i, event, g_input->key_events) {
+			if(event.went_down && is_valid_keybind(event.key)) {
+				g_platform_data->action_key_arr[game->target_action][game->target_key] = event.key;
+				game->waiting_for_key = false;
+				break;
+			}
+		}
+	}
+
+	for_enum(action_i, e_action) {
+		s_pos_area temp_area = make_horizontal_layout(pos_area_get_advance(&area), button_size, 8, 0);
+		s_v2 text_pos = pos_area_get_advance(&temp_area);
+		text_pos.y += button_size.y * 0.5f;
+		text_pos.y -= c_base_font_size * 0.5f;
+		draw_text(g_r, c_action_name_arr[action_i], text_pos, 0, c_base_font_size, make_color(1), false, game->font, game->ui_render_pass1);
+		for(int key_i = 0; key_i < 2; key_i += 1) {
+			s_v2 button_pos = pos_area_get_advance(&temp_area);
+			s_v2 x_pos = pos_area_get_advance(&temp_area, 0.2f, 1.0f);
+			int* key = &g_platform_data->action_key_arr[action_i][key_i];
+			s_len_str str = virtual_key_to_str(*key);
+			if(str.len <= 0) {
+				str = format_text(" ##key%i%i", action_i, key_i);
+			}
+			if(ui_button(format_text("%.*s", expand_str(str)), button_pos, optional)) {
+				game->waiting_for_key = true;
+				game->target_action = action_i;
+				game->target_key = key_i;
+			}
+			s_ui_optional temp_optional = optional;
+			temp_optional.size_x = 40;
+			if(ui_button(m_strlit("x"), x_pos, temp_optional)) {
+				*key = 0;
+			}
+		}
+	}
+
+	b8 want_to_exit = false;
+	if(ui_button(strlit("Back"), wxy(0.75f, 0.9f), optional)) {
+		want_to_exit = true;
+	}
+
+	if(is_key_pressed(g_input, c_key_escape)) {
+		if(game->waiting_for_key) {
+			game->waiting_for_key = false;
+		}
+		else {
+			want_to_exit = true;
+		}
+	}
+
+	if(want_to_exit) {
+		if(in_play_mode) {
+			game->play_state.sub_state = e_sub_state_pause;
+		}
+		else {
+			game->main_menu.sub_state = e_sub_state_pause;
+		}
+	}
 }
 
 func e_state get_state()

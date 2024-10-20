@@ -801,7 +801,7 @@ static s_len_str strlit(char* s)
 {
 	char* match = strstr(x.str, needle.str);
 	if(match) {
-		return {.str = match, .len = (int)(match - x.str)};
+		return {.str = match, .len = (int)((x.str + x.len) - match)};
 	}
 	else {
 		return {};
@@ -2814,6 +2814,18 @@ static constexpr int c_key_f9 = 0x78;
 static constexpr int c_key_f10 = 0x79;
 static constexpr int c_key_f11 = 0x7A;
 static constexpr int c_key_f12 = 0x7B;
+static constexpr int c_key_f13 = 0x7C;
+static constexpr int c_key_f14 = 0x7D;
+static constexpr int c_key_f15 = 0x7E;
+static constexpr int c_key_f16 = 0x7F;
+static constexpr int c_key_f17 = 0x80;
+static constexpr int c_key_f18 = 0x81;
+static constexpr int c_key_f19 = 0x82;
+static constexpr int c_key_f20 = 0x83;
+static constexpr int c_key_f21 = 0x84;
+static constexpr int c_key_f22 = 0x85;
+static constexpr int c_key_f23 = 0x86;
+static constexpr int c_key_f24 = 0x87;
 static constexpr int c_key_left_shift = 0xA0;
 static constexpr int c_key_right_shift = 0xA1;
 static constexpr int c_key_left_ctrl = 0xA2;
@@ -6508,4 +6520,45 @@ static b8 is_action_pressed(s_platform_data* pd, s_input* input, int id)
 	int key0 = pd->action_key_arr[id][0];
 	int key1 = pd->action_key_arr[id][1];
 	return (is_key_pressed(input, key0) || is_key_pressed(input, key1));
+}
+
+static s_len_str virtual_key_to_str(int key)
+{
+	if(key >= 'A' && key <= 'Z') {
+		return format_text("%c", key);
+	}
+	else if(key >= '0' && key <= '9') {
+		return format_text("%c", key);
+	}
+	else if(key >= c_key_f1 && key <= c_key_f24) {
+		return format_text("F%i", key - c_key_f1 + 1);
+	}
+	else if(key == c_key_space) {
+		return m_strlit("Space");
+	}
+	else if(key == c_key_left) {
+		return m_strlit("Left");
+	}
+	else if(key == c_key_right) {
+		return m_strlit("Right");
+	}
+	else if(key == c_key_up) {
+		return m_strlit("Up");
+	}
+	else if(key == c_key_down) {
+		return m_strlit("Down");
+	}
+	else if(key == c_left_mouse) {
+		return m_strlit("LMB");
+	}
+	else if(key == c_right_mouse) {
+		return m_strlit("RMB");
+	}
+	return {};
+}
+
+static b8 is_valid_keybind(int key)
+{
+	s_len_str str = virtual_key_to_str(key);
+	return str.len > 0;
 }
