@@ -270,8 +270,7 @@ static void do_one_frame()
 
 				// @Note(tkap, 11/11/2023): SDL does not give us a text input event for backspace, so let's hack it
 				if(key == c_key_backspace && is_down) {
-					g_platform_data.logic_input.char_events.add('\b');
-					g_platform_data.render_input.char_events.add('\b');
+					g_platform_data.input.char_events.add('\b');
 				}
 
 			} break;
@@ -286,14 +285,12 @@ static void do_one_frame()
 
 			case SDL_TEXTINPUT: {
 				char c = e.text.text[0];
-				g_platform_data.logic_input.char_events.add((char)c);
-				g_platform_data.render_input.char_events.add((char)c);
+				g_platform_data.input.char_events.add((char)c);
 			} break;
 
 			case SDL_MOUSEWHEEL: {
 				float movement = (float)e.wheel.y;
-				g_platform_data.logic_input.wheel_movement = movement / 120;
-				g_platform_data.render_input.wheel_movement = movement / 120;
+				g_platform_data.input.wheel_movement = movement / 120;
 			} break;
 		}
 	}

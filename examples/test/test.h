@@ -45,6 +45,15 @@ global constexpr float c_deposit_spawn_rate_buff_per_upgrade = 25;
 global constexpr int c_deposit_health_multi_per_upgrade = 60;
 global constexpr int c_dash_cooldown_speed_per_upgrade = 60;
 
+enum e_action
+{
+	e_action_left,
+	e_action_right,
+	e_action_up,
+	e_action_down,
+	e_action_dash,
+};
+
 enum e_creature
 {
 	e_creature_ant,
@@ -582,6 +591,19 @@ struct s_damage_creature
 	int resource_gain_from_deposit;
 };
 
+struct s_hold_input
+{
+	b8 left;
+	b8 right;
+	b8 up;
+	b8 down;
+};
+
+struct s_press_input
+{
+	b8 dash;
+};
+
 struct s_game
 {
 	b8 initialized;
@@ -593,6 +615,9 @@ struct s_game
 	b8 dash_to_keyboard;
 	b8 click_consumed;
 	b8 do_instant_camera;
+
+	s_hold_input hold_input;
+	s_press_input press_input;
 
 	s_hashmap<u32, s_ui_data, 1024> ui_table;
 

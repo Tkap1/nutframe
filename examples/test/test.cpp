@@ -34,11 +34,10 @@ m_dll_export void init_game(s_platform_data* platform_data)
 	platform_data->update_delay = c_update_delay;
 }
 
-m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
+m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, b8 is_last_update_this_frame)
 {
 
 	game = (s_game*)game_memory;
-	g_input = &platform_data->logic_input;
 	g_mouse = platform_data->mouse;
 	g_r = renderer;
 	g_platform_data = platform_data;
@@ -130,6 +129,12 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		for(int i = 0; i < game->statistics_show_arr.max_elements(); i += 1) {
 			game->statistics_show_arr[i] = true;
 		}
+
+		register_action(g_platform_data, e_action_left, c_key_a, c_key_left);
+		register_action(g_platform_data, e_action_right, c_key_d, c_key_right);
+		register_action(g_platform_data, e_action_up, c_key_w, c_key_up);
+		register_action(g_platform_data, e_action_down, c_key_s, c_key_down);
+		register_action(g_platform_data, e_action_dash, c_key_space, c_right_mouse);
 
 		#if defined(m_debug)
 		game->hide_tutorial = true;
@@ -323,25 +328,25 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_player* player = &game->play_state.player;
 				s_v2 dir = zero;
-				if(is_key_down(g_input, c_key_a) || is_key_down(g_input, c_key_left)) {
+				if(game->hold_input.left) {
 					dir.x -= 1;
 					state->has_player_performed_any_action = true;
 				}
-				if(is_key_down(g_input, c_key_d) || is_key_down(g_input, c_key_right)) {
+				if(game->hold_input.right) {
 					dir.x += 1;
 					state->has_player_performed_any_action = true;
 				}
-				if(is_key_down(g_input, c_key_w) || is_key_down(g_input, c_key_up)) {
+				if(game->hold_input.up) {
 					dir.y -= 1;
 					state->has_player_performed_any_action = true;
 				}
-				if(is_key_down(g_input, c_key_s) || is_key_down(g_input, c_key_down)) {
+				if(game->hold_input.down) {
 					dir.y += 1;
 					state->has_player_performed_any_action = true;
 				}
 				dir = v2_normalized(dir);
 
-				if(is_key_pressed(g_input, c_key_space) || is_key_pressed(g_input, c_right_mouse)) {
+				if(game->press_input.dash) {
 					player->wanted_to_dash_timestamp = state->update_count;
 					if(game->dash_to_keyboard) {
 						if(v2_length(dir) > 0) {
@@ -666,6 +671,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		} break;
 		// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		play state update end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 	}
+
+	if(is_last_update_this_frame) {
+		game->hold_input = zero;
+	}
+	game->press_input = zero;
 }
 
 m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, float interp_dt)
@@ -676,7 +686,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 	game = (s_game*)game_memory;
 	g_r = renderer;
-	g_input = &platform_data->render_input;
+	g_input = &platform_data->input;
 	g_platform_data = platform_data;
 
 	live_variable(&platform_data->vars, c_player_movement_speed, 0.0f, 100.0f, true);
@@ -780,6 +790,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		play state draw start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 		case e_state_play: {
+
+			game->hold_input.left |= is_action_down(g_platform_data, g_input, e_action_left);
+			game->hold_input.right |= is_action_down(g_platform_data, g_input, e_action_right);
+			game->hold_input.up |= is_action_down(g_platform_data, g_input, e_action_up);
+			game->hold_input.down |= is_action_down(g_platform_data, g_input, e_action_down);
+
+			game->press_input.dash |= is_action_pressed(g_platform_data, g_input, e_action_dash);
 
 			float laser_light_radius = sin_range(120, 128, game->render_time * 32.0f);
 

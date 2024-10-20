@@ -223,6 +223,8 @@ static constexpr f64 epsilon64 = 0.000000001;
 
 static constexpr int c_max_shaders = 32;
 
+static constexpr int c_max_actions = 64;
+
 #define rad2deg (pi * 180)
 #define deg2rad (pi / 180)
 
@@ -3057,6 +3059,9 @@ struct s_platform_data
 	b8 window_resized;
 	b8 game_called_set_window_size;
 
+	s_carray<b8, c_max_actions> action_active_arr;
+	s_carray2<int, c_max_actions, 2> action_key_arr;
+
 	#ifdef m_debug
 	int recorded_input_index;
 	s_recorded_input recorded_input;
@@ -3089,8 +3094,7 @@ struct s_platform_data
 
 	int window_width;
 	int window_height;
-	s_input logic_input;
-	s_input render_input;
+	s_input input;
 	s_lin_arena permanent_arena;
 	s_lin_arena* frame_arena;
 	s_v2 mouse;
@@ -3175,13 +3179,13 @@ struct s_game_renderer
 	s_sarray<s_font, 4> fonts;
 };
 
-typedef void (t_update)(s_platform_data*, void*, s_game_renderer*);
+typedef void (t_update)(s_platform_data*, void*, s_game_renderer*, b8);
 typedef void (t_render)(s_platform_data*, void*, s_game_renderer*, float);
 #ifdef m_build_dll
 typedef void (t_init_game)(s_platform_data*);
 #else // m_build_dll
 void init_game(s_platform_data* platform_data);
-void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer);
+void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, b8 is_last_update_this_frame);
 void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, float interp_dt);
 #endif
 
@@ -4093,7 +4097,7 @@ static void update_console(s_console* cn, s_game_renderer* game_renderer)
 {
 	b8 is_open = cn->target_y > 0;
 
-	s_input* input = &g_platform_data.render_input;
+	s_input* input = &g_platform_data.input;
 
 	if(is_key_pressed(input, c_key_f7)) {
 		if(is_open) {
@@ -4263,7 +4267,7 @@ static void do_game_layer(
 		);
 	}
 
-	if(is_key_down(&g_platform_data.logic_input, c_key_left_alt) && is_key_down(&g_platform_data.logic_input, c_key_f4)) {
+	if(is_key_down(&g_platform_data.input, c_key_left_alt) && is_key_down(&g_platform_data.input, c_key_f4)) {
 		exit(0);
 	}
 
@@ -4272,7 +4276,7 @@ static void do_game_layer(
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		save states start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 	{
-		if(is_key_pressed(&g_platform_data.render_input, c_key_f10)) {
+		if(is_key_pressed(&g_platform_data.input, c_key_f10)) {
 			if(g_platform_data.recording_input) {
 				g_platform_data.recording_input = false;
 				write_file("recorded_input", &g_platform_data.recorded_input, sizeof(g_platform_data.recorded_input));
@@ -4280,19 +4284,19 @@ static void do_game_layer(
 			}
 			else {
 				write_file(save_state_path, game_memory, c_game_memory);
-				if(is_key_down(&g_platform_data.logic_input, c_key_left_ctrl)) {
+				if(is_key_down(&g_platform_data.input, c_key_left_ctrl)) {
 					g_platform_data.recording_input = true;
 					g_platform_data.recorded_input.starting_update = g_platform_data.update_count;
 					log_info("Recording started\n");
 				}
 			}
 		}
-		if(is_key_pressed(&g_platform_data.render_input, c_key_f11)) {
+		if(is_key_pressed(&g_platform_data.input, c_key_f11)) {
 			u8* data = (u8*)read_file(save_state_path, g_platform_data.frame_arena, NULL);
 			if(data) {
 				memcpy(game_memory, data, c_game_memory);
 				g_platform_data.loaded_a_state = true;
-				if(is_key_down(&g_platform_data.logic_input, c_key_left_ctrl)) {
+				if(is_key_down(&g_platform_data.input, c_key_left_ctrl)) {
 					begin_replaying_input();
 					log_info("Begin replay\n");
 				}
@@ -4304,13 +4308,13 @@ static void do_game_layer(
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		save states end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-	if(is_key_pressed(&g_platform_data.render_input, c_key_f8)) {
+	if(is_key_pressed(&g_platform_data.input, c_key_f8)) {
 		g_platform_data.show_live_vars = !g_platform_data.show_live_vars;
 	}
 
 	if(g_platform_data.show_live_vars) {
 		s_v2 pos = g_platform_data.vars_pos;
-		s_ui_interaction interaction = ui_button(game_renderer, strlit("Move"), pos, v2(32), NULL, 32, &g_platform_data.logic_input, g_platform_data.mouse);
+		s_ui_interaction interaction = ui_button(game_renderer, strlit("Move"), pos, v2(32), NULL, 32, &g_platform_data.input, g_platform_data.mouse);
 		if(interaction.state == e_ui_pressed) {
 			if(interaction.pressed_this_frame) {
 				g_platform_data.vars_pos_offset = g_platform_data.mouse - pos;
@@ -4337,25 +4341,25 @@ static void do_game_layer(
 			if(var.type == e_var_type_int) {
 				*(int*)var.ptr = ui_slider(
 					game_renderer, var.name, slider_pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size,
-					var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, &g_platform_data.logic_input, g_platform_data.mouse
+					var.min_val.val_int, var.max_val.val_int, *(int*)var.ptr, &g_platform_data.input, g_platform_data.mouse
 				);
 			}
 			else if(var.type == e_var_type_float) {
 				*(float*)var.ptr = ui_slider(
 					game_renderer, var.name, slider_pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size,
-					var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr, &g_platform_data.logic_input, g_platform_data.mouse
+					var.min_val.val_float, var.max_val.val_float, *(float*)var.ptr, &g_platform_data.input, g_platform_data.mouse
 				);
 			}
 			else if(var.type == e_var_type_bool) {
 				s_v2 temp = slider_pos;
 				temp.x += 100 - button_height / 2.0f;
-				ui_checkbox(game_renderer, strlit(var.name), temp, v2(button_height), (b8*)var.ptr, &g_platform_data.logic_input, g_platform_data.mouse);
+				ui_checkbox(game_renderer, strlit(var.name), temp, v2(button_height), (b8*)var.ptr, &g_platform_data.input, g_platform_data.mouse);
 			}
 			pos.y += button_height + 4.0f;
 		}
 
 		if(ui_button(
-				game_renderer, strlit("Save"), pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size, &g_platform_data.logic_input, g_platform_data.mouse
+				game_renderer, strlit("Save"), pos, v2(200.0f, button_height), &game_renderer->fonts[0], font_size, &g_platform_data.input, g_platform_data.mouse
 			).state == e_ui_active) {
 			s_str_builder<10 * c_kb> builder;
 			foreach_val(var_i, var, g_platform_data.vars) {
@@ -4388,12 +4392,12 @@ static void do_game_layer(
 	}
 	f64 delay = g_platform_data.update_delay;
 
-	if(game_renderer->game_speed_index == 0 && is_key_pressed(&g_platform_data.render_input, c_key_right)) {
+	if(game_renderer->game_speed_index == 0 && is_key_pressed(&g_platform_data.input, c_key_right)) {
 		g_platform_data.update_time += delay;
 	}
 
 	f64 time = at_most(0.2, g_platform_data.update_time);
-	while(time > delay || g_platform_data.update_count <= 0) {
+	while(time >= delay || g_platform_data.update_count <= 0) {
 		g_platform_data.update_time -= delay;
 		time -= delay;
 
@@ -4421,8 +4425,7 @@ static void do_game_layer(
 				if(key.update_count > frame) {
 					break;
 				}
-				apply_event_to_input(&g_platform_data.logic_input, key.input);
-				apply_event_to_input(&g_platform_data.render_input, key.input);
+				apply_event_to_input(&g_platform_data.input, key.input);
 				g_platform_data.recorded_input.keys.remove_and_shift(key_i--);
 			}
 
@@ -4430,16 +4433,10 @@ static void do_game_layer(
 		}
 		#endif // m_debug
 
-		update(&g_platform_data, game_memory, game_renderer);
+		b8 is_last_update_this_frame = !(time >= delay);
+		update(&g_platform_data, game_memory, game_renderer, is_last_update_this_frame);
 		g_platform_data.update_count += 1;
 		g_platform_data.recompiled = false;
-		g_platform_data.logic_input.wheel_movement = 0;
-
-		for(int i = 0; i < c_max_keys; i++) {
-			g_platform_data.logic_input.keys[i].count = 0;
-		}
-		g_platform_data.logic_input.char_events.count = 0;
-		g_platform_data.logic_input.key_events.count = 0;
 
 		#ifdef m_debug
 		g_platform_data.loaded_a_state = false;
@@ -4460,14 +4457,14 @@ static void do_game_layer(
 	}
 
 	g_platform_data.render_count += 1;
-	g_platform_data.render_input.wheel_movement = 0;
+	g_platform_data.input.wheel_movement = 0;
 
 	reset_ui();
 	for(int i = 0; i < c_max_keys; i++) {
-		g_platform_data.render_input.keys[i].count = 0;
+		g_platform_data.input.keys[i].count = 0;
 	}
-	g_platform_data.render_input.char_events.count = 0;
-	g_platform_data.render_input.key_events.count = 0;
+	g_platform_data.input.char_events.count = 0;
+	g_platform_data.input.key_events.count = 0;
 
 	if(g_do_embed) {
 		write_embed_file();
@@ -5460,8 +5457,7 @@ static void handle_key_event(int key, b8 is_down, b8 is_repeat)
 			s_stored_input si = {};
 			si.key = key;
 			si.is_down = is_down;
-			apply_event_to_input(&g_platform_data.logic_input, si);
-			apply_event_to_input(&g_platform_data.render_input, si);
+			apply_event_to_input(&g_platform_data.input, si);
 			g_platform_data.any_key_pressed = true;
 		}
 
@@ -5478,9 +5474,8 @@ static void handle_key_event(int key, b8 is_down, b8 is_repeat)
 			s_key_event key_event = {};
 			key_event.went_down = is_down;
 			key_event.key = key;
-			key_event.modifiers |= e_input_modifier_ctrl * is_key_down(&g_platform_data.logic_input, c_key_left_ctrl);
-			g_platform_data.logic_input.key_events.add(key_event);
-			g_platform_data.render_input.key_events.add(key_event);
+			key_event.modifiers |= e_input_modifier_ctrl * is_key_down(&g_platform_data.input, c_key_left_ctrl);
+			g_platform_data.input.key_events.add(key_event);
 		}
 	}
 }
@@ -6489,4 +6484,28 @@ static b8 point_vs_line(s_v2 point, s_v2 from, s_v2 to, float thickness, float* 
 		*out_dist = d3;
 	}
 	return (d3 >= line_len - thickness) && (d3 <= line_len + thickness);
+}
+
+static void register_action(s_platform_data* pd, int id, int key0, int key1)
+{
+	assert(!pd->action_active_arr[id]);
+	pd->action_active_arr[id] = true;
+	pd->action_key_arr[id][0] = key0;
+	pd->action_key_arr[id][1] = key1;
+}
+
+static b8 is_action_down(s_platform_data* pd, s_input* input, int id)
+{
+	assert(pd->action_active_arr[id]);
+	int key0 = pd->action_key_arr[id][0];
+	int key1 = pd->action_key_arr[id][1];
+	return (is_key_down(input, key0) || is_key_down(input, key1));
+}
+
+static b8 is_action_pressed(s_platform_data* pd, s_input* input, int id)
+{
+	assert(pd->action_active_arr[id]);
+	int key0 = pd->action_key_arr[id][0];
+	int key1 = pd->action_key_arr[id][1];
+	return (is_key_pressed(input, key0) || is_key_pressed(input, key1));
 }

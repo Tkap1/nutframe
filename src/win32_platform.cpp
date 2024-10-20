@@ -372,8 +372,7 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 
 		case WM_ACTIVATE: {
 			for(int i = 0; i < c_max_keys; i++) {
-				g_platform_data.logic_input.keys[i] = {};
-				g_platform_data.render_input.keys[i] = {};
+				g_platform_data.input.keys[i] = {};
 			}
 		} break;
 
@@ -397,8 +396,7 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 		case WM_MOUSEWHEEL:
 		{
 			int movement = GET_WHEEL_DELTA_WPARAM(wparam);
-			g_platform_data.logic_input.wheel_movement = (float)movement / 120.0f;
-			g_platform_data.render_input.wheel_movement = (float)movement / 120.0f;
+			g_platform_data.input.wheel_movement = (float)movement / 120.0f;
 		} break;
 
 
@@ -417,8 +415,7 @@ LRESULT window_proc(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 		case WM_CHAR: {
 			int c = (int)wparam;
 			if(c >= 0 && c <= 126) {
-				g_platform_data.logic_input.char_events.add((char)c);
-				g_platform_data.render_input.char_events.add((char)c);
+				g_platform_data.input.char_events.add((char)c);
 			}
 		} break;
 
