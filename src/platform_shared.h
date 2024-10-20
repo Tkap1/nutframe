@@ -3213,6 +3213,15 @@ static s_framebuffer* make_framebuffer_with_existing_depth(s_game_renderer* game
 // static void delete_framebuffer(s_game_renderer* game_renderer, s_framebuffer* fbo);
 #endif
 
+struct s_text_iterator
+{
+	int index;
+	s_len_str text;
+	s_sarray<s_v4, 4> color_stack;
+	s_v4 color;
+};
+
+
 // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		function headers start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 static s_v2 get_text_size_with_count(s_len_str text, s_font* font, float font_size, int count, int in_column = 0);
 static s_v2 get_text_size(s_len_str text, s_font* font, float font_size);
@@ -3224,6 +3233,7 @@ static s_len_str alloc_string(void* data, int len);
 static char* to_cstr(s_len_str str, s_lin_arena* arena);
 static s_render_pass* make_render_pass(s_game_renderer* gr, s_lin_arena* arena);
 static void when_shader_first_loaded(s_shader* shader);
+static b8 iterate_text(s_text_iterator* it, s_len_str text, s_v4 color);
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		function headers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
@@ -3266,7 +3276,7 @@ static int get_spaces_for_column(int column)
 }
 
 // @TODO(tkap, 31/10/2023): Handle new lines
-static s_v2 get_text_size_with_count(s_len_str text, s_font* font, float font_size, int count, int in_column)
+static s_v2 get_text_size_with_count(s_len_str in_text, s_font* font, float font_size, int count, int in_column)
 {
 	assert(count >= 0);
 	if(count <= 0) { return {}; }
@@ -3278,25 +3288,28 @@ static s_v2 get_text_size_with_count(s_len_str text, s_font* font, float font_si
 	float scale = font->scale * (font_size / font->size);
 	size.y = font_size;
 
-	for(int char_i = 0; char_i < count; char_i++)
-	{
-		char c = text[char_i];
-		s_glyph glyph = font->glyph_arr[c];
-		if(c == '\t') {
-			int spaces = get_spaces_for_column(column);
-			size.x += glyph.advance_width * scale * spaces;
-			column += spaces;
+	s_len_str text = substr_from_to_exclusive(in_text, 0, count);
+	s_text_iterator it = {};
+	while(iterate_text(&it, text, make_color(0))) {
+		for(int char_i = 0; char_i < it.text.len; char_i++) {
+			char c = it.text[char_i];
+			s_glyph glyph = font->glyph_arr[c];
+			if(c == '\t') {
+				int spaces = get_spaces_for_column(column);
+				size.x += glyph.advance_width * scale * spaces;
+				column += spaces;
+			}
+			else if(c == '\n') {
+				size.y += font_size;
+				size.x = 0;
+				column = 0;
+			}
+			else {
+				size.x += glyph.advance_width * scale;
+				column += 1;
+			}
+			max_width = max(size.x, max_width);
 		}
-		else if(c == '\n') {
-			size.y += font_size;
-			size.x = 0;
-			column = 0;
-		}
-		else {
-			size.x += glyph.advance_width * scale;
-			column += 1;
-		}
-		max_width = max(size.x, max_width);
 	}
 	size.x = max_width;
 
@@ -3626,6 +3639,85 @@ static void draw_atlas_3d(s_game_renderer* game_renderer, s_v3 pos, s_v2 size, s
 	draw_generic(game_renderer, &t, render_pass, render_data.shader, texture.game_id, e_mesh_rect);
 }
 
+static int hex_str_to_int(s_len_str str)
+{
+	int result = 0;
+	int tens = 0;
+	for(int i = str.len - 1; i >= 0; i -= 1) {
+		char c = str[i];
+		int val = 0;
+		if(is_number(c)) {
+			val = c - '0';
+		}
+		else if(c >= 'a' && c <= 'f') {
+			val = c - 'a' + 10;
+		}
+		else if(c >= 'A' && c <= 'F') {
+			val = c - 'A' + 10;
+		}
+		result += val * (int)powf(16, (float)tens);
+		tens += 1;
+	}
+	return result;
+}
+
+static b8 iterate_text(s_text_iterator* it, s_len_str text, s_v4 color)
+{
+	if(it->index >= text.len) { return false; }
+
+	if(it->color_stack.count <= 0) {
+		it->color_stack.add(color);
+	}
+
+	it->color = it->color_stack.get_last();
+
+	int index = it->index;
+	int advance = 0;
+	while(index < text.len) {
+		char c = text[index];
+		char next_c = index < text.len - 1 ? text[index + 1] : 0;
+		if(c == '$' && next_c == '$') {
+			s_len_str red_str = substr_from_to_exclusive(text, index + 2, index + 4);
+			s_len_str green_str = substr_from_to_exclusive(text, index + 4, index + 6);
+			s_len_str blue_str = substr_from_to_exclusive(text, index + 6, index + 8);
+			float red = hex_str_to_int(red_str) / 255.0f;
+			float green = hex_str_to_int(green_str) / 255.0f;
+			float blue = hex_str_to_int(blue_str) / 255.0f;
+			s_v4 temp_color = make_color(red, green, blue);
+			it->color_stack.add(temp_color);
+
+			if(index == it->index) {
+				index += 8;
+				it->index += 8;
+				it->color = it->color_stack.get_last();
+				continue;
+			}
+			else {
+				advance = 8;
+				break;
+			}
+		}
+		else if(c == '$' && next_c == '.') {
+			if(index == it->index) {
+				it->color_stack.pop();
+				it->color = it->color_stack.get_last();
+				index += 2;
+				it->index += 2;
+				continue;
+			}
+			else {
+				advance = 2;
+				it->color_stack.pop();
+				break;
+			}
+		}
+		index += 1;
+	}
+	it->text = substr_from_to_exclusive(text, it->index, index);
+	it->index = index + advance;
+	return true;
+}
+
 static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_pos, int layer, float font_size, s_v4 color, b8 centered, s_font* font, s_render_pass* render_pass = NULL, s_render_data render_data = {}, s_transform t = {})
 {
 	float scale = font->scale * (font_size / font->size);
@@ -3638,59 +3730,64 @@ static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_po
 	}
 	s_v2 pos = in_pos;
 	pos.y += font->ascent * scale;
-	for(int char_i = 0; char_i < text.len; char_i++) {
-		int c = text[char_i];
-		if(c <= 0 || c >= 128) { continue; }
 
-		if(c == '\n' || c == '\r') {
-			pos.x = in_pos.x;
-			pos.y += font_size;
-			continue;
+	s_text_iterator it = {};
+	while(iterate_text(&it, text, color)) {
+		for(int char_i = 0; char_i < it.text.len; char_i++) {
+			int c = it.text[char_i];
+			if(c <= 0 || c >= 128) { continue; }
+
+			if(c == '\n' || c == '\r') {
+				pos.x = in_pos.x;
+				pos.y += font_size;
+				continue;
+			}
+
+			s_glyph glyph = font->glyph_arr[c];
+			t.draw_size = v2((glyph.x1 - glyph.x0) * scale, (glyph.y1 - glyph.y0) * scale);
+
+			s_v2 glyph_pos = pos;
+			glyph_pos.x += glyph.x0 * scale;
+			glyph_pos.y += -glyph.y0 * scale;
+
+			// glyph_pos.y += font->ascent * scale;
+			// glyph_pos.y += font_size;
+			t.flags |= e_render_flag_use_texture | e_render_flag_text;
+			t.pos = v3(glyph_pos, -99.0f + layer * 2);
+
+			s_v2 center = t.pos.xy + t.draw_size / 2 * v2(1, -1);
+			s_v2 bottomleft = t.pos.xy;
+
+			// s_v2 topleft = t.pos + t.draw_size * v2(0, -1);
+			// draw_rect(t.pos, 1, t.draw_size, make_color(0.4f, 0,0), {}, {.origin_offset = c_origin_bottomleft});
+			// draw_rect(center, 75, v2(4), make_color(0, 1,0), {});
+			// draw_rect(topleft, 75, v2(4), make_color(0, 0,1), {}, {.origin_offset = c_origin_topleft});
+			// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), {}, {.origin_offset = c_origin_bottomleft});
+			// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), {}, {.origin_offset = c_origin_topleft});
+
+			t.pos.xy = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
+
+			s_m4 model = m4_translate(v3(t.pos.xy, -99.0f + layer * 2));
+			model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
+			// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
+			// if(!is_zero(t.rotation)) {
+			// 	model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+			// }
+			t.model = model;
+
+			t.color = it.color;
+			t.uv_min = glyph.uv_min;
+			t.uv_max = glyph.uv_max;
+			swap(&t.uv_min.y, &t.uv_max.y);
+			t.origin_offset = c_origin_bottomleft;
+
+			draw_generic(game_renderer, &t, render_pass, render_data.shader, font->texture.game_id, e_mesh_rect);
+
+			pos.x += glyph.advance_width * scale;
+
 		}
-
-		s_glyph glyph = font->glyph_arr[c];
-		t.draw_size = v2((glyph.x1 - glyph.x0) * scale, (glyph.y1 - glyph.y0) * scale);
-
-		s_v2 glyph_pos = pos;
-		glyph_pos.x += glyph.x0 * scale;
-		glyph_pos.y += -glyph.y0 * scale;
-
-		// glyph_pos.y += font->ascent * scale;
-		// glyph_pos.y += font_size;
-		t.flags |= e_render_flag_use_texture | e_render_flag_text;
-		t.pos = v3(glyph_pos, -99.0f + layer * 2);
-
-		s_v2 center = t.pos.xy + t.draw_size / 2 * v2(1, -1);
-		s_v2 bottomleft = t.pos.xy;
-
-		// s_v2 topleft = t.pos + t.draw_size * v2(0, -1);
-		// draw_rect(t.pos, 1, t.draw_size, make_color(0.4f, 0,0), {}, {.origin_offset = c_origin_bottomleft});
-		// draw_rect(center, 75, v2(4), make_color(0, 1,0), {});
-		// draw_rect(topleft, 75, v2(4), make_color(0, 0,1), {}, {.origin_offset = c_origin_topleft});
-		// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), {}, {.origin_offset = c_origin_bottomleft});
-		// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), {}, {.origin_offset = c_origin_topleft});
-
-		t.pos.xy = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
-
-		s_m4 model = m4_translate(v3(t.pos.xy, -99.0f + layer * 2));
-		model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
-		// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
-		// if(!is_zero(t.rotation)) {
-		// 	model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
-		// }
-		t.model = model;
-
-		t.color = color;
-		t.uv_min = glyph.uv_min;
-		t.uv_max = glyph.uv_max;
-		swap(&t.uv_min.y, &t.uv_max.y);
-		t.origin_offset = c_origin_bottomleft;
-
-		draw_generic(game_renderer, &t, render_pass, render_data.shader, font->texture.game_id, e_mesh_rect);
-
-		pos.x += glyph.advance_width * scale;
-
 	}
+
 	return v2(pos.x, in_pos.y);
 }
 
@@ -3706,58 +3803,62 @@ static s_v2 draw_text_3d(s_game_renderer* game_renderer, s_len_str text, s_v3 in
 	}
 	s_v2 pos = in_pos.xy;
 	pos.y += font->ascent * scale;
-	for(int char_i = 0; char_i < text.len; char_i++) {
-		int c = text[char_i];
-		if(c <= 0 || c >= 128) { continue; }
+	s_text_iterator it = {};
+	while(iterate_text(&it, text, color)) {
 
-		if(c == '\n' || c == '\r') {
-			pos.x = in_pos.x;
-			pos.y += font_size;
-			continue;
+		for(int char_i = 0; char_i < it.text.len; char_i++) {
+			int c = it.text[char_i];
+			if(c <= 0 || c >= 128) { continue; }
+
+			if(c == '\n' || c == '\r') {
+				pos.x = in_pos.x;
+				pos.y += font_size;
+				continue;
+			}
+
+			s_glyph glyph = font->glyph_arr[c];
+			t.draw_size = v2((glyph.x1 - glyph.x0) * scale, (glyph.y1 - glyph.y0) * scale);
+
+			s_v2 glyph_pos = pos;
+			glyph_pos.x += glyph.x0 * scale;
+			glyph_pos.y += -glyph.y0 * scale;
+
+			// glyph_pos.y += font->ascent * scale;
+			// glyph_pos.y += font_size;
+			t.flags |= e_render_flag_use_texture | e_render_flag_text;
+			t.pos = v3(glyph_pos, in_pos.z);
+
+			s_v2 center = t.pos.xy + t.draw_size / 2 * v2(1, -1);
+			s_v2 bottomleft = t.pos.xy;
+
+			// s_v2 topleft = t.pos + t.draw_size * v2(0, -1);
+			// draw_rect(t.pos, 1, t.draw_size, make_color(0.4f, 0,0), {}, {.origin_offset = c_origin_bottomleft});
+			// draw_rect(center, 75, v2(4), make_color(0, 1,0), {});
+			// draw_rect(topleft, 75, v2(4), make_color(0, 0,1), {}, {.origin_offset = c_origin_topleft});
+			// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), {}, {.origin_offset = c_origin_bottomleft});
+			// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), {}, {.origin_offset = c_origin_topleft});
+
+			t.pos.xy = v2_rotate_around(center, in_pos.xy, t.rotation) + (bottomleft - center);
+
+			s_m4 model = m4_translate(v3(t.pos.xy, in_pos.z));
+			model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
+			// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
+			// if(!is_zero(t.rotation)) {
+			// 	model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+			// }
+			t.model = model;
+
+			t.color = it.color;
+			t.uv_min = glyph.uv_min;
+			t.uv_max = glyph.uv_max;
+			swap(&t.uv_min.y, &t.uv_max.y);
+			t.origin_offset = c_origin_bottomleft;
+
+			draw_generic(game_renderer, &t, render_pass, render_data.shader, font->texture.game_id, e_mesh_rect);
+
+			pos.x += glyph.advance_width * scale;
+
 		}
-
-		s_glyph glyph = font->glyph_arr[c];
-		t.draw_size = v2((glyph.x1 - glyph.x0) * scale, (glyph.y1 - glyph.y0) * scale);
-
-		s_v2 glyph_pos = pos;
-		glyph_pos.x += glyph.x0 * scale;
-		glyph_pos.y += -glyph.y0 * scale;
-
-		// glyph_pos.y += font->ascent * scale;
-		// glyph_pos.y += font_size;
-		t.flags |= e_render_flag_use_texture | e_render_flag_text;
-		t.pos = v3(glyph_pos, in_pos.z);
-
-		s_v2 center = t.pos.xy + t.draw_size / 2 * v2(1, -1);
-		s_v2 bottomleft = t.pos.xy;
-
-		// s_v2 topleft = t.pos + t.draw_size * v2(0, -1);
-		// draw_rect(t.pos, 1, t.draw_size, make_color(0.4f, 0,0), {}, {.origin_offset = c_origin_bottomleft});
-		// draw_rect(center, 75, v2(4), make_color(0, 1,0), {});
-		// draw_rect(topleft, 75, v2(4), make_color(0, 0,1), {}, {.origin_offset = c_origin_topleft});
-		// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), {}, {.origin_offset = c_origin_bottomleft});
-		// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), {}, {.origin_offset = c_origin_topleft});
-
-		t.pos.xy = v2_rotate_around(center, in_pos.xy, t.rotation) + (bottomleft - center);
-
-		s_m4 model = m4_translate(v3(t.pos.xy, in_pos.z));
-		model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
-		// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
-		// if(!is_zero(t.rotation)) {
-		// 	model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
-		// }
-		t.model = model;
-
-		t.color = color;
-		t.uv_min = glyph.uv_min;
-		t.uv_max = glyph.uv_max;
-		swap(&t.uv_min.y, &t.uv_max.y);
-		t.origin_offset = c_origin_bottomleft;
-
-		draw_generic(game_renderer, &t, render_pass, render_data.shader, font->texture.game_id, e_mesh_rect);
-
-		pos.x += glyph.advance_width * scale;
-
 	}
 	return v2(pos.x, in_pos.y);
 }

@@ -2986,7 +2986,7 @@ func void do_controls_menu(b8 in_play_mode)
 			}
 			s_ui_optional temp_optional = optional;
 			temp_optional.size_x = 40;
-			if(ui_button(m_strlit("x"), x_pos, temp_optional)) {
+			if(ui_button(m_strlit("$$ed1c23x"), x_pos, temp_optional)) {
 				*key = 0;
 			}
 		}
