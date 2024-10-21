@@ -95,3 +95,4 @@ func void do_leaderboard_stuff();
 func void draw_progress_bar(s_v2 pos, s_v2 size, s_v4 under_size, s_v4 over_size, s_len_str str, float progress);
 func float get_multiplier(int level, float per_level);
 func s_timer make_timer(float curr, float duration);
+func void draw_hotkey(s_v2 pos, s_len_str str, float font_size);

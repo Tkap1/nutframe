@@ -699,6 +699,7 @@ struct s_game
 	s_texture tile_texture;
 	s_texture broken_bot_texture;
 	s_texture crater_texture;
+	s_texture hotkey_texture;
 	s_carray<s_texture, 2> rock_texture_arr;
 	s_carray<s_texture, e_upgrade_count> upgrade_button_texture_arr;
 

@@ -54,6 +54,7 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../examples/test/base.png@examples/test/base.png
 	set comp=!comp! --preload-file ../examples/test/crater.png@examples/test/crater.png
 	set comp=!comp! --preload-file ../examples/test/tile.png@examples/test/tile.png
+	set comp=!comp! --preload-file ../examples/test/hotkey.png@examples/test/hotkey.png
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
 	set comp=!comp! --preload-file ../assets/checkmark.png@assets/checkmark.png
 	set comp=!comp! --preload-file ../platform_map.map@platform_map.map

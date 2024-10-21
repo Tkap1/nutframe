@@ -1,7 +1,6 @@
 
 clown feedback:
 	in free upgrade:
-		tooltip shown at all times
 		price NECTARICON [hotkey]
 
 	rename creatures to ants

@@ -55,6 +55,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->rock_texture_arr[0] = g_r->load_texture(renderer, "examples/test/rock01.png", e_filter_linear, e_wrap_clamp);
 		game->rock_texture_arr[1] = g_r->load_texture(renderer, "examples/test/rock02.png", e_filter_linear, e_wrap_clamp);
 		game->broken_bot_texture = g_r->load_texture(renderer, "examples/test/broken_bot.png", e_filter_linear, e_wrap_clamp);
+		game->hotkey_texture = g_r->load_texture(renderer, "examples/test/hotkey.png", e_filter_linear, e_wrap_clamp);
 
 		game->upgrade_button_texture_arr[e_upgrade_buy_bot] = g_r->load_texture(renderer, "examples/test/drone_icon.png", e_filter_nearest, e_wrap_clamp);
 		game->upgrade_button_texture_arr[e_upgrade_player_damage] = g_r->load_texture(renderer, "examples/test/damage_icon.png", e_filter_nearest, e_wrap_clamp);
@@ -1382,6 +1383,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		level up menu free upgrade start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(play_state->sub_state == e_sub_state_level_up) {
 
+				draw_rect(g_r, c_half_res, 0, c_base_res, make_color(0.0f, 0.65f), game->ui_render_pass0);
+				g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+
 				{
 					float s = sin_range(0.0f, 1.0f, game->render_time * 1.0f);
 					s_v4 color = hsv_to_rgb(v3(s, 1, 1));
@@ -1449,7 +1453,20 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_v2 pos = pos_area_get_advance(&area);
 					s_v2 text_pos = pos + v2(optional.theme.button_size.x * 0.5f, -font_size * 0.6f);
 					s_len_str cost_str = shorten_number(cost);
-					draw_text(g_r, format_text("%.*s[%c]", expand_str(cost_str), (char)(c_key_1 + choice_i)), text_pos, 0, font_size, make_color(1), true, game->font, game->ui_render_pass1);
+					{
+						s_v2 text_size = get_text_size(cost_str, game->font, font_size);
+						s_len_str hotkey_str = format_text("%c", (char)(c_key_1 + choice_i));
+						text_size.x += get_text_size(hotkey_str, game->font, font_size).x;
+						text_size.x += font_size;
+
+						s_v2 temp_pos = text_pos - v2(0.0f, font_size * 0.5f);
+						temp_pos.x -= text_size.x * 0.5f;
+						draw_texture(g_r, temp_pos - v2(0.0f, 4.0f), 0, v2(font_size), make_color(1), game->base_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+						temp_pos.x += font_size;
+						temp_pos = draw_text(g_r, format_text("%.*s", expand_str(cost_str)), temp_pos, 0, font_size, make_color(1), false, game->font, game->ui_render_pass1);
+						temp_pos.x += font_size * 0.5f;
+						draw_hotkey(temp_pos, hotkey_str, font_size);
+					}
 					if(
 						ui_texture_button(format_text("upgrade%i", upgrade_id), pos, game->upgrade_button_texture_arr[upgrade_id], optional) ||
 						is_key_pressed(g_input, c_key_1 + choice_i)
@@ -1457,13 +1474,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						picked_choice = choice_i;
 					}
 
-					s_len_str description = get_upgrade_tooltip(upgrade_id);
-					s_tooltip t = make_tooltip(pos + v2(0, 150), description, optional.theme.tooltip_font_size, false);
-					t.pos.x -= t.size.x * 0.5f;
-					t.text_pos.x -= t.size.x * 0.5f;
-					t.pos.x += optional.theme.button_size.x * 0.5f;
-					t.text_pos.x += optional.theme.button_size.x * 0.5f;
-					draw_tooltip(t, description, optional.theme.tooltip_font_size);
+					{
+						s_len_str description = get_upgrade_tooltip(upgrade_id);
+						s_tooltip t = make_tooltip(pos + v2(0, 150), description, optional.theme.tooltip_font_size, false);
+						t.pos.x -= t.size.x * 0.5f;
+						t.text_pos.x -= t.size.x * 0.5f;
+						t.pos.x += optional.theme.button_size.x * 0.5f;
+						t.text_pos.x += optional.theme.button_size.x * 0.5f;
+						draw_tooltip(t, description, optional.theme.tooltip_font_size);
+					}
 				}
 
 				if(game->pick_free_upgrade_automatically) {
@@ -3302,4 +3321,15 @@ func s_timer make_timer(float curr, float duration)
 		.curr = curr,
 		.duration = duration
 	};
+}
+
+func void draw_hotkey(s_v2 pos, s_len_str str, float font_size)
+{
+	s_v2 text_size = get_text_size(str, game->font, font_size);
+	draw_texture(g_r, pos, 0, v2(font_size), make_color(0.9f), game->hotkey_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	pos.x += font_size * 0.5f;
+	pos.x -= text_size.x * 0.5f;
+	pos.y += font_size * 0.5f;
+	pos.y -= text_size.y * 0.5f;
+	draw_text(g_r, str, pos, 0, font_size, make_color(0.4f), false, game->font, game->ui_render_pass1);
 }
