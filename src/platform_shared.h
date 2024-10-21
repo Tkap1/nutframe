@@ -2949,7 +2949,7 @@ struct s_stored_input
 };
 
 #ifdef m_debug
-struct s_foo
+struct s_recorded_key
 {
 	int update_count;
 	s_stored_input input;
@@ -2959,7 +2959,7 @@ struct s_recorded_input
 {
 	int starting_update;
 	s_sarray<s_v2, 10240> mouse;
-	s_sarray<s_foo, 1024> keys;
+	s_sarray<s_recorded_key, 1024> keys;
 };
 #endif // m_debug
 
@@ -5576,7 +5576,7 @@ static void handle_key_event(int key, b8 is_down, b8 is_repeat)
 
 		#ifdef m_debug
 		if(g_platform_data.recording_input && key != c_key_f10 && !is_repeat) {
-			s_foo ri = {};
+			s_recorded_key ri = {};
 			ri.input = {.is_down = is_down, .key = key};
 			ri.update_count = g_platform_data.update_count;
 			g_platform_data.recorded_input.keys.add(ri);
