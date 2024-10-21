@@ -1251,11 +1251,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 								);
 							}
 
+							s_ui_optional temp_optional = optional;
+							float t = game->render_time - play_state->upgrade_bought_timestamp_arr[upgrade_id];
+							temp_optional.grow_from_center = ease_out_back_advanced(t, 0.0f, 0.5f, 32.0f, 0.0f);
+							temp_optional.flash = ease_out_quad_advanced(t, 0.0f, 0.25f, 0.4f, 0.0f);
 							if(
 								!over_limit &&
 								(ui_texture_button(
 									format_text("upgrade%i", upgrade_id), pos_area_get_advance(&area_arr[row_i * 2 + 1]),
-									game->upgrade_button_texture_arr[upgrade_id], optional
+									game->upgrade_button_texture_arr[upgrade_id], temp_optional
 								) || is_key_pressed(g_input, data.key))
 							) {
 								int buy_count = 1;
@@ -1287,6 +1291,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 									if(purchased) {
 										play_state->upgrade_level_arr[upgrade_id] += 1;
 										play_state->resource_count -= cost;
+										play_state->upgrade_bought_timestamp_arr[upgrade_id] = game->render_time;
 									}
 								}
 							}
@@ -1460,6 +1465,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				if(picked_choice >= 0) {
 					e_upgrade upgrade_id = choice_arr[picked_choice];
 					play_state->upgrade_level_arr[upgrade_id] += 1;
+					play_state->upgrade_bought_timestamp_arr[upgrade_id] = game->render_time;
 					if(upgrade_id == e_upgrade_buy_bot) {
 						make_bot(c_base_pos);
 						play_sound_group(e_sound_group_buy_bot);
@@ -1979,8 +1985,9 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 
 func b8 ui_texture_button(s_len_str id_str, s_v2 pos, s_texture texture, s_ui_optional optional)
 {
+	pos -= v2(optional.grow_from_center * 0.5f);
+	optional.theme.button_size += v2(optional.grow_from_center);
 	s_button_interaction interaction = ui_button_interaction(id_str, pos, optional);
-
 
 	s_v4 color = make_color(0.7f);
 
@@ -1988,7 +1995,7 @@ func b8 ui_texture_button(s_len_str id_str, s_v2 pos, s_texture texture, s_ui_op
 		color = make_color(1);
 	}
 	float color_multi = optional.darken;
-	draw_texture(g_r, pos, 0, interaction.size, brighter(color, color_multi), texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	draw_texture(g_r, pos, 0, interaction.size, brighter(color, color_multi), texture, game->ui_render_pass0, {}, {.mix_weight = optional.flash, .origin_offset = c_origin_topleft});
 
 	if(interaction.hovered && optional.description.len > 0) {
 		do_button_tooltip(optional.description, optional.theme.tooltip_font_size);

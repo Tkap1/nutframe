@@ -68,4 +68,5 @@
 
 *Misc*
 - Added a controls menu
+- Upgrades buttons animate when bought
 ===============================================================================================

@@ -521,6 +521,8 @@ struct s_ui_optional
 	s_ui_theme theme;
 	s_len_str description;
 	float darken = 1.0f;
+	float grow_from_center;
+	float flash;
 };
 
 struct s_leaderboard_state
@@ -599,6 +601,8 @@ struct s_play_state
 
 	s_carray<float, c_max_statistics_index> nectar_per_second_arr;
 	s_carray<int, c_max_statistics_index> nectar_arr;
+
+	s_carray<float, e_upgrade_count> upgrade_bought_timestamp_arr;
 
 };
 

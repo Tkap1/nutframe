@@ -1,6 +1,23 @@
 
+clown feedback:
+	in free upgrade:
+		tooltip shown at all times
+		price NECTARICON [hotkey]
+	reverse dash option default
+
+	rename creatures to ants
+
+	price NECTARICON [hotkey]
+		also at bottom
+
+	display nectar gains from hitting nectar deposits
+
+	broken drones fall from sky
+
+
+click to move??
+
 when player harvests creature, do some animation where the resource automatically goes to the base
-	maybe the resource being harvest automatically should be an upgrade
 
 if player kills an enemy, chance for a pickup that does something??
 	like +10 resource
