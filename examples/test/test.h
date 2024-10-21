@@ -651,7 +651,7 @@ struct s_game
 	b8 reset_game;
 	b8 pick_free_upgrade_automatically;
 	b8 next_state_is_temporary;
-	b8 dash_to_keyboard;
+	b8 dash_to_mouse;
 	b8 click_consumed;
 	b8 do_instant_camera;
 	b8 waiting_for_key;

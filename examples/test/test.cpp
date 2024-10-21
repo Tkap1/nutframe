@@ -138,6 +138,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		#if defined(m_debug)
 		game->hide_tutorial = true;
+		game->dash_to_mouse = true;
 		game->pick_free_upgrade_automatically = true;
 		#endif
 	}
@@ -348,16 +349,16 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 				if(game->press_input.dash) {
 					player->wanted_to_dash_timestamp = state->update_count;
-					if(game->dash_to_keyboard) {
+					if(game->dash_to_mouse) {
+						player->next_dash_dir = v2_dir_from_to(player->pos, mouse_world);
+					}
+					else {
 						if(v2_length(dir) > 0) {
 							player->next_dash_dir = dir;
 						}
 						else {
 							player->next_dash_dir = player->dash_dir;
 						}
-					}
-					else {
-						player->next_dash_dir = v2_dir_from_to(player->pos, mouse_world);
 					}
 				}
 
@@ -2884,8 +2885,8 @@ func void do_options_menu(b8 in_play_mode)
 	if(ui_button(format_text("Sounds: %s", game->sound_disabled ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->sound_disabled = !game->sound_disabled;
 	}
-	if(ui_button(format_text("Dash to mouse: %s", game->dash_to_keyboard ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
-		game->dash_to_keyboard = !game->dash_to_keyboard;
+	if(ui_button(format_text("Dash to mouse: %s", game->dash_to_mouse ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
+		game->dash_to_mouse = !game->dash_to_mouse;
 	}
 	if(ui_button(format_text("Smooth camera: %s", game->do_instant_camera ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->do_instant_camera = !game->do_instant_camera;

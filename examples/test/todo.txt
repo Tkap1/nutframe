@@ -3,7 +3,6 @@ clown feedback:
 	in free upgrade:
 		tooltip shown at all times
 		price NECTARICON [hotkey]
-	reverse dash option default
 
 	rename creatures to ants
 
