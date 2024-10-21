@@ -511,7 +511,7 @@ global constexpr s_ui_theme c_theme_upgrades0 = {
 
 global constexpr s_ui_theme c_theme_upgrades1 = {
 	.font_size = 40,
-	.tooltip_font_size = 38,
+	.tooltip_font_size = 20,
 	.button_size = v2(128)
 };
 
@@ -641,6 +641,13 @@ struct s_hold_input
 struct s_press_input
 {
 	b8 dash;
+};
+
+struct s_tooltip
+{
+	s_v2 pos;
+	s_v2 size;
+	s_v2 text_pos;
 };
 
 struct s_game

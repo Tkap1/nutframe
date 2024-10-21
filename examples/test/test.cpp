@@ -1379,7 +1379,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				do_controls_menu(true);
 			}
 
-			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		level up menu start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		level up menu free upgrade start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			if(play_state->sub_state == e_sub_state_level_up) {
 
 				{
@@ -1433,7 +1433,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				optional.theme = c_theme_upgrades1;
 
 				constexpr float font_size = 48;
-				s_pos_area area = make_pos_area(wxy(0.0f, 0.0f), wxy(1.0f, 1.0f), optional.theme.button_size + v2(128.0f, 0.0f), 32, 3, e_pos_area_flag_center_x | e_pos_area_flag_center_y);
+				s_pos_area area = make_pos_area(wxy(0.0f, 0.0f), wxy(1.0f, 1.0f), optional.theme.button_size, 400, 3, e_pos_area_flag_center_x | e_pos_area_flag_center_y);
 				int highest_cost = 0;
 				int highest_cost_index = 0;
 				for(int choice_i = 0; choice_i < 3; choice_i += 1) {
@@ -1445,9 +1445,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						highest_cost = cost;
 						highest_cost_index = choice_i;
 					}
-					optional.description = get_upgrade_tooltip(upgrade_id);
 
-					s_v2 pos = pos_area_get_advance(&area) + optional.theme.button_size * v2(0.5f, 0.0f);
+					s_v2 pos = pos_area_get_advance(&area);
 					s_v2 text_pos = pos + v2(optional.theme.button_size.x * 0.5f, -font_size * 0.6f);
 					s_len_str cost_str = shorten_number(cost);
 					draw_text(g_r, format_text("%.*s[%c]", expand_str(cost_str), (char)(c_key_1 + choice_i)), text_pos, 0, font_size, make_color(1), true, game->font, game->ui_render_pass1);
@@ -1457,6 +1456,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					) {
 						picked_choice = choice_i;
 					}
+
+					s_len_str description = get_upgrade_tooltip(upgrade_id);
+					s_tooltip t = make_tooltip(pos + v2(0, 150), description, optional.theme.tooltip_font_size, false);
+					t.pos.x -= t.size.x * 0.5f;
+					t.text_pos.x -= t.size.x * 0.5f;
+					t.pos.x += optional.theme.button_size.x * 0.5f;
+					t.text_pos.x += optional.theme.button_size.x * 0.5f;
+					draw_tooltip(t, description, optional.theme.tooltip_font_size);
 				}
 
 				if(game->pick_free_upgrade_automatically) {
@@ -1481,7 +1488,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 			}
-			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		level up menu end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		level up menu free upgrade end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// @Note(tkap, 06/10/2024): draw cells
 			#if 0
@@ -1978,7 +1985,7 @@ func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
 	}
 
 	if(interaction.hovered && optional.description.len > 0) {
-		do_button_tooltip(optional.description, optional.theme.tooltip_font_size);
+		do_button_tooltip(g_mouse, optional.description, optional.theme.tooltip_font_size);
 	}
 
 	return interaction.clicked;
@@ -1999,23 +2006,40 @@ func b8 ui_texture_button(s_len_str id_str, s_v2 pos, s_texture texture, s_ui_op
 	draw_texture(g_r, pos, 0, interaction.size, brighter(color, color_multi), texture, game->ui_render_pass0, {}, {.mix_weight = optional.flash, .origin_offset = c_origin_topleft});
 
 	if(interaction.hovered && optional.description.len > 0) {
-		do_button_tooltip(optional.description, optional.theme.tooltip_font_size);
+		do_button_tooltip(g_mouse, optional.description, optional.theme.tooltip_font_size);
 	}
 
 	return interaction.clicked;
 }
 
-func void do_button_tooltip(s_len_str description, float font_size)
+func s_tooltip make_tooltip(s_v2 pos, s_len_str description, float font_size, b8 offset)
 {
+	s_tooltip t = zero;
 	s_v2 text_size = get_text_size(description, game->font, font_size);
 	float padding = 16;
-	s_v2 panel_size = text_size + v2(padding * 2);
-	s_v2 panel_pos = g_mouse - v2(0.0f, panel_size.y);
-	s_rectf panel = fit_rect(panel_pos, panel_size, c_base_res_bounds);
-	s_v2 text_pos = panel.pos + v2(padding);
-	text_pos.y += 4;
-	draw_rect(g_r, panel.pos, 0, panel.size, hex_rgb_plus_alpha(0x9E8642, 0.85f), game->ui_render_pass2, {}, {.origin_offset = c_origin_topleft});
-	draw_text(g_r, description, text_pos, 0, font_size, make_color(1), false, game->font, game->ui_render_pass3);
+	t.size = text_size + v2(padding * 2);
+	t.pos = pos;
+	if(offset) {
+		t.pos -= v2(0.0f, t.size.y);
+	}
+	t.text_pos = t.pos + v2(padding);
+	t.text_pos.y += 4;
+	return t;
+}
+
+func void do_button_tooltip(s_v2 pos, s_len_str description, float font_size)
+{
+	s_tooltip t = make_tooltip(pos, description, font_size, true);
+	draw_tooltip(t, description, font_size);
+}
+
+func void draw_tooltip(s_tooltip tooltip, s_len_str description, float font_size)
+{
+	s_rectf panel = fit_rect(tooltip.pos, tooltip.size, c_base_res_bounds);
+	tooltip.pos = panel.pos;
+	tooltip.size = panel.size;
+	draw_rect(g_r, tooltip.pos, 0, tooltip.size, hex_rgb_plus_alpha(0x9E8642, 0.85f), game->ui_render_pass2, {}, {.origin_offset = c_origin_topleft});
+	draw_text(g_r, description, tooltip.text_pos, 0, font_size, make_color(1), false, game->font, game->ui_render_pass3);
 }
 
 func b8 ui_button_with_confirmation(s_len_str id_str, s_len_str confirmation_str, s_v2 pos, s_ui_optional optional)
@@ -2317,6 +2341,8 @@ func s_pos_area make_pos_area(s_v2 pos, s_v2 size, s_v2 element_size, float spac
 			area.pos.x = center_pos.x - space_used.x * 0.5f;
 		}
 		else {
+			// @Fixme(tkap, 21/10/2024): garbage? we should think of the positions as points? because what if we intend to draw with the origin at the topleft?
+			// now we have to undo this??
 			area.pos.x = center_pos.x - element_size.x * 0.5f;
 		}
 	}
@@ -2326,6 +2352,8 @@ func s_pos_area make_pos_area(s_v2 pos, s_v2 size, s_v2 element_size, float spac
 
 	if(center_y) {
 		if(horizontal) {
+			// @Fixme(tkap, 21/10/2024): garbage? we should think of the positions as points? because what if we intend to draw with the origin at the topleft?
+			// now we have to undo this??
 			area.pos.y = center_pos.y - element_size.y * 0.5f;
 		}
 		else {

@@ -70,4 +70,5 @@
 - Added a controls menu
 - Upgrades buttons animate when bought
 - Dash to mouse option is now off by default
+- Upgrades in the free upgrade menu always show their description
 ===============================================================================================
