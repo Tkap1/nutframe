@@ -8,7 +8,6 @@ global constexpr int c_updates_per_second = 60;
 global constexpr f64 c_update_delay = 1.0 / c_updates_per_second;
 global constexpr int c_max_leaderboard_entries = 16;
 global constexpr int c_max_particles = 8192;
-global constexpr s_v2 c_base_button_size = v2(256, 32);
 global constexpr s_v2 c_player_size = v2(128);
 global constexpr s_v2 c_creature_size = v2(64);
 global constexpr s_v2 c_bot_size = v2(64);
@@ -35,7 +34,6 @@ global constexpr int c_max_craters = 32;
 global constexpr int c_dash_duration = 20;
 global constexpr float c_dash_cooldown = 0.833f;
 global constexpr float c_dash_speed = 24;
-global constexpr s_v2 c_base_button_size2 = v2(376, 44);
 global constexpr int c_win_animation_duration_in_ticks = c_updates_per_second * 3;
 global constexpr int c_invalid_entity = -1000000000;
 global constexpr int c_nectar_gain_num_updates = c_updates_per_second * 5;
@@ -44,7 +42,6 @@ global constexpr int c_max_statistics_index = 3600; // @Note(tkap, 16/10/2024): 
 global constexpr float c_deposit_spawn_rate_buff_per_upgrade = 25;
 global constexpr int c_deposit_health_multi_per_upgrade = 60;
 global constexpr int c_dash_cooldown_speed_per_upgrade = 60;
-global constexpr float c_base_font_size = 48;
 
 enum e_action
 {
@@ -489,15 +486,41 @@ struct s_button_interaction
 	s_parse_ui_id id;
 };
 
+struct s_ui_theme
+{
+	float font_size;
+	float tooltip_font_size;
+	s_v2 button_size;
+};
+
+global constexpr s_ui_theme c_theme_big = {
+	.font_size = 48,
+	.button_size = v2(500, 60)
+};
+
+global constexpr s_ui_theme c_theme_small = {
+	.font_size = 20,
+	.button_size = v2(256, 40)
+};
+
+global constexpr s_ui_theme c_theme_upgrades0 = {
+	.font_size = 24,
+	.tooltip_font_size = 38,
+	.button_size = v2(54)
+};
+
+global constexpr s_ui_theme c_theme_upgrades1 = {
+	.font_size = 40,
+	.tooltip_font_size = 38,
+	.button_size = v2(128)
+};
+
 struct s_ui_optional
 {
 	b8 disabled;
+	s_ui_theme theme;
 	s_len_str description;
 	float darken = 1.0f;
-	float font_size;
-	float tooltip_font_size;
-	float size_x;
-	float size_y;
 };
 
 struct s_leaderboard_state
