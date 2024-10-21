@@ -68,7 +68,7 @@
 
 *Misc*
 - Added a controls menu
-- Upgrades buttons animate when bought
+- Upgrades button looks better
 - Dash to mouse option is now off by default
 - Free upgrade menu looks better
 ===============================================================================================

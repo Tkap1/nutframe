@@ -1229,8 +1229,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_pos_area temp0 = make_vertical_layout(panel_pos + v2(padding * 2 + c_theme_upgrades0.button_size.x * 0.5f, -16.0f), c_theme_upgrades0.button_size * v2(1.0f, 1.7f), padding, 0);
 					s_pos_area temp1 = make_vertical_layout(panel_pos + v2(padding * 2, 0.0f), c_theme_upgrades0.button_size * v2(1.0f, 1.7f), padding, 0);
 					for(int i = 0; i < 3; i += 1) {
-						area_arr[i * 2] = make_horizontal_layout(pos_area_get_advance(&temp0), c_theme_upgrades0.button_size * v2(1.7f, 1.0f), padding, 0);
-						area_arr[i * 2 + 1] = make_horizontal_layout(pos_area_get_advance(&temp1), c_theme_upgrades0.button_size * v2(1.7f, 1.0f), padding, 0);
+						area_arr[i * 2] = make_horizontal_layout(pos_area_get_advance(&temp0), c_theme_upgrades0.button_size * v2(1.7f, 1.0f), padding + 16, 0);
+						area_arr[i * 2 + 1] = make_horizontal_layout(pos_area_get_advance(&temp1), c_theme_upgrades0.button_size * v2(1.7f, 1.0f), padding + 16, 0);
 					}
 					for(int row_i = 0; row_i < c_rows; row_i += 1) {
 						s_row row = row_arr[row_i];
@@ -1247,10 +1247,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 							if(!over_limit) {
 								s_len_str cost_str = shorten_number(cost);
-								draw_text(
-									g_r, format_text("%.*s[%c]", expand_str(cost_str), (char)data.key), pos_area_get_advance(&area_arr[row_i * 2]), 0,
-									c_hotkey_font_size, make_color(1), true, game->font, game->ui_render_pass1
-								);
+								s_len_str hotkey_str = format_text("%c", (char)data.key);
+								s_v2 pos = pos_area_get_advance(&area_arr[row_i * 2]);
+								draw_cost_and_hotkey(pos, cost_str, hotkey_str, c_hotkey_font_size, optional.darken);
 							}
 
 							s_ui_optional temp_optional = optional;
@@ -1454,18 +1453,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					s_v2 text_pos = pos + v2(optional.theme.button_size.x * 0.5f, -font_size * 0.6f);
 					s_len_str cost_str = shorten_number(cost);
 					{
-						s_v2 text_size = get_text_size(cost_str, game->font, font_size);
 						s_len_str hotkey_str = format_text("%c", (char)(c_key_1 + choice_i));
-						text_size.x += get_text_size(hotkey_str, game->font, font_size).x;
-						text_size.x += font_size;
-
-						s_v2 temp_pos = text_pos - v2(0.0f, font_size * 0.5f);
-						temp_pos.x -= text_size.x * 0.5f;
-						draw_texture(g_r, temp_pos - v2(0.0f, 4.0f), 0, v2(font_size), make_color(1), game->base_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
-						temp_pos.x += font_size;
-						temp_pos = draw_text(g_r, format_text("%.*s", expand_str(cost_str)), temp_pos, 0, font_size, make_color(1), false, game->font, game->ui_render_pass1);
-						temp_pos.x += font_size * 0.5f;
-						draw_hotkey(temp_pos, hotkey_str, font_size);
+						draw_cost_and_hotkey(text_pos, cost_str, hotkey_str, font_size, 1.0f);
 					}
 					if(
 						ui_texture_button(format_text("upgrade%i", upgrade_id), pos, game->upgrade_button_texture_arr[upgrade_id], optional) ||
@@ -3323,13 +3312,28 @@ func s_timer make_timer(float curr, float duration)
 	};
 }
 
-func void draw_hotkey(s_v2 pos, s_len_str str, float font_size)
+func void draw_hotkey(s_v2 pos, s_len_str str, float font_size, float color_multi)
 {
 	s_v2 text_size = get_text_size(str, game->font, font_size);
-	draw_texture(g_r, pos, 0, v2(font_size), make_color(0.9f), game->hotkey_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	draw_texture(g_r, pos, 0, v2(font_size), make_color(0.9f * color_multi), game->hotkey_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 	pos.x += font_size * 0.5f;
 	pos.x -= text_size.x * 0.5f;
 	pos.y += font_size * 0.5f;
 	pos.y -= text_size.y * 0.5f;
-	draw_text(g_r, str, pos, 0, font_size, make_color(0.4f), false, game->font, game->ui_render_pass1);
+	draw_text(g_r, str, pos, 0, font_size, make_color(0.4f * color_multi), false, game->font, game->ui_render_pass1);
+}
+
+func void draw_cost_and_hotkey(s_v2 pos, s_len_str cost_str, s_len_str hotkey_str, float font_size, float color_multi)
+{
+	s_v2 text_size = get_text_size(cost_str, game->font, font_size);
+	text_size.x += get_text_size(hotkey_str, game->font, font_size).x;
+	text_size.x += font_size;
+
+	s_v2 temp_pos = pos - v2(0.0f, font_size * 0.5f);
+	temp_pos.x -= text_size.x * 0.5f;
+	draw_texture(g_r, temp_pos - v2(0.0f, 4.0f), 0, v2(font_size), make_color(color_multi), game->base_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	temp_pos.x += font_size;
+	temp_pos = draw_text(g_r, format_text("%.*s", expand_str(cost_str)), temp_pos, 0, font_size, make_color(color_multi), false, game->font, game->ui_render_pass1);
+	temp_pos.x += font_size * 0.5f;
+	draw_hotkey(temp_pos, hotkey_str, font_size, color_multi);
 }
