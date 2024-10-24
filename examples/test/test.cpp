@@ -135,11 +135,11 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		register_action(g_platform_data, e_action_right, c_key_d, c_key_right);
 		register_action(g_platform_data, e_action_up, c_key_w, c_key_up);
 		register_action(g_platform_data, e_action_down, c_key_s, c_key_down);
-		register_action(g_platform_data, e_action_dash, c_key_space, c_right_mouse);
+		register_action(g_platform_data, e_action_dash_to_keyboard, c_key_space, 0);
+		register_action(g_platform_data, e_action_dash_to_mouse, c_right_mouse, 0);
 
 		#if defined(m_debug)
 		game->hide_tutorial = true;
-		game->dash_to_mouse = true;
 		game->pick_free_upgrade_automatically = true;
 		#endif
 	}
@@ -348,19 +348,18 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				dir = v2_normalized(dir);
 
-				if(game->press_input.dash) {
+				if(game->press_input.dash_to_keyboard) {
 					player->wanted_to_dash_timestamp = state->update_count;
-					if(game->dash_to_mouse) {
-						player->next_dash_dir = v2_dir_from_to(player->pos, mouse_world);
+					if(v2_length(dir) > 0) {
+						player->next_dash_dir = dir;
 					}
 					else {
-						if(v2_length(dir) > 0) {
-							player->next_dash_dir = dir;
-						}
-						else {
-							player->next_dash_dir = player->dash_dir;
-						}
+						player->next_dash_dir = player->dash_dir;
 					}
+				}
+				else if(game->press_input.dash_to_mouse) {
+					player->wanted_to_dash_timestamp = state->update_count;
+					player->next_dash_dir = v2_dir_from_to(player->pos, mouse_world);
 				}
 
 				if(player->dashing) {
@@ -798,7 +797,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			game->hold_input.up |= is_action_down(g_platform_data, g_input, e_action_up);
 			game->hold_input.down |= is_action_down(g_platform_data, g_input, e_action_down);
 
-			game->press_input.dash |= is_action_pressed(g_platform_data, g_input, e_action_dash);
+			game->press_input.dash_to_keyboard |= is_action_pressed(g_platform_data, g_input, e_action_dash_to_keyboard);
+			game->press_input.dash_to_mouse |= is_action_pressed(g_platform_data, g_input, e_action_dash_to_mouse);
 
 			float laser_light_radius = sin_range(120, 128, game->render_time * 32.0f);
 
@@ -2898,7 +2898,7 @@ func void do_options_menu(b8 in_play_mode)
 	s_ui_optional optional = zero;
 	optional.theme = c_theme_big;
 	s_play_state* play_state = &game->play_state;
-	int button_count = in_play_mode ? 11 : 9;
+	int button_count = in_play_mode ? 10 : 8;
 
 	s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), c_theme_big.button_size, 8, button_count, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
 	if(in_play_mode && ui_button(strlit("Resume"), pos_area_get_advance(&area), optional)) {
@@ -2920,9 +2920,6 @@ func void do_options_menu(b8 in_play_mode)
 	}
 	if(ui_button(format_text("Sounds: %s", game->sound_disabled ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->sound_disabled = !game->sound_disabled;
-	}
-	if(ui_button(format_text("Dash to mouse: %s", game->dash_to_mouse ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
-		game->dash_to_mouse = !game->dash_to_mouse;
 	}
 	if(ui_button(format_text("Smooth camera: %s", game->do_instant_camera ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
 		game->do_instant_camera = !game->do_instant_camera;

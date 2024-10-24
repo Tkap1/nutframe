@@ -68,7 +68,8 @@
 
 *Misc*
 - Added a controls menu
-- Upgrades button looks better
-- Dash to mouse option is now off by default
+- Added missing upgrade icons
+- Dash to mouse and dash to keyboard now have different keybinds
+- Upgrade buttons looks better
 - Free upgrade menu looks better
 ===============================================================================================

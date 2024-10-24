@@ -49,7 +49,8 @@ enum e_action
 	e_action_right,
 	e_action_up,
 	e_action_down,
-	e_action_dash,
+	e_action_dash_to_keyboard,
+	e_action_dash_to_mouse,
 	e_action_count,
 };
 
@@ -58,7 +59,8 @@ constexpr s_len_str c_action_name_arr[] = {
 	m_strlit("Move right"),
 	m_strlit("Move up"),
 	m_strlit("Move down"),
-	m_strlit("Dash"),
+	m_strlit("Dash to keyboard"),
+	m_strlit("Dash to mouse"),
 };
 
 enum e_creature
@@ -640,7 +642,8 @@ struct s_hold_input
 
 struct s_press_input
 {
-	b8 dash;
+	b8 dash_to_keyboard;
+	b8 dash_to_mouse;
 };
 
 struct s_tooltip
@@ -658,7 +661,6 @@ struct s_game
 	b8 reset_game;
 	b8 pick_free_upgrade_automatically;
 	b8 next_state_is_temporary;
-	b8 dash_to_mouse;
 	b8 click_consumed;
 	b8 do_instant_camera;
 	b8 waiting_for_key;
