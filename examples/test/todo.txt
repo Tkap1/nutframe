@@ -13,7 +13,12 @@ clown feedback:
 	broken drones fall from sky
 
 
+ZgredFred1: @Tkap1 switch order of hotkey and cost in horizontal line
+
+
 click to move??
+key to dash to mouse
+key to dash to keyboard
 
 when player harvests creature, do some animation where the resource automatically goes to the base
 

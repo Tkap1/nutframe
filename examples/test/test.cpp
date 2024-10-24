@@ -70,9 +70,9 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->upgrade_button_texture_arr[e_upgrade_bot_cargo_count] = g_r->load_texture(renderer, "examples/test/drone_cargo_icon.png", e_filter_nearest, e_wrap_clamp);
 		game->upgrade_button_texture_arr[e_upgrade_player_chain] = g_r->load_texture(renderer, "examples/test/player_chain_icon.png", e_filter_nearest, e_wrap_clamp);
 		game->upgrade_button_texture_arr[e_upgrade_broken_bot_spawn] = g_r->load_texture(renderer, "examples/test/broken_drone_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_deposit_spawn_rate] = game->placeholder_texture;
-		game->upgrade_button_texture_arr[e_upgrade_deposit_health] = game->placeholder_texture;
-		game->upgrade_button_texture_arr[e_upgrade_dash_cooldown] = game->placeholder_texture;
+		game->upgrade_button_texture_arr[e_upgrade_deposit_spawn_rate] = g_r->load_texture(renderer, "examples/test/deposit_spawn_c.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_deposit_health] = g_r->load_texture(renderer, "examples/test/deposit_yield_c.png", e_filter_nearest, e_wrap_clamp);
+		game->upgrade_button_texture_arr[e_upgrade_dash_cooldown] = g_r->load_texture(renderer, "examples/test/dash_cooldown_c.png", e_filter_nearest, e_wrap_clamp);
 
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_filter_linear, e_wrap_clamp));
 		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_filter_linear, e_wrap_clamp));
