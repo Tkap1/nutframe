@@ -15,10 +15,9 @@ clown feedback:
 
 ZgredFred1: @Tkap1 switch order of hotkey and cost in horizontal line
 
-
 click to move??
-key to dash to mouse
-key to dash to keyboard
+
+add tk_devs icons
 
 when player harvests creature, do some animation where the resource automatically goes to the base
 
