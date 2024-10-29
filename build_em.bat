@@ -34,36 +34,8 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../shaders/3d_flat.fragment@shaders/3d_flat.fragment
 	set comp=!comp! --preload-file ../shaders/threshold.fragment@shaders/threshold.fragment
 	set comp=!comp! --preload-file ../shaders/blur.fragment@shaders/blur.fragment
-	set comp=!comp! --preload-file ../examples/test/noise.png@examples/test/noise.png
-	set comp=!comp! --preload-file ../examples/test/placeholder.png@examples/test/placeholder.png
-	set comp=!comp! --preload-file ../examples/test/drone000.png@examples/test/drone000.png
-	set comp=!comp! --preload-file ../examples/test/drone006.png@examples/test/drone006.png
-	set comp=!comp! --preload-file ../examples/test/drone012.png@examples/test/drone012.png
-	set comp=!comp! --preload-file ../examples/test/drone018.png@examples/test/drone018.png
-	set comp=!comp! --preload-file ../examples/test/drone024.png@examples/test/drone024.png
-	set comp=!comp! --preload-file ../examples/test/ant000.png@examples/test/ant000.png
-	set comp=!comp! --preload-file ../examples/test/ant006.png@examples/test/ant006.png
-	set comp=!comp! --preload-file ../examples/test/ant012.png@examples/test/ant012.png
-	set comp=!comp! --preload-file ../examples/test/ant018.png@examples/test/ant018.png
-	set comp=!comp! --preload-file ../examples/test/ant024.png@examples/test/ant024.png
-	set comp=!comp! --preload-file ../examples/test/player000.png@examples/test/player000.png
-	set comp=!comp! --preload-file ../examples/test/player006.png@examples/test/player006.png
-	set comp=!comp! --preload-file ../examples/test/player012.png@examples/test/player012.png
-	set comp=!comp! --preload-file ../examples/test/player018.png@examples/test/player018.png
-	set comp=!comp! --preload-file ../examples/test/player024.png@examples/test/player024.png
-	set comp=!comp! --preload-file ../examples/test/base.png@examples/test/base.png
-	set comp=!comp! --preload-file ../examples/test/crater.png@examples/test/crater.png
-	set comp=!comp! --preload-file ../examples/test/tile.png@examples/test/tile.png
-	set comp=!comp! --preload-file ../examples/test/hotkey.png@examples/test/hotkey.png
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
-	set comp=!comp! --preload-file ../assets/checkmark.png@assets/checkmark.png
-	set comp=!comp! --preload-file ../platform_map.map@platform_map.map
-	set comp=!comp! --preload-file ../map2.map@map2.map
-	set comp=!comp! --preload-file ../aqtun.map@aqtun.map
-	set comp=!comp! --preload-file ../zanarias.map@zanarias.map
-	set comp=!comp! --preload-file ../azenris.map@azenris.map
-	set comp=!comp! --preload-file ../platforms.map@platforms.map
-	set comp=!comp! -gsource-map
+	@REM set comp=!comp! -gsource-map
 	@REM set comp=!comp! -fsanitize=address
 )
 

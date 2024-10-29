@@ -45,6 +45,9 @@ more maps?
 	boss at the end??
 meta progression??
 
+cakez image
+property animation system
+
 IDK:
 	what if ants can attack deposits and upgrade themselves
 
@@ -57,3 +60,4 @@ IDK:
 	Maybe allow drones to get chain too, but if you want it different to the player, instead of chain, allow it to multi attack, so extra beams directly from drone to enemy.
 
 	dash does damage?
+
