@@ -46,7 +46,6 @@ more maps?
 meta progression??
 
 cakez image
-property animation system
 
 IDK:
 	what if ants can attack deposits and upgrade themselves

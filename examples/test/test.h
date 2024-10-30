@@ -653,6 +653,71 @@ struct s_tooltip
 	s_v2 text_pos;
 };
 
+enum e_animator
+{
+	e_animator_curve,
+	e_animator_float,
+	e_animator_point,
+	e_animator_color,
+};
+
+#define X(fname, ename) ename,
+enum e_ease
+{
+	m_advanced_easings
+};
+#undef X
+
+struct s_animator_property
+{
+	e_animator type;
+	e_ease ease_mode;
+	float duration;
+	float delay;
+	void* ptr;
+	union
+	{
+		struct
+		{
+			s_v2 a;
+			s_v2 b;
+			s_v2 pivot;
+		} curve;
+
+		struct
+		{
+			s_v4 a;
+			s_v4 b;
+		} color;
+
+		struct
+		{
+			float a;
+			float b;
+		} nfloat;
+
+		struct
+		{
+			s_v2 a;
+		} point;
+	};
+};
+
+struct s_animator
+{
+	#ifdef m_debug
+	b8 needs_wait_call = true;
+	#endif // m_debug
+
+	s_carray<float, 8> step_start_time_arr;
+	s_carray<int, 8> result_on_end;
+	int step_count;
+	int curr_step;
+	float total_duration;
+	s_carray<float, 8> step_duration_arr;
+	s_carray<s_sarray<s_animator_property, 8>, 8> property_arr;
+};
+
 struct s_game
 {
 	b8 initialized;

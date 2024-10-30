@@ -3334,3 +3334,169 @@ func void draw_cost_and_hotkey(s_v2 pos, s_len_str cost_str, s_len_str hotkey_st
 	temp_pos.x += font_size * 0.5f;
 	draw_hotkey(temp_pos, hotkey_str, font_size, color_multi);
 }
+
+func int update_animator(s_animator* animator, float* time_ptr, float speed)
+{
+	assert(animator->step_count > 0);
+	assert(speed > 0);
+	assert(!animator->needs_wait_call);
+
+	int result = 0;
+	if(*time_ptr * speed >= animator->total_duration) {
+		result = -1;
+	}
+
+	float t = fmodf(*time_ptr * speed, animator->total_duration);
+
+	int step_index = -1;
+	for(int step_i = 0; step_i < animator->step_count; step_i += 1) {
+		float start = animator->step_start_time_arr[step_i];
+		if(t >= start && t < start + animator->step_duration_arr[step_i]) {
+			step_index = step_i;
+			break;
+		}
+	}
+	assert(step_index >= 0);
+	if(result == 0 && step_index > 0) {
+		result = animator->result_on_end[step_index - 1];
+	}
+
+	for(int step_i = 0; step_i < step_index + 1; step_i += 1) {
+		float step_start = animator->step_start_time_arr[step_i];
+		foreach_val(property_i, property, animator->property_arr[step_i]) {
+			float interp_dt = ilerp_clamp(step_start + property.delay, step_start + property.delay + property.duration, t);
+
+			switch(property.ease_mode) {
+				#define X(fname, ename) case ename: { interp_dt = fname(interp_dt); } break;
+				m_advanced_easings
+				#undef X
+				invalid_default_case;
+			}
+
+			switch(property.type) {
+				case e_animator_curve: {
+					s_v2 p = bezier(property.curve.a, property.curve.b, property.curve.pivot, interp_dt);
+					*(s_v2*)property.ptr = p;
+				} break;
+
+				case e_animator_color: {
+					s_v4 p = lerp(property.color.a, property.color.b, interp_dt);
+					*(s_v4*)property.ptr = p;
+				} break;
+
+				case e_animator_float: {
+					float p = lerp(property.nfloat.a, property.nfloat.b, interp_dt);
+					*(float*)property.ptr = p;
+				} break;
+
+				case e_animator_point: {
+					*(s_v2*)property.ptr = property.point.a;
+				} break;
+				invalid_default_case;
+			}
+		}
+	}
+	*time_ptr = fmodf(*time_ptr, animator->total_duration / speed);
+	return result;
+}
+
+func void animator_wait_completed(s_animator* animator, float delay)
+{
+	animator_wait_completed_ex(animator, delay, 0);
+}
+
+func void animator_wait_completed_ex(s_animator* animator, float delay, int result_on_end)
+{
+	assert(delay >= 0);
+	assert(animator->property_arr[animator->curr_step].count > 0);
+	animator->curr_step += 1;
+	animator->step_count += 1;
+	animator->step_start_time_arr[animator->curr_step] = animator->step_start_time_arr[animator->curr_step - 1] + animator->step_duration_arr[animator->curr_step - 1] + delay;
+	animator->total_duration += animator->step_duration_arr[animator->curr_step - 1] + delay;
+	animator->step_duration_arr[animator->curr_step - 1] += delay;
+	animator->result_on_end[animator->curr_step - 1] = result_on_end;
+
+	#ifdef m_debug
+	animator->needs_wait_call = false;
+	#endif // m_debug
+}
+
+func void add_curve(s_animator* animator, s_v2 a, s_v2 b, s_v2 pivot, float duration, float delay, s_v2* ptr, e_ease ease_mode)
+{
+	assert(ptr);
+
+	#ifdef m_debug
+	animator->needs_wait_call = true;
+	#endif // m_debug
+
+	max_by_ptr(&animator->step_duration_arr[animator->curr_step], delay + duration);
+	s_animator_property p = zero;
+	p.type = e_animator_curve;
+	p.ease_mode = ease_mode;
+	p.duration = duration;
+	p.delay = delay;
+	p.ptr = ptr;
+	p.curve.a = a;
+	p.curve.b = b;
+	p.curve.pivot = pivot;
+	animator->property_arr[animator->curr_step].add(p);
+}
+
+func void add_color(s_animator* animator, s_v4 a, s_v4 b, float duration, float delay, s_v4* ptr, e_ease ease_mode)
+{
+	assert(ptr);
+
+	#ifdef m_debug
+	animator->needs_wait_call = true;
+	#endif // m_debug
+
+	max_by_ptr(&animator->step_duration_arr[animator->curr_step], delay + duration);
+	s_animator_property p = zero;
+	p.ease_mode = ease_mode;
+	p.type = e_animator_color;
+	p.duration = duration;
+	p.delay = delay;
+	p.ptr = ptr;
+	p.color.a = a;
+	p.color.b = b;
+	animator->property_arr[animator->curr_step].add(p);
+}
+
+func void add_point(s_animator* animator, s_v2 a, float duration, float delay, s_v2* ptr, e_ease ease_mode)
+{
+	assert(ptr);
+
+	#ifdef m_debug
+	animator->needs_wait_call = true;
+	#endif // m_debug
+
+	max_by_ptr(&animator->step_duration_arr[animator->curr_step], delay + duration);
+	s_animator_property p = zero;
+	p.ease_mode = ease_mode;
+	p.type = e_animator_point;
+	p.duration = duration;
+	p.delay = delay;
+	p.ptr = ptr;
+	p.point.a = a;
+	animator->property_arr[animator->curr_step].add(p);
+}
+
+func void add_float(s_animator* animator, float a, float b, float duration, float delay, float* ptr, e_ease ease_mode)
+{
+	assert(ptr);
+
+	#ifdef m_debug
+	animator->needs_wait_call = true;
+	#endif // m_debug
+
+	max_by_ptr(&animator->step_duration_arr[animator->curr_step], delay + duration);
+	s_animator_property p = zero;
+	p.ease_mode = ease_mode;
+	p.type = e_animator_float;
+	p.duration = duration;
+	p.delay = delay;
+	p.ptr = ptr;
+	p.nfloat.a = a;
+	p.nfloat.b = b;
+	animator->property_arr[animator->curr_step].add(p);
+}

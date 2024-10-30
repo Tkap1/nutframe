@@ -2420,6 +2420,12 @@ static t max(t a, t b)
 }
 
 template <typename t>
+static void max_by_ptr(t* a, t b)
+{
+	*a = max(*a, b);
+}
+
+template <typename t>
 static t min(t a, t b)
 {
 	return a <= b ? a : b;
@@ -6263,20 +6269,20 @@ static float ease_out_back(float x)
 }
 
 #define m_advanced_easings \
-X(ease_linear) \
-X(ease_in_expo) \
-X(ease_in_quad) \
-X(ease_out_quad) \
-X(ease_out_expo) \
-X(ease_out_elastic) \
-X(ease_out_elastic2) \
-X(ease_out_back) \
+X(ease_linear, e_ease_linear) \
+X(ease_in_expo, e_ease_in_expo) \
+X(ease_in_quad, e_ease_in_quad) \
+X(ease_out_quad, e_ease_out_quad) \
+X(ease_out_expo, e_ease_out_expo) \
+X(ease_out_elastic, e_ease_out_elastic) \
+X(ease_out_elastic2, e_ease_out_elastic2) \
+X(ease_out_back, e_ease_out_back) \
 
-#define X(name) \
-static float name##_advanced(float x, float x_start, float x_end, float target_start, float target_end) \
+#define X(fname, ename) \
+static float fname##_advanced(float x, float x_start, float x_end, float target_start, float target_end) \
 { \
 	x = handle_advanced_easing(x, x_start, x_end); \
-	return lerp(target_start, target_end, name(x)); \
+	return lerp(target_start, target_end, fname(x)); \
 }
 m_advanced_easings
 #undef X
@@ -6662,4 +6668,12 @@ static b8 is_valid_keybind(int key)
 {
 	s_len_str str = virtual_key_to_str(key);
 	return str.len > 0;
+}
+
+static s_v2 bezier(s_v2 start, s_v2 end, s_v2 pivot, float t)
+{
+	s_v2 a = lerp(start, pivot, t);
+	s_v2 b = lerp(pivot, end, t);
+	s_v2 c = lerp(a, b, t);
+	return c;
 }
