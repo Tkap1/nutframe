@@ -731,6 +731,8 @@ struct s_game
 	b8 waiting_for_key;
 	int target_action;
 	int target_key;
+	b8 in_state_transition;
+	float state_transition_timer;
 
 	s_hold_input hold_input;
 	s_press_input press_input;

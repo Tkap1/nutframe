@@ -709,6 +709,44 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_delta = (float)platform_data->frame_time;
 	game->render_time += g_delta;
 
+
+	if(game->in_state_transition) {
+		s_animator a = zero;
+
+		float coverage = 0;
+		float alpha = 0;
+
+		add_float(&a, 1.0f, 0.0f, 0.5f, 0.0f, &coverage, e_ease_linear);
+		add_float(&a, 1.0f, 0.0f, 0.5f, 0.0f, &alpha, e_ease_linear);
+		animator_wait_completed(&a, 0.0f);
+
+		int result = update_animator(&a, &game->state_transition_timer, 1.0f, false);
+		if(result == -1) {
+			game->in_state_transition = false;
+		}
+		game->state_transition_timer += g_delta;
+
+		s_v2 size = v2(64);
+		int tiles_right = ceilfi(c_base_res.x / size.x);
+		int tiles_down = ceilfi(c_base_res.y / size.y);
+
+		s_rng rng = make_rng(0);
+		for(int y = 0; y < tiles_down; y += 1) {
+			for(int x = 0; x < tiles_right; x += 1) {
+				b8 slot = (x + y) & 1;
+				if(rng.chance1(coverage)) {
+					s_v2 pos = v2(x * size.x, y * size.y);
+					constexpr s_v4 color_a = brighter(make_color(0.860f, 0.537f, 0.223f), 0.5f);
+					constexpr s_v4 color_b = brighter(make_color(0.465f, 0.302f, 0.045f), 0.5f);
+					s_v4 color = slot ? color_a : color_b;
+					color = set_alpha(color, alpha);
+					draw_rect(g_r, pos, 0, size, color, game->ui_render_pass3, {}, {.origin_offset = c_origin_topleft});
+				}
+			}
+		}
+
+	}
+
 	s_play_state* play_state = &game->play_state;
 	s_camera2d* cam = &play_state->cam;
 
@@ -1518,11 +1556,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 				s_pos_area area = make_pos_area(wxy(0.0f, 0.0f), wxy(1.0f, 1.0f), c_theme_big.button_size, 8, 2, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
 				if(ui_button(strlit("Play"), pos_area_get_advance(&area), {.theme = c_theme_big}) || is_key_pressed(g_input, c_key_enter)) {
-					set_state_next_frame(e_state_play);
+					set_state_next_frame_with_transition(e_state_play);
 					game->reset_game = true;
 				}
 				if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), {.theme = c_theme_big})) {
-					set_state_next_frame(e_state_leaderboard);
+					set_state_next_frame_with_transition(e_state_leaderboard);
 					if constexpr(c_are_we_on_web) {
 						on_leaderboard_score_submitted();
 					}
@@ -1550,7 +1588,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				ui_button(strlit("Back"), wxy(0.7f, 0.9f), {.theme = c_theme_big})
 				|| is_key_pressed(g_input, c_key_escape)
 			) {
-				go_back_to_prev_state();
+				go_back_to_prev_state_with_transition();
 			}
 
 		} break;
@@ -1572,7 +1610,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				ui_button(strlit("Restart"), c_base_res * v2(0.7f, 0.9f), {.theme = c_theme_big})
 				|| is_key_pressed(g_input, c_key_escape) || want_to_reset
 			) {
-				go_back_to_prev_state();
+				go_back_to_prev_state_with_transition();
 				game->reset_game = true;
 			}
 
@@ -2510,6 +2548,15 @@ func b8 set_state_next_frame(e_state new_state)
 	return true;
 }
 
+func b8 set_state_next_frame_with_transition(e_state new_state)
+{
+	if(set_state_next_frame(new_state)) {
+		do_state_transition();
+		return true;
+	}
+	return false;
+}
+
 func void set_state_next_frame_temporary(e_state new_state)
 {
 	if(set_state_next_frame(new_state)) {
@@ -2905,7 +2952,7 @@ func void do_options_menu(b8 in_play_mode)
 		play_state->sub_state = e_sub_state_default;
 	}
 	if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), optional)) {
-		set_state_next_frame(e_state_leaderboard);
+		set_state_next_frame_with_transition(e_state_leaderboard);
 		if constexpr(c_are_we_on_web) {
 			on_leaderboard_score_submitted();
 		}
@@ -2942,7 +2989,7 @@ func void do_options_menu(b8 in_play_mode)
 		game->main_menu.sub_state = e_sub_state_default;
 	}
 	if(in_play_mode && ui_button_with_confirmation(strlit("Exit"), strlit("Are you sure?"), pos_area_get_advance(&area), optional)) {
-		go_back_to_prev_state();
+		go_back_to_prev_state_with_transition();
 	}
 }
 
@@ -3033,6 +3080,18 @@ func void go_back_to_prev_state()
 	}
 	set_state_next_frame(state.state);
 	game->should_pop_state = true;
+}
+
+func void go_back_to_prev_state_with_transition()
+{
+	go_back_to_prev_state();
+	do_state_transition();
+}
+
+func void do_state_transition()
+{
+	game->in_state_transition = true;
+	game->state_transition_timer = 0;
 }
 
 func void add_resource(int amount)
@@ -3335,7 +3394,7 @@ func void draw_cost_and_hotkey(s_v2 pos, s_len_str cost_str, s_len_str hotkey_st
 	draw_hotkey(temp_pos, hotkey_str, font_size, color_multi);
 }
 
-func int update_animator(s_animator* animator, float* time_ptr, float speed)
+func int update_animator(s_animator* animator, float* time_ptr, float speed, b8 loop)
 {
 	assert(animator->step_count > 0);
 	assert(speed > 0);
@@ -3346,12 +3405,18 @@ func int update_animator(s_animator* animator, float* time_ptr, float speed)
 		result = -1;
 	}
 
-	float t = fmodf(*time_ptr * speed, animator->total_duration);
+	float t;
+	if(loop) {
+		t = fmodf(*time_ptr * speed, animator->total_duration);
+	}
+	else {
+		t = min(*time_ptr * speed, animator->total_duration);
+	}
 
 	int step_index = -1;
 	for(int step_i = 0; step_i < animator->step_count; step_i += 1) {
 		float start = animator->step_start_time_arr[step_i];
-		if(t >= start && t < start + animator->step_duration_arr[step_i]) {
+		if(t >= start && t <= start + animator->step_duration_arr[step_i]) {
 			step_index = step_i;
 			break;
 		}
@@ -3396,7 +3461,12 @@ func int update_animator(s_animator* animator, float* time_ptr, float speed)
 			}
 		}
 	}
-	*time_ptr = fmodf(*time_ptr, animator->total_duration / speed);
+	if(loop) {
+		*time_ptr = fmodf(*time_ptr, animator->total_duration / speed);
+	}
+	else {
+		*time_ptr = min(*time_ptr, animator->total_duration / speed);
+	}
 	return result;
 }
 

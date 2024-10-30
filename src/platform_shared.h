@@ -944,7 +944,7 @@ enum e_blend_mode
 };
 
 template <typename t>
-static t at_least(t a, t b)
+static constexpr t at_least(t a, t b)
 {
 	return a > b ? a : b;
 }
@@ -956,7 +956,7 @@ static void at_least_ptr(t a, t* b)
 }
 
 template <typename t>
-static t at_most(t a, t b)
+static constexpr t at_most(t a, t b)
 {
 	return b > a ? a : b;
 }
@@ -1153,12 +1153,12 @@ static float ilerp(float start, float end, float val)
 }
 
 template <typename t>
-static t clamp(t current, t min_val, t max_val)
+static constexpr t clamp(t current, t min_val, t max_val)
 {
 	return at_most(max_val, at_least(min_val, current));
 }
 
-static s_v4 brighter(s_v4 color, float val)
+static constexpr s_v4 brighter(s_v4 color, float val)
 {
 	color.x = clamp(color.x * val, 0.0f, 1.0f);
 	color.y = clamp(color.y * val, 0.0f, 1.0f);
@@ -2468,6 +2468,17 @@ static constexpr s_v4 make_color(t0 r, t1 g, t2 b)
 	return result;
 }
 
+template <typename t0, typename t1, typename t2, typename t3>
+static constexpr s_v4 make_color(t0 r, t1 g, t2 b, t3 a)
+{
+	s_v4 result;
+	result.x = (float)r;
+	result.y = (float)g;
+	result.z = (float)b;
+	result.w = (float)a;
+	return result;
+}
+
 template <typename t0, typename t1>
 static constexpr s_v4 make_color(t0 v, t1 a)
 {
@@ -2477,6 +2488,12 @@ static constexpr s_v4 make_color(t0 v, t1 a)
 	result.z = (float)v;
 	result.w = (float)a;
 	return result;
+}
+
+static constexpr s_v4 set_alpha(s_v4 color, float a)
+{
+	color.w = a;
+	return color;
 }
 
 static s_v2 v2_from_angle(float angle)
