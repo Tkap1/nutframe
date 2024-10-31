@@ -72,5 +72,5 @@
 - Dash to mouse and dash to keyboard now have different keybinds
 - Upgrade buttons looks better
 - Free upgrade menu looks better
-- Added transitions between certain states
+- Added ugly transitions between certain states
 ===============================================================================================

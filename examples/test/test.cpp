@@ -727,24 +727,31 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		game->state_transition_timer += g_delta;
 
 		s_v2 size = v2(64);
-		int tiles_right = ceilfi(c_base_res.x / size.x);
-		int tiles_down = ceilfi(c_base_res.y / size.y);
+		s_v2 step = size * v2(1.4f, 0.7f);
+		int tiles_right = ceilfi(c_base_res.x / step.x);
+		int tiles_down = ceilfi(c_base_res.y / step.y);
+
+		coverage = powf(coverage, 0.5f);
 
 		s_rng rng = make_rng(0);
-		for(int y = 0; y < tiles_down; y += 1) {
+		for(int y = -1; y < tiles_down; y += 1) {
 			for(int x = 0; x < tiles_right; x += 1) {
-				b8 slot = (x + y) & 1;
+				b8 slot = y & 1;
+				s_v2 offset = v2(
+					(y & 1) ? 0.0f : step.x * 0.5f,
+					0.0f
+				);
 				if(rng.chance1(coverage)) {
-					s_v2 pos = v2(x * size.x, y * size.y);
+					s_v2 pos = v2(x * step.x, y * step.y);
 					constexpr s_v4 color_a = brighter(make_color(0.860f, 0.537f, 0.223f), 0.5f);
 					constexpr s_v4 color_b = brighter(make_color(0.465f, 0.302f, 0.045f), 0.5f);
 					s_v4 color = slot ? color_a : color_b;
 					color = set_alpha(color, alpha);
-					draw_rect(g_r, pos, 0, size, color, game->ui_render_pass3, {}, {.origin_offset = c_origin_topleft});
+					pos += offset;
+					draw_rect(g_r, pos, 0, size, color, game->ui_render_pass3, {}, {.rotation = quarter_pi, .origin_offset = c_origin_center});
 				}
 			}
 		}
-
 	}
 
 	s_play_state* play_state = &game->play_state;

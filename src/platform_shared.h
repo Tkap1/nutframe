@@ -217,6 +217,8 @@ static constexpr s64 c_gb = 1024 * c_mb;
 static constexpr s64 c_tb = 1024 * c_gb;
 
 static constexpr float pi = 3.1415926f;
+static constexpr float half_pi = pi * 0.5f;
+static constexpr float quarter_pi = pi * 0.25f;
 static constexpr float tau = 6.283185f;
 static constexpr float epsilon = 0.000001f;
 static constexpr f64 epsilon64 = 0.000000001;
