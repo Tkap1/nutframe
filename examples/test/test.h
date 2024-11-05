@@ -705,9 +705,9 @@ struct s_animator_property
 
 struct s_animator
 {
-	#ifdef m_debug
+	// #ifdef m_debug
 	b8 needs_wait_call = true;
-	#endif // m_debug
+	// #endif // m_debug
 
 	s_carray<float, 8> step_start_time_arr;
 	s_carray<int, 8> result_on_end;

@@ -15,6 +15,7 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
 #include <emscripten/fetch.h>
+#include <emscripten/websocket.h>
 #endif // __EMSCRIPTEN__
 
 #pragma clang diagnostic push
@@ -110,6 +111,11 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	g_platform_data.get_our_leaderboard = get_our_leaderboard;
 	g_platform_data.register_leaderboard_client = register_leaderboard_client;
 	g_platform_data.set_leaderboard_name = set_leaderboard_name;
+
+	#define X(return_type, name, ...) g_platform_data.name = name;
+	m_shared_engine_functions
+	#undef X
+
 	#endif // __EMSCRIPTEN__
 
 
@@ -467,3 +473,84 @@ static void center_window()
 {
 	SDL_SetWindowPosition(g_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }
+
+#ifdef __EMSCRIPTEN__
+
+static void create_websocket(char* address)
+{
+	EmscriptenWebSocketCreateAttributes attributes = {
+		address,
+		NULL,
+		EM_TRUE
+	};
+
+	g_websocket = emscripten_websocket_new(&attributes);
+	if(g_websocket <= 0) {
+		printf("Failed to create websocket\n");
+		assert(false);
+	}
+}
+
+static EM_BOOL internal_websocket_on_open_callback(int event_type, const EmscriptenWebSocketOpenEvent* event, void* user_data)
+{
+	g_platform_data.on_open_callback(user_data);
+	return true;
+}
+
+static EM_BOOL internal_websocket_on_close_callback(int event_type, const EmscriptenWebSocketCloseEvent* event, void* user_data)
+{
+	g_platform_data.on_close_callback(user_data);
+	return true;
+}
+
+static EM_BOOL internal_websocket_on_error_callback(int event_type, const EmscriptenWebSocketErrorEvent* event, void* user_data)
+{
+	g_platform_data.on_error_callback(user_data);
+	return true;
+}
+
+static EM_BOOL internal_websocket_on_message_callback(int event_type, const EmscriptenWebSocketMessageEvent* event, void* user_data)
+{
+	g_platform_data.on_message_callback(event->data, event->numBytes, user_data);
+	return true;
+}
+
+static void websocket_set_on_open_callback(t_websocket_callback callback, void* user_data)
+{
+	assert(g_websocket > 0);
+	g_platform_data.on_open_callback = callback;
+	emscripten_websocket_set_onopen_callback(g_websocket, user_data, internal_websocket_on_open_callback);
+}
+
+static void websocket_set_on_close_callback(t_websocket_callback callback, void* user_data)
+{
+	assert(g_websocket > 0);
+	g_platform_data.on_close_callback = callback;
+	emscripten_websocket_set_onclose_callback(g_websocket, user_data, internal_websocket_on_close_callback);
+}
+
+static void websocket_set_on_error_callback(t_websocket_callback callback, void* user_data)
+{
+	assert(g_websocket > 0);
+	g_platform_data.on_error_callback = callback;
+	emscripten_websocket_set_onerror_callback(g_websocket, user_data, internal_websocket_on_error_callback);
+}
+
+static void websocket_set_on_message_callback(t_websocket_message_callback callback, void* user_data)
+{
+	assert(g_websocket > 0);
+	g_platform_data.on_message_callback = callback;
+	emscripten_websocket_set_onmessage_callback(g_websocket, user_data, internal_websocket_on_message_callback);
+}
+
+static void websocket_send(const void* data, int data_len)
+{
+	assert(g_websocket > 0);
+	assert(data);
+	assert(data_len > 0);
+
+	EMSCRIPTEN_RESULT idk = emscripten_websocket_send_binary(g_websocket, (void*)data, data_len);
+	assert(idk == EMSCRIPTEN_RESULT_SUCCESS || idk == EMSCRIPTEN_RESULT_DEFERRED);
+}
+
+#endif // __EMSCRIPTEN__

@@ -3087,6 +3087,32 @@ typedef void (*t_get_leaderboard_callback)(s_json*);
 typedef void (*t_get_our_leaderboard_callback)(s_json*);
 typedef void (*t_set_leaderboard_name_callback)(b8);
 
+typedef void(*t_websocket_callback)(void*);
+typedef void(*t_websocket_message_callback)(void*, int, void*);
+
+#ifdef __EMSCRIPTEN__
+
+static void create_websocket(char* address);
+static void websocket_set_on_open_callback(t_websocket_callback callback, void* user_data);
+static void websocket_set_on_close_callback(t_websocket_callback callback, void* user_data);
+static void websocket_set_on_error_callback(t_websocket_callback callback, void* user_data);
+static void websocket_set_on_message_callback(t_websocket_message_callback callback, void* user_data);
+static void websocket_send(const void* data, int data_len);
+
+#define m_shared_engine_functions \
+	X(void, create_websocket, char*) \
+	X(void, websocket_set_on_open_callback, t_websocket_callback, void*) \
+	X(void, websocket_set_on_close_callback, t_websocket_callback, void*) \
+	X(void, websocket_set_on_error_callback, t_websocket_callback, void*) \
+	X(void, websocket_set_on_message_callback, t_websocket_message_callback, void*) \
+	X(void, websocket_send, const void*, int) \
+
+#if !defined(m_game)
+EMSCRIPTEN_WEBSOCKET_T g_websocket;
+#endif
+
+#endif // __EMSCRIPTEN__
+
 struct s_platform_data
 {
 	b8 recompiled;
@@ -3098,6 +3124,19 @@ struct s_platform_data
 
 	s_carray<b8, c_max_actions> action_active_arr;
 	s_carray2<int, c_max_actions, 2> action_key_arr;
+
+	#ifdef __EMSCRIPTEN__
+
+	t_websocket_callback on_open_callback;
+	t_websocket_callback on_close_callback;
+	t_websocket_callback on_error_callback;
+	t_websocket_message_callback on_message_callback;
+
+	#define X(return_type, name, ...) return_type (*name)(__VA_ARGS__);
+	m_shared_engine_functions
+	#undef X
+
+	#endif // __EMSCRIPTEN__
 
 	#ifdef m_debug
 	int recorded_input_index;

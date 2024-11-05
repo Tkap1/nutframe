@@ -107,3 +107,7 @@ func void add_curve(s_animator* animator, s_v2 a, s_v2 b, s_v2 pivot, float dura
 func void add_color(s_animator* animator, s_v4 a, s_v4 b, float duration, float delay, s_v4* ptr, e_ease ease_mode);
 func void add_point(s_animator* animator, s_v2 a, float duration, float delay, s_v2* ptr, e_ease ease_mode);
 func void add_float(s_animator* animator, float a, float b, float duration, float delay, float* ptr, e_ease ease_mode);
+func void on_websocket_open(void* user_data);
+func void on_websocket_close(void* user_data);
+func void on_websocket_error(void* user_data);
+func void on_websocket_message(void* data, int data_len, void* user_data);

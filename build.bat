@@ -15,7 +15,7 @@ SETLOCAL ENABLEDELAYEDEXPANSION
 func_decl_gen.exe examples/test/*
 
 @REM 0 for win32, 1 for SDL
-set platform=0
+set platform=1
 set client_file=..\examples\test\test.cpp
 set exe_name=DigHard
 
