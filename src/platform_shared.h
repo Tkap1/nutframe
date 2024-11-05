@@ -17,8 +17,8 @@
 #endif // _WIN32
 
 #ifdef __GNUC__
-// @TODO(tkap, 13/10/2023): stackoverflow copy paste
 #ifdef m_build_dll
+// @TODO(tkap, 13/10/2023): stackoverflow copy paste
 #define m_dll_export __attribute__((visibility("default")))
 #else // m_build_dll
 #define m_dll_export
