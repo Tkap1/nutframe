@@ -1,20 +1,15 @@
 #define m_game
+#define s_list s_sarray
 
 #include "../../src/platform_shared.h"
 #include "variables.h"
 
+#define global static
+
+#include "../../../http_server/src/common.h"
 #include "test.h"
 
-static constexpr s_v2 c_base_res = {1920, 1080};
-// static constexpr s_v2 c_base_res = {1366, 768};
-static constexpr s_v2 c_half_res = {c_base_res.x * 0.5f, c_base_res.y * 0.5f};
 static constexpr s_bounds c_base_res_bounds = rect_to_bounds(v2(0), c_base_res);
-
-#ifdef m_emscripten
-global constexpr b8 c_are_we_on_web = true;
-#else // m_emscripten
-global constexpr b8 c_are_we_on_web = false;
-#endif // m_emscripten
 
 static s_input* g_input;
 static s_game* game;
@@ -48,52 +43,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->rng = make_rng(platform_data->get_random_seed());
 		g_r->set_vsync(true);
 		game->placeholder_texture = g_r->load_texture(renderer, "examples/test/placeholder.png", e_filter_linear, e_wrap_clamp);
-		game->base_texture = g_r->load_texture(renderer, "examples/test/base.png", e_filter_linear, e_wrap_clamp);
-		game->button_texture = g_r->load_texture(renderer, "examples/test/button.png", e_filter_linear, e_wrap_clamp);
-		game->tile_texture = g_r->load_texture(renderer, "examples/test/tile.png", e_filter_linear, e_wrap_clamp);
-		game->crater_texture = g_r->load_texture(renderer, "examples/test/crater.png", e_filter_linear, e_wrap_clamp);
-		game->rock_texture_arr[0] = g_r->load_texture(renderer, "examples/test/rock01.png", e_filter_linear, e_wrap_clamp);
-		game->rock_texture_arr[1] = g_r->load_texture(renderer, "examples/test/rock02.png", e_filter_linear, e_wrap_clamp);
-		game->broken_bot_texture = g_r->load_texture(renderer, "examples/test/broken_bot.png", e_filter_linear, e_wrap_clamp);
-		game->hotkey_texture = g_r->load_texture(renderer, "examples/test/hotkey.png", e_filter_linear, e_wrap_clamp);
-
-		game->upgrade_button_texture_arr[e_upgrade_buy_bot] = g_r->load_texture(renderer, "examples/test/drone_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_player_damage] = g_r->load_texture(renderer, "examples/test/damage_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_bot_damage] = g_r->load_texture(renderer, "examples/test/drone_damage_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_player_movement_speed] = g_r->load_texture(renderer, "examples/test/speed_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_bot_movement_speed] = g_r->load_texture(renderer, "examples/test/drone_speed_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_spawn_rate] = g_r->load_texture(renderer, "examples/test/spawn_rate_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_creature_tier] = g_r->load_texture(renderer, "examples/test/creature_tier.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_player_harvest_range] = g_r->load_texture(renderer, "examples/test/player_range_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_bot_harvest_range] = g_r->load_texture(renderer, "examples/test/drone_range_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_double_harvest] = g_r->load_texture(renderer, "examples/test/2x_harvest_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_bot_cargo_count] = g_r->load_texture(renderer, "examples/test/drone_cargo_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_player_chain] = g_r->load_texture(renderer, "examples/test/player_chain_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_broken_bot_spawn] = g_r->load_texture(renderer, "examples/test/broken_drone_icon.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_deposit_spawn_rate] = g_r->load_texture(renderer, "examples/test/deposit_spawn.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_deposit_health] = g_r->load_texture(renderer, "examples/test/deposit_yield.png", e_filter_nearest, e_wrap_clamp);
-		game->upgrade_button_texture_arr[e_upgrade_dash_cooldown] = g_r->load_texture(renderer, "examples/test/dash_cooldown.png", e_filter_nearest, e_wrap_clamp);
-
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone000.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone006.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone012.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone018.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->bot_animation, g_r->load_texture(renderer, "examples/test/drone024.png", e_filter_linear, e_wrap_clamp));
-		game->bot_animation.fps = 12;
-
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant000.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant006.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant012.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant018.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->ant_animation, g_r->load_texture(renderer, "examples/test/ant024.png", e_filter_linear, e_wrap_clamp));
-		game->ant_animation.fps = 8;
-
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player000.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player006.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player012.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player018.png", e_filter_linear, e_wrap_clamp));
-		add_texture(&game->player_animation, g_r->load_texture(renderer, "examples/test/player024.png", e_filter_linear, e_wrap_clamp));
-		game->player_animation.fps = 12;
 
 		game->sound_arr[e_sound_creature_death00] = platform_data->load_sound(platform_data, "examples/test/creature_death00.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_creature_death01] = platform_data->load_sound(platform_data, "examples/test/creature_death01.wav", platform_data->frame_arena);
@@ -102,6 +51,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->sound_arr[e_sound_upgrade] = platform_data->load_sound(platform_data, "examples/test/upgrade.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_level_up] = platform_data->load_sound(platform_data, "examples/test/level_up.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_dash] = platform_data->load_sound(platform_data, "examples/test/dash.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_click] = platform_data->load_sound(platform_data, "examples/test/keypress.wav", platform_data->frame_arena);
 
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
 		game->light_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
@@ -125,11 +75,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		g_r->game_speed_index = 5;
 
 		game->next_state = -1;
-		set_state_next_frame(e_state_main_menu);
-
-		for(int i = 0; i < game->statistics_show_arr.max_elements(); i += 1) {
-			game->statistics_show_arr[i] = true;
-		}
+		set_state_next_frame(e_state_input_name);
 
 		register_action(g_platform_data, e_action_left, c_key_a, c_key_left);
 		register_action(g_platform_data, e_action_right, c_key_d, c_key_right);
@@ -137,11 +83,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		register_action(g_platform_data, e_action_down, c_key_s, c_key_down);
 		register_action(g_platform_data, e_action_dash_to_keyboard, c_key_space, 0);
 		register_action(g_platform_data, e_action_dash_to_mouse, c_right_mouse, 0);
-
-		#if defined(m_debug)
-		game->hide_tutorial = true;
-		game->pick_free_upgrade_automatically = true;
-		#endif
 
 		#ifdef m_emscripten
 		platform_data->create_websocket("wss://discrete-miserably-gopher.ngrok-free.app");
@@ -171,10 +112,17 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		handle state change end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-	if(is_last_update_this_frame) {
-		game->hold_input = zero;
+	float delta = (float)c_update_delay;
+	switch(get_state()) {
+		case e_state_play: {
+			s_play* play = &game->play;
+			foreach_ptr(word_i, word, play->word_arr) {
+				word->prev_pos = word->pos;
+				word->pos += word->dir * 128 * delta;
+			}
+		} break;
 	}
-	game->press_input = zero;
+
 }
 
 m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer, float interp_dt)
@@ -188,16 +136,129 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	g_input = &platform_data->input;
 	g_platform_data = platform_data;
 
-	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		reset ui start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-	{
-		auto t = &game->ui_table;
-		for(int i = 0; i < game->ui_table.max_elements(); i += 1) {
-			if(t->used[i] && !t->values[i].present) {
-				t->used[i] = false;
+	s_m4 ortho = m4_orthographic(0, c_base_res.x, c_base_res.y, 0, -100, 100);
+	g_delta = (float)platform_data->frame_time;
+	game->render_time += g_delta;
+
+	g_r->clear_framebuffer(game->main_fbo, zero, c_default_fbo_clear_flags);
+	g_r->clear_framebuffer(game->light_fbo, v4(0.75f, 0.75f, 0.75f, 1.0f), e_fbo_clear_color);
+
+	switch(get_state()) {
+		case e_state_input_name: {
+
+			s_input_name_state* state = &game->input_name_state;
+
+			float font_size = 36;
+
+			s_v2 pos = c_base_res * v2(0.5f, 0.4f);
+
+			b8 submitted = handle_string_input(&state->name, g_input, game->render_time);
+			if(state->name.last_edit_time == game->render_time) {
+				play_sound_group(e_sound_group_click);
 			}
-		}
+			if(submitted) {
+				b8 can_submit = true;
+				if(state->name.str.len < 2) {
+					can_submit = false;
+					state->error_str.from_cstr("Name must have at least 2 characters!");
+				}
+				if(can_submit && !state->waiting_for_server_response) {
+					s_buffer_writer writer = zero;
+					buffer_write(&writer, e_packet_send_name);
+					buffer_write(&writer, state->name.str.len);
+					buffer_write_array(&writer, state->name.str.data, state->name.str.len);
+					game->name = state->name.str;
+
+					#if defined(m_emscripten)
+					platform_data->websocket_send(writer.buffer, writer.len);
+					#endif // m_emscripten
+					state->error_str.len = 0;
+					state->waiting_for_server_response = true;
+				}
+			}
+
+			draw_text(g_r, strlit("Enter your name"), c_base_res * v2(0.5f, 0.2f), 10, font_size, make_color(1), true, game->font, game->ui_render_pass1);
+			if(state->error_str.len > 0) {
+				draw_text(g_r, strlit(state->error_str.data), c_base_res * v2(0.5f, 0.3f), 10, font_size, rgb(0xD77870), true, game->font, game->ui_render_pass1);
+			}
+
+			if(state->name.str.len > 0) {
+				draw_text(g_r, strlit(state->name.str.data), pos, 10, font_size, make_color(1), true, game->font, game->ui_render_pass1);
+			}
+
+			draw_cool_cursor(
+				pos, strlit(state->name.str.data), &state->name.cursor, font_size, state->name.last_action_time, state->name.last_edit_time
+			);
+		} break;
+
+		case e_state_play: {
+			s_play* play = &game->play;
+			draw_text(g_r, strlit("We are playing BAAAAAAT"), c_base_res * v2(0.5f, 0.2f), 10, 42, make_color(1), true, game->font, game->ui_render_pass1);
+
+			foreach_val(word_i, word, play->word_arr) {
+				s_v2 pos = lerp(word.prev_pos, word.pos, interp_dt);
+				draw_text(g_r, strlit("WORD"), pos, 0, 24, make_color(1), true, game->font, game->world_render_pass_arr[0]);
+			}
+
+			#if defined(m_emscripten)
+
+			foreach_val(c_i, c, g_input->char_events) {
+				s_buffer_writer writer = zero;
+				buffer_write(&writer, e_packet_type_char);
+				if(is_alpha(c) && play->text_len < 1024) {
+					buffer_write(&writer, c);
+					platform_data->websocket_send(writer.buffer, writer.len);
+
+					play_sound_group(e_sound_group_click);
+
+					play->last_action_time = game->render_time;
+					play->last_edit_time = game->render_time;
+					if(!play->cursor.index.valid) {
+						play->cursor.index = maybe(0);
+					}
+					play->text[play->cursor.index.value] = c;
+					play->cursor.index.value += 1;
+					play->text_len += 1;
+				}
+				else if(c == '\b') {
+					if(play->cursor.index.value > 0) {
+						buffer_write(&writer, c);
+						platform_data->websocket_send(writer.buffer, writer.len);
+						play_sound_group(e_sound_group_click);
+						play->cursor.index.value -= 1;
+						play->text_len -= 1;
+						int to_copy = play->text_len - play->cursor.index.value;
+						memmove(&play->text[play->cursor.index.value], &play->text[play->cursor.index.value + 1], to_copy);
+					}
+				}
+			}
+
+			float font_size = 48;
+
+			s_len_str str = {.str = play->text, .len = play->text_len};
+			if(str.len > 0) {
+				draw_text(g_r, str, wxy(0.5f, 0.1f), 0, font_size, make_color(1), true, game->font, game->world_render_pass_arr[0]);
+			}
+
+			draw_cool_cursor(
+				wxy(0.5f, 0.1f), str, &play->cursor, font_size, play->last_action_time, play->last_edit_time
+			);
+
+			#endif // m_emscripten
+
+		} break;
 	}
-	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		reset ui end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass2, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+	g_r->end_render_pass(g_r, game->ui_render_pass3, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+
+	g_r->clear_framebuffer(g_r->default_fbo, zero, c_default_fbo_clear_flags);
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo, game->world_render_pass_arr[0]);
+	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], g_r->default_fbo, {.projection = ortho});
+	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 }
 
@@ -250,187 +311,8 @@ func void do_particles(int count, s_v2 pos, int z, b8 attached_to_player, s_part
 		p.color.x *= (1.0f - rng->randf32() * data.color_rand.x);
 		p.color.y *= (1.0f - rng->randf32() * data.color_rand.y);
 		p.color.z *= (1.0f - rng->randf32() * data.color_rand.z);
-		game->play_state.particle_arr.add_checked(p);
+		game->play.particle_arr.add_checked(p);
 	}
-}
-
-func void on_leaderboard_received(s_json* json)
-{
-	game->leaderboard_arr.count = 0;
-	s_json* temp = json_get(json, "items", e_json_array);
-	if(!temp) { goto end; }
-	temp = json_get(json, "items", e_json_array);
-	for(s_json* j = temp->array; j; j = j->next) {
-		if(j->type != e_json_object) { continue; }
-
-		s_leaderboard_entry entry = {};
-		s_json* player = json_get(j->object, "player", e_json_object)->object;
-
-		entry.rank = json_get(j->object, "rank", e_json_integer)->integer;
-
-		char* nice_name = json_get(player, "name", e_json_string)->str;
-		if(nice_name) {
-			entry.nice_name.from_cstr(nice_name);
-		}
-
-		char* internal_name = json_get(player, "public_uid", e_json_string)->str;
-		entry.internal_name.from_cstr(internal_name);
-
-		entry.time = json_get(j->object, "score", e_json_integer)->integer;
-		game->leaderboard_arr.add(entry);
-	}
-	end:;
-
-	#ifdef m_emscripten
-	g_platform_data->get_our_leaderboard(c_leaderboard_id, on_our_leaderboard_received);
-	#endif // m_emscripten
-
-	game->leaderboard_state.received = true;
-}
-
-func void on_our_leaderboard_received(s_json* json)
-{
-	s_json* j = json->object;
-	if(!j) { return; }
-
-	s_leaderboard_entry new_entry = {};
-	s_json* player = json_get(j, "player", e_json_object);
-	if(!player) { return; }
-	player = player->object;
-
-	new_entry.rank = json_get(j, "rank", e_json_integer)->integer;
-
-	char* nice_name = json_get(player, "name", e_json_string)->str;
-	if(nice_name) {
-		new_entry.nice_name.from_cstr(nice_name);
-	}
-
-	char* internal_name = json_get(player, "public_uid", e_json_string)->str;
-	new_entry.internal_name.from_cstr(internal_name);
-
-	new_entry.time = json_get(j, "score", e_json_integer)->integer;
-
-	// @Note(tkap, 05/06/2024): We are not in this leaderboard!
-	if(new_entry.rank <= 0 || new_entry.time <= 0) {
-		return;
-	}
-
-	b8 is_already_in_top_ten = false;
-	foreach_val(entry_i, entry, game->leaderboard_arr) {
-		if(strcmp(internal_name, entry.internal_name.data) == 0) {
-			is_already_in_top_ten = true;
-			break;
-		}
-	}
-
-	if(!is_already_in_top_ten) {
-		game->leaderboard_arr.add(new_entry);
-	}
-}
-
-func void on_leaderboard_score_submitted()
-{
-	g_platform_data->get_leaderboard(c_leaderboard_id, on_leaderboard_received);
-}
-
-func s_m4 get_camera_view(s_camera3d cam)
-{
-	return look_at(cam.pos, cam.pos + cam.target, v3(0, -1, 0));
-}
-
-func s_button_interaction ui_button_interaction(s_len_str id_str, s_v2 pos, s_ui_optional optional)
-{
-	s_button_interaction result = zero;
-
-	result.id = parse_ui_id(id_str);
-	result.data = get_or_create_ui_data(result.id.id);
-	result.data->present = true;
-
-	result.size = optional.theme.button_size;
-
-	result.hovered = !optional.disabled && mouse_collides_rect_topleft(g_mouse, pos, result.size);
-
-	if(result.hovered && is_mouse_clicked()) {
-		game->click_consumed = true;
-		result.clicked = true;
-
-		s_ui_iterator it = zero;
-		while(for_ui_data(&it)) {
-			if(it.element != result.data) {
-				it.element->asking_for_confirmation = false;
-			}
-		}
-	}
-
-	return result;
-}
-
-func b8 ui_button(s_len_str id_str, s_v2 pos, s_ui_optional optional)
-{
-	float font_size = optional.theme.font_size;
-	s_button_interaction interaction = ui_button_interaction(id_str, pos, optional);
-
-	s_v4 color = make_color(0.6f);
-
-	if(interaction.hovered) {
-		color = make_color(1);
-	}
-	float color_multi = optional.darken;
-	draw_texture(g_r, pos, 0, interaction.size, brighter(color, color_multi), game->button_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
-
-	{
-		s_v2 text_pos = center_text_on_rect(interaction.id.text, game->font, pos, interaction.size, font_size, true, true);
-		text_pos.y += font_size * 0.1f;
-		draw_text(g_r, interaction.id.text, text_pos, 1, font_size, make_color(color_multi), false, game->font, game->ui_render_pass1);
-	}
-
-	if(interaction.hovered && optional.description.len > 0) {
-		do_button_tooltip(g_mouse, optional.description, optional.theme.tooltip_font_size);
-	}
-
-	return interaction.clicked;
-}
-
-func b8 ui_texture_button(s_len_str id_str, s_v2 pos, s_texture texture, s_ui_optional optional)
-{
-	pos -= v2(optional.grow_from_center * 0.5f);
-	optional.theme.button_size += v2(optional.grow_from_center);
-	s_button_interaction interaction = ui_button_interaction(id_str, pos, optional);
-
-	s_v4 color = make_color(0.7f);
-
-	if(interaction.hovered) {
-		color = make_color(1);
-	}
-	float color_multi = optional.darken;
-	draw_texture(g_r, pos, 0, interaction.size, brighter(color, color_multi), texture, game->ui_render_pass0, {}, {.mix_weight = optional.flash, .origin_offset = c_origin_topleft});
-
-	if(interaction.hovered && optional.description.len > 0) {
-		do_button_tooltip(g_mouse, optional.description, optional.theme.tooltip_font_size);
-	}
-
-	return interaction.clicked;
-}
-
-func s_tooltip make_tooltip(s_v2 pos, s_len_str description, float font_size, b8 offset)
-{
-	s_tooltip t = zero;
-	s_v2 text_size = get_text_size(description, game->font, font_size);
-	float padding = 16;
-	t.size = text_size + v2(padding * 2);
-	t.pos = pos;
-	if(offset) {
-		t.pos -= v2(0.0f, t.size.y);
-	}
-	t.text_pos = t.pos + v2(padding);
-	t.text_pos.y += 4;
-	return t;
-}
-
-func void do_button_tooltip(s_v2 pos, s_len_str description, float font_size)
-{
-	s_tooltip t = make_tooltip(pos, description, font_size, true);
-	draw_tooltip(t, description, font_size);
 }
 
 func void draw_tooltip(s_tooltip tooltip, s_len_str description, float font_size)
@@ -441,276 +323,6 @@ func void draw_tooltip(s_tooltip tooltip, s_len_str description, float font_size
 	draw_rect(g_r, tooltip.pos, 0, tooltip.size, hex_rgb_plus_alpha(0x9E8642, 0.85f), game->ui_render_pass2, {}, {.origin_offset = c_origin_topleft});
 	draw_text(g_r, description, tooltip.text_pos, 0, font_size, make_color(1), false, game->font, game->ui_render_pass3);
 }
-
-func b8 ui_button_with_confirmation(s_len_str id_str, s_len_str confirmation_str, s_v2 pos, s_ui_optional optional)
-{
-	b8 result = false;
-	s_parse_ui_id id = parse_ui_id(id_str);
-	s_ui_data* data = get_or_create_ui_data(id.id);
-	if(data->asking_for_confirmation) {
-		s_len_str str = format_text("%.*s##%.*s", expand_str(confirmation_str), expand_str(id_str));
-		result = ui_button(str, pos, optional);
-		if(result) {
-			data->asking_for_confirmation = false;
-		}
-	}
-	else {
-		b8 button_result = ui_button(id_str, pos, optional);
-		if(button_result) {
-			data->asking_for_confirmation = true;
-		}
-	}
-	return result;
-}
-
-func void on_set_leaderboard_name(b8 success)
-{
-	if(success) {
-		set_state_next_frame(e_state_win_leaderboard);
-		g_platform_data->submit_leaderboard_score(
-			game->play_state.update_count, c_leaderboard_id, on_leaderboard_score_submitted
-		);
-		game->play_state.update_count_at_win_time = game->play_state.update_count;
-	}
-	else {
-		game->input_name_state.error_str.from_cstr("Name is already taken!");
-	}
-}
-
-func int make_entity(b8* active, int* id, s_entity_index_data* index_data, int max_entities)
-{
-	for(int i = 0; i < max_entities; i += 1) {
-		if(!active[i]) {
-			active[i] = true;
-			game->play_state.next_entity_id += 1;
-			id[i] = game->play_state.next_entity_id;
-			index_data->lowest_index = at_most(i, index_data->lowest_index);
-			index_data->max_index_plus_one = at_least(i + 1, index_data->max_index_plus_one);
-			return i;
-		}
-	}
-	return c_invalid_entity;
-}
-
-func int make_creature(s_v2 pos, int tier, b8 boss)
-{
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-	int entity = make_entity(creature_arr->active, creature_arr->id, &creature_arr->index_data, c_max_creatures);
-	if(entity >= 0) {
-		e_creature type = e_creature_ant;
-		creature_arr->type[entity] = type;
-		creature_arr->pos[entity] = pos;
-		creature_arr->prev_pos[entity] = pos;
-		creature_arr->target_pos[entity] = pos;
-		creature_arr->tier[entity] = tier;
-		creature_arr->boss[entity] = boss;
-		creature_arr->roam_timer[entity] = 0;
-		creature_arr->targeted[entity] = false;
-		creature_arr->animation_timer[entity] = 0;
-		creature_arr->tick_when_last_damaged[entity] = -10000;
-		creature_arr->curr_health[entity] = get_creature_max_health(type, tier, boss);
-	}
-	return entity;
-}
-
-func int make_deposit(s_v2 pos, int tier)
-{
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-	int entity = make_entity(creature_arr->active, creature_arr->id, &creature_arr->index_data, c_max_creatures);
-	if(entity >= 0) {
-		e_creature type = e_creature_deposit;
-		creature_arr->type[entity] = type;
-		creature_arr->pos[entity] = pos;
-		creature_arr->prev_pos[entity] = pos;
-		creature_arr->tier[entity] = tier;
-		creature_arr->boss[entity] = false;
-		creature_arr->targeted[entity] = false;
-		creature_arr->tick_when_last_damaged[entity] = -10000;
-		creature_arr->flip_x[entity] = false;
-		creature_arr->curr_health[entity] = get_creature_max_health(type, tier, false);
-	}
-	return entity;
-}
-
-func int make_bot(s_v2 pos)
-{
-	s_bot_arr* bot_arr = &game->play_state.bot_arr;
-	int entity = make_entity(bot_arr->active, bot_arr->id, &bot_arr->index_data, c_max_bots);
-	bot_arr->target[entity] = zero;
-	bot_arr->state[entity] = e_bot_state_going_to_creature;
-	bot_arr->pos[entity] = pos;
-	bot_arr->prev_pos[entity] = pos;
-	bot_arr->cargo[entity] = 0;
-	bot_arr->cargo_count[entity] = 0;
-	return entity;
-}
-
-
-func void pick_target_for_bot(int bot)
-{
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-	s_bot_arr* bot_arr = &game->play_state.bot_arr;
-	assert(bot_arr->active[bot]);
-
-	s_get_closest_creature data = get_closest_creature(bot_arr->pos[bot]);
-
-	if(data.closest_non_targeted_creature.id > 0) {
-		bot_arr->target[bot] = data.closest_non_targeted_creature;
-		creature_arr->targeted[data.closest_non_targeted_creature.index] = true;
-	}
-	else {
-		bot_arr->target[bot] = data.closest_creature;
-		creature_arr->targeted[data.closest_creature.index] = true;
-	}
-}
-
-func int get_creature(s_entity_index index)
-{
-	assert(index.index >= 0);
-	if(index.id <= 0) { return c_invalid_entity; }
-	if(!game->play_state.creature_arr.active[index.index]) { return c_invalid_entity; }
-
-	if(game->play_state.creature_arr.id[index.index] == index.id) { return index.index; }
-	return c_invalid_entity;
-}
-
-func s_damage_creature damage_creature(int creature, int damage)
-{
-	s_damage_creature result = zero;
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-	e_creature type = creature_arr->type[creature];
-	int tier = creature_arr->tier[creature];
-	b8 is_boss = creature_arr->boss[creature];
-	b8 is_deposit = type == e_creature_deposit;
-
-	if(is_deposit) {
-		constexpr int step = 10;
-		int health_after_damage = at_least(0, creature_arr->curr_health[creature] - damage);
-		int prev_threshold = (get_creature_max_health(type, tier, is_boss) - creature_arr->curr_health[creature]) / step;
-		int next_threshold = (get_creature_max_health(type, tier, is_boss) - health_after_damage) / step;
-		int resource_from_deposit = next_threshold - prev_threshold;
-		int double_val = game->play_state.upgrade_level_arr[e_upgrade_double_harvest] > 0 ? 2 : 1;
-		result.resource_gain_from_deposit = resource_from_deposit * double_val;
-	}
-
-	creature_arr->curr_health[creature] -= damage;
-	creature_arr->tick_when_last_damaged[creature] = game->play_state.update_count;
-	if(creature_arr->curr_health[creature] <= 0) {
-		remove_entity(creature, creature_arr->active, &creature_arr->index_data);
-		play_sound_group(e_sound_group_creature_death);
-
-		do_particles(64, creature_arr->pos[creature], e_layer_particle, false, {
-			.shrink = 3,
-			.slowdown = 4,
-			.duration = 1.33f,
-			.duration_rand = 1,
-			.speed = 256,
-			.speed_rand = 1,
-			.radius = 16,
-			.color = v3(0.2f, 0.1f, 0.1f),
-			.color_rand = v3(0.1f, 0.1f, 0.1f),
-		});
-
-		if(!is_deposit) {
-			float chance = 1;
-			if(is_boss) {
-				chance = 10;
-			}
-			if(game->rng.chance100(chance)) {
-				make_pickup(creature_arr->pos[creature], (e_pickup)game->play_state.next_pickup_to_drop);
-				circular_index_add(&game->play_state.next_pickup_to_drop, 1, e_pickup_count);
-			}
-
-			int level_up_count = add_exp(&game->play_state.player, get_creature_exp_reward(tier, is_boss));
-			game->play_state.level_up_triggers += level_up_count;
-		}
-		result.creature_died = true;
-
-	}
-	return result;
-}
-
-func void remove_entity(int entity, b8* active, s_entity_index_data* index_data)
-{
-	active[entity] = false;
-	assert(entity >= index_data->lowest_index);
-	if(entity == index_data->lowest_index) {
-		index_data->lowest_index = at_least(0, entity - 1);
-	}
-	if(entity + 1 == index_data->max_index_plus_one) {
-		index_data->max_index_plus_one = at_least(0, entity);
-	}
-}
-
-func s_get_closest_creature get_closest_creature(s_v2 pos)
-{
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-
-	s_get_closest_creature data = zero;
-
-	for_creature_partial(creature) {
-		if(!creature_arr->active[creature]) { continue; }
-		float dist = v2_distance(creature_arr->pos[creature], pos);
-		if(creature_arr->targeted[creature]) {
-			if(dist < data.smallest_dist) {
-				data.smallest_dist = dist;
-				data.closest_creature.index = creature;
-				data.closest_creature.id = creature_arr->id[creature];
-			}
-		}
-		else {
-			if(dist < data.smallest_non_targeted_dist) {
-				data.smallest_non_targeted_dist = dist;
-				data.closest_non_targeted_creature.index = creature;
-				data.closest_non_targeted_creature.id = creature_arr->id[creature];
-			}
-		}
-	}
-	return data;
-}
-
-func int get_closest_creature2(s_v2 pos, float radius, s_cells* cells, s_lin_arena* arena, s_sarray<int, c_max_player_hits> blacklist)
-{
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-
-	float smallest_dist = 99999999.0f;
-	int closest_creature = -1;
-	s_dynamic_array<int> query_arr = query_creatures_circle(pos, radius, cells, arena);
-	foreach_val(query_i, query, query_arr) {
-		assert(creature_arr->active[query]);
-		if(blacklist.contains(query)) { continue; }
-		float dist = v2_distance(pos, creature_arr->pos[query]);
-		if(dist < smallest_dist) {
-			smallest_dist = dist;
-			closest_creature = query;
-		}
-	}
-	return closest_creature;
-}
-
-func s_dynamic_array<int> query_creatures_circle(s_v2 pos, float radius, s_cells* cells, s_lin_arena* frame_arena)
-{
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-	s_dynamic_array<int> result = make_dynamic_array<int>(16, frame_arena);
-	s_v2i min_index = get_cell_index(pos - v2(radius));
-	s_v2i max_index = get_cell_index(pos + v2(radius));
-
-	for(int y = min_index.y; y <= max_index.y; y += 1) {
-		for(int x = min_index.x; x <= max_index.x; x += 1) {
-			if(!is_valid_index(x, y, c_num_cells, c_num_cells)) { continue; }
-			if(cells->cell_arr[y][x].count > 0) {
-				foreach_val(creature_i, creature, cells->cell_arr[y][x]) {
-					if(!creature_arr->active[creature]) { continue; }
-					if(rect_collides_circle_center(creature_arr->pos[creature], get_creature_size(creature), pos, radius)) {
-						result.add(creature, frame_arena);
-					}
-				}
-			}
-		}
-	}
-	return result;
-}
-
 
 func s_v2 get_center(s_v2 pos, s_v2 size)
 {
@@ -803,100 +415,10 @@ func s_v2 pos_area_get_advance(s_pos_area* area, float advance_x, float advance_
 	return result;
 }
 
-func int get_player_damage()
-{
-	return 2 + game->play_state.upgrade_level_arr[e_upgrade_player_damage];
-}
-
-func int get_bot_damage()
-{
-	return 1 + game->play_state.upgrade_level_arr[e_upgrade_bot_damage];
-}
-
-func float get_player_movement_speed()
-{
-	float result = c_player_movement_speed + game->play_state.upgrade_level_arr[e_upgrade_player_movement_speed];
-	return result;
-}
-
-func float get_bot_movement_speed()
-{
-	return c_bot_movement_speed + game->play_state.upgrade_level_arr[e_upgrade_bot_movement_speed];
-}
-
-func f64 get_creature_spawn_delay()
-{
-	int increase0 = game->play_state.upgrade_level_arr[e_upgrade_spawn_rate] * 15;
-	f64 increase1 = (2.0 / 10800) * game->play_state.update_count;
-	f64 p = c_spawns_per_second * (1.0 + increase0 / 100.0);
-	p *= 1.0 + increase1;
-	return 1.0 / p;
-}
-
-func int get_creature_spawn_tier()
-{
-	int result = game->play_state.upgrade_level_arr[e_upgrade_creature_tier];
-	if(game->play_state.upgrade_level_arr[e_upgrade_double_harvest] > 0) {
-		result -= 5;
-	}
-	result = at_least(0, result);
-	return result;
-}
-
-func float get_player_harvest_range()
-{
-	float result = c_player_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_player_harvest_range] * 35;
-	if(has_buff(e_pickup_chain_and_range)) {
-		result += 100;
-	}
-	if(has_buff(e_pickup_multi_target_and_range)) {
-		result += 100;
-	}
-	return result;
-}
-
-func float get_bot_harvest_range()
-{
-	float result = c_bot_harvest_range + game->play_state.upgrade_level_arr[e_upgrade_bot_harvest_range] * 25;
-	if(has_buff(e_pickup_bot_chain_and_range)) {
-		result += 100;
-	}
-	return result;
-}
-
-func int get_creature_resource_reward(int tier, b8 boss)
-{
-	int result = tier + 1;
-	if(game->play_state.upgrade_level_arr[e_upgrade_double_harvest] > 0) {
-		result *= 2;
-	}
-	if(boss) {
-		result *= 11;
-	}
-	return result;
-}
-
-func int get_creature_exp_reward(int tier, b8 boss)
-{
-	int result = tier + 1;
-	if(boss) {
-		result *= 11;
-	}
-	return result;
-}
-
 func b8 set_state_next_frame(e_state new_state)
 {
 	if(game->next_state >= 0) { return false; }
 
-	switch(new_state)	{
-		case e_state_leaderboard:
-		case e_state_win_leaderboard:
-		{
-			game->leaderboard_state = zero;
-			game->leaderboard_arr.count = 0;
-		} break;
-	}
 
 	game->next_state = new_state;
 	return true;
@@ -918,19 +440,6 @@ func void set_state_next_frame_temporary(e_state new_state)
 	}
 }
 
-func int count_alive_creatures()
-{
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-	int result = 0;
-	for_creature_partial(creature) {
-		if(!creature_arr->active[creature]) { continue; }
-		if(counts_towards_defeat(creature_arr->type[creature])) {
-			result += 1;
-		}
-	}
-	return result;
-}
-
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness)
 {
 	draw_circle(g_r, pos, 0, radius, color, game->world_render_pass_arr[0], {.shader = 5, .circle_smoothness = smoothness});
@@ -939,44 +448,6 @@ func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness)
 func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness)
 {
 	draw_circle(g_r, pos, e_layer_shadow, radius, make_color(strength), game->world_render_pass_arr[0], {.shader = 5, .circle_smoothness = smoothness});
-}
-
-func int get_bot_max_cargo_count()
-{
-	return 1 + game->play_state.upgrade_level_arr[e_upgrade_bot_cargo_count];
-}
-
-func s_v2 get_creature_size(int creature)
-{
-	float multi = get_creature_size_multi(creature);
-	return c_creature_size * multi;
-}
-
-func float get_creature_size_multi(int creature)
-{
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-	e_creature type = creature_arr->type[creature];
-
-	switch(type) {
-		case e_creature_ant: {
-			float multi = creature_arr->boss[creature] ? 3.0f : 1.0f;
-			return multi;
-		} break;
-
-		case e_creature_deposit: {
-			return 2;
-		} break;
-
-		invalid_default_case;
-	}
-	return 1;
-}
-
-func s_entity_index creature_to_entity_index(int creature)
-{
-	s_creature_arr* creature_arr = &game->play_state.creature_arr;
-	assert(creature_arr->active[creature]);
-	return {.index = creature, .id = creature_arr->id[creature]};
 }
 
 func s_v2i get_cell_index(s_v2 pos)
@@ -1031,57 +502,11 @@ func s_bounds get_cam_bounds_snap_to_tile_size(s_camera2d cam)
 	return bounds;
 }
 
-func int get_player_hits()
-{
-	int result = 1 + game->play_state.upgrade_level_arr[e_upgrade_player_chain];
-	if(has_buff(e_pickup_chain_and_range)) {
-		result += 4;
-	}
-	return at_most(c_max_player_hits, result);
-}
-
-func int get_bot_hits()
-{
-	int result = 1;
-	if(has_buff(e_pickup_bot_chain_and_range)) {
-		result += 4;
-	}
-	return at_most(c_max_bot_hits, result);
-}
-
-func void make_pickup(s_v2 pos, e_pickup type)
-{
-	s_pickup pickup = zero;
-	pickup.pos = pos;
-	pickup.type = type;
-	game->play_state.pickup_arr.add_checked(pickup);
-}
-
-func void add_buff(s_player* player, e_pickup pickup)
-{
-	at_least_ptr(0, &player->buff_arr[pickup].ticks_left);
-	player->buff_arr[pickup].ticks_left += 500;
-}
-
-func b8 has_buff(e_pickup type)
-{
-	return game->play_state.player.buff_arr[type].ticks_left > 0;
-}
-
 func s_particle_data multiply_particle_data(s_particle_data data, s_particle_multiplier multi)
 {
 	data.radius *= multi.radius;
 	data.speed *= multi.speed;
 	return data;
-}
-
-func int get_player_multi_target()
-{
-	int result = 1;
-	if(has_buff(e_pickup_multi_target_and_range)) {
-		result += 4;
-	}
-	return result;
 }
 
 func void play_sound_group(e_sound_group group_id)
@@ -1105,152 +530,11 @@ func void play_sound_group(e_sound_group group_id)
 
 }
 
-func int count_alive_bots()
-{
-	int result = 0;
-	for_bot_partial(bot) {
-		if(game->play_state.bot_arr.active[bot]) { result += 1; }
-	}
-	return result;
-}
-
-func s_len_str get_upgrade_tooltip(e_upgrade id)
-{
-	s_len_str result = zero;
-	int level = game->play_state.upgrade_level_arr[id];
-	switch(id) {
-		case e_upgrade_buy_bot: {
-			result = format_text("+1 drone\n\nCurrent: %i", count_alive_bots());
-		} break;
-
-		case e_upgrade_player_damage: {
-			result = format_text("+1 player damage\n\nCurrent: %i", get_player_damage());
-		} break;
-
-		case e_upgrade_bot_damage: {
-			result = format_text("+1 drone damage\n\nCurrent: %i", get_bot_damage());
-		} break;
-
-		case e_upgrade_player_movement_speed: {
-			result = format_text("+1 player movement speed\n\nCurrent: %.1f", get_player_movement_speed());
-		} break;
-
-		case e_upgrade_bot_movement_speed: {
-			result = format_text("+1 drone movement speed\n\nCurrent: %.1f", get_bot_movement_speed());
-		} break;
-
-		case e_upgrade_spawn_rate: {
-			int val = game->play_state.upgrade_level_arr[e_upgrade_spawn_rate] * 15;
-			result = format_text("Creatures spawn 15%% faster\n\nCurrent: %i%%", val);
-		} break;
-
-		case e_upgrade_creature_tier: {
-			int val = get_creature_spawn_tier();
-			result = format_text("Creatures are stronger and more rewarding\n\nCurrent: %i", val);
-		} break;
-
-		case e_upgrade_player_harvest_range: {
-			result = format_text("+35 player harvest range\n\nCurrent: %.0f", get_player_harvest_range());
-		} break;
-
-		case e_upgrade_bot_harvest_range: {
-			result = format_text("+25 drone harvest range\n\nCurrent: %.0f", get_bot_harvest_range());
-		} break;
-
-		case e_upgrade_double_harvest: {
-			result = format_text("Gain double nectar from harvesting\n-5 creature tier");
-		} break;
-
-		case e_upgrade_bot_cargo_count: {
-			result = format_text("Drones can harvest more creatures\nbefore having to return to the hive\n\nCurrent: %i", get_bot_max_cargo_count());
-		} break;
-
-		case e_upgrade_player_chain: {
-			result = format_text("Player attack chains to nearby enemies\n\nCurrent: %i", get_player_hits() - 1);
-		} break;
-
-		case e_upgrade_broken_bot_spawn: {
-			float rate = game->play_state.spawn_broken_bot_timer.get_rate_in_seconds();
-			if(level <= 0) {
-				rate = 0;
-			}
-			result = format_text("Periodically spawn broken drones\nCurrent: %0.2f/s", rate);
-		} break;
-
-		case e_upgrade_deposit_spawn_rate: {
-			float rate = game->play_state.spawn_deposit_timer.get_rate_in_seconds();
-			result = format_text("Nectar deposits spawn %.0f%% faster\nCurrent: %0.2f/s", c_deposit_spawn_rate_buff_per_upgrade, rate);
-		} break;
-
-		case e_upgrade_deposit_health: {
-			result = format_text("Nectar deposits contain %i%% increased nectar\nCurrent: %i%%", c_deposit_health_multi_per_upgrade, level * c_deposit_health_multi_per_upgrade);
-		} break;
-
-		case e_upgrade_dash_cooldown: {
-			result = format_text("%i%% faster dash cooldown\nCurrent: %i%%", c_dash_cooldown_speed_per_upgrade, c_dash_cooldown_speed_per_upgrade * level);
-		} break;
-
-		invalid_default_case;
-
-	}
-	return result;
-}
-
 func s_v2 wxy(float x, float y)
 {
 	return c_base_res * v2(x, y);
 }
 
-func s64 get_required_exp_to_level(int level)
-{
-	int level_minus_one = level - 1;
-	s64 result = 5 + floorfi(0.4f * level_minus_one * level) + (level_minus_one) * 5;
-	return result;
-}
-
-func int add_exp(s_player* player, int to_add)
-{
-	int level_up_count_result = 0;
-	s64 exp_to_level = get_required_exp_to_level(player->curr_level);
-	player->curr_exp += to_add;
-	while(player->curr_exp >= exp_to_level) {
-		player->curr_exp -= exp_to_level;
-		player->curr_level += 1;
-		exp_to_level = get_required_exp_to_level(player->curr_level);
-		level_up_count_result += 1;
-	}
-	return level_up_count_result;
-}
-
-func b8 game_is_paused()
-{
-	e_sub_state s = game->play_state.sub_state;
-	return s == e_sub_state_pause || s == e_sub_state_defeat || s == e_sub_state_level_up || s == e_sub_state_controls;
-}
-
-func b8 can_pause()
-{
-	e_sub_state s = game->play_state.sub_state;
-	return s == e_sub_state_pause || s == e_sub_state_default;
-}
-
-func b8 can_lose()
-{
-	e_sub_state s = game->play_state.sub_state;
-	return s != e_sub_state_winning;
-}
-
-func b8 can_go_to_level_up_state()
-{
-	e_sub_state s = game->play_state.sub_state;
-	return s == e_sub_state_default;
-}
-
-func b8 should_show_ui()
-{
-	e_sub_state s = game->play_state.sub_state;
-	return s == e_sub_state_default && s != e_sub_state_winning;
-}
 
 func int pick_weighted(f64* arr, int count, s_rng* rng)
 {
@@ -1286,135 +570,8 @@ func s_carray<float, 3> ticks_to_seconds2(int ticks, float interp_dt)
 	return result;
 }
 
-func void draw_laser(s_laser_target target, float laser_light_radius, s_v4 laser_color, float interp_dt)
-{
-	s_v2 from_pos = lerp(target.from.prev_pos, target.from.pos, interp_dt);
-	s_v2 to_pos = lerp(target.to.prev_pos, target.to.pos, interp_dt);
-	draw_line(g_r, from_pos, to_pos, e_layer_laser, c_laser_width, laser_color, game->world_render_pass_arr[1], {}, {.effect_id = 5});
-	draw_light(to_pos, laser_light_radius * 1.5f, laser_color, 0.0f);
-}
-
 func void do_options_menu(b8 in_play_mode)
 {
-	s_ui_optional optional = zero;
-	optional.theme = c_theme_big;
-	s_play_state* play_state = &game->play_state;
-	int button_count = in_play_mode ? 10 : 8;
-
-	s_pos_area area = make_pos_area(wxy(0.0f, 0.4f), wxy(1.0f, 0.2f), c_theme_big.button_size, 8, button_count, e_pos_area_flag_center_x | e_pos_area_flag_center_y | e_pos_area_flag_vertical);
-	if(in_play_mode && ui_button(strlit("Resume"), pos_area_get_advance(&area), optional)) {
-		play_state->sub_state = e_sub_state_default;
-	}
-	if(ui_button(strlit("Leaderboard"), pos_area_get_advance(&area), optional)) {
-		set_state_next_frame_with_transition(e_state_leaderboard);
-		if constexpr(c_are_we_on_web) {
-			on_leaderboard_score_submitted();
-		}
-	}
-	if(ui_button(strlit("Controls"), pos_area_get_advance(&area), optional)) {
-		if(in_play_mode) {
-			game->play_state.sub_state = e_sub_state_controls;
-		}
-		else {
-			game->main_menu.sub_state = e_sub_state_controls;
-		}
-	}
-	if(ui_button(format_text("Sounds: %s", game->sound_disabled ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
-		game->sound_disabled = !game->sound_disabled;
-	}
-	if(ui_button(format_text("Smooth camera: %s", game->do_instant_camera ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
-		game->do_instant_camera = !game->do_instant_camera;
-	}
-	if(ui_button(format_text("Timer: %s", game->hide_timer ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
-		game->hide_timer = !game->hide_timer;
-	}
-	if(ui_button(format_text("Tutorial: %s", game->hide_tutorial ? "Off" : "On"), pos_area_get_advance(&area), optional)) {
-		game->hide_tutorial = !game->hide_tutorial;
-	}
-	if(ui_button(format_text("Auto level: %s", game->pick_free_upgrade_automatically ? "On" : "Off"), pos_area_get_advance(&area), optional)) {
-		game->pick_free_upgrade_automatically = !game->pick_free_upgrade_automatically;
-	}
-	if(in_play_mode && ui_button_with_confirmation(strlit("Restart"), strlit("Are you sure?"), pos_area_get_advance(&area), optional)) {
-		game->reset_game = true;
-	}
-	if(
-		!in_play_mode && (ui_button(strlit("Back"), pos_area_get_advance(&area), optional) || is_key_pressed(g_input, c_key_escape))
-	) {
-		game->main_menu.sub_state = e_sub_state_default;
-	}
-	if(in_play_mode && ui_button_with_confirmation(strlit("Exit"), strlit("Are you sure?"), pos_area_get_advance(&area), optional)) {
-		go_back_to_prev_state_with_transition();
-	}
-}
-
-func void do_controls_menu(b8 in_play_mode)
-{
-	s_ui_optional optional = zero;
-	optional.theme = c_theme_big;
-	optional.disabled = game->waiting_for_key;
-	s_pos_area area = make_vertical_layout(wxy(0.05f, 0.3f), c_theme_big.button_size, 8, 0);
-
-	if(game->waiting_for_key) {
-		draw_text(g_r, m_strlit("Press a key"), wxy(0.5f, 0.1f), 0, 64 * sin_range(1, 1.25f, game->render_time * 8.0f), make_color(1), true, game->font, game->ui_render_pass1);
-		draw_text(g_r, m_strlit("Press escape to cancel..."), wxy(0.5f, 0.18f), 0, 40, make_color(0.66f), true, game->font, game->ui_render_pass1);
-		foreach_val(event_i, event, g_input->key_events) {
-			if(event.went_down && is_valid_keybind(event.key)) {
-				g_platform_data->action_key_arr[game->target_action][game->target_key] = event.key;
-				game->waiting_for_key = false;
-				break;
-			}
-		}
-	}
-
-	for_enum(action_i, e_action) {
-		s_pos_area temp_area = make_horizontal_layout(pos_area_get_advance(&area), c_theme_big.button_size, 8, 0);
-		s_v2 text_pos = pos_area_get_advance(&temp_area);
-		text_pos.y += c_theme_big.button_size.y * 0.5f;
-		text_pos.y -= c_theme_big.font_size * 0.5f;
-		draw_text(g_r, c_action_name_arr[action_i], text_pos, 0, c_theme_big.font_size, make_color(1), false, game->font, game->ui_render_pass1);
-		for(int key_i = 0; key_i < 2; key_i += 1) {
-			s_v2 button_pos = pos_area_get_advance(&temp_area);
-			s_v2 x_pos = pos_area_get_advance(&temp_area, 0.2f, 1.0f);
-			int* key = &g_platform_data->action_key_arr[action_i][key_i];
-			s_len_str str = virtual_key_to_str(*key);
-			if(str.len <= 0) {
-				str = format_text(" ##key%i%i", action_i, key_i);
-			}
-			if(ui_button(format_text("%.*s", expand_str(str)), button_pos, optional)) {
-				game->waiting_for_key = true;
-				game->target_action = action_i;
-				game->target_key = key_i;
-			}
-			s_ui_optional temp_optional = optional;
-			temp_optional.theme.button_size.x = 40;
-			if(ui_button(m_strlit("$$ed1c23x"), x_pos, temp_optional)) {
-				*key = 0;
-			}
-		}
-	}
-
-	b8 want_to_exit = false;
-	if(ui_button(strlit("Back"), wxy(0.7f, 0.9f), optional)) {
-		want_to_exit = true;
-	}
-
-	if(is_key_pressed(g_input, c_key_escape)) {
-		if(game->waiting_for_key) {
-			game->waiting_for_key = false;
-		}
-		else {
-			want_to_exit = true;
-		}
-	}
-
-	if(want_to_exit) {
-		if(in_play_mode) {
-			game->play_state.sub_state = e_sub_state_pause;
-		}
-		else {
-			game->main_menu.sub_state = e_sub_state_pause;
-		}
-	}
 }
 
 func e_state get_state()
@@ -1448,43 +605,6 @@ func void do_state_transition()
 	game->state_transition_timer = 0;
 }
 
-func void add_resource(int amount)
-{
-	game->play_state.resource_count += amount;
-	game->play_state.total_resource += amount;
-
-	int index = game->play_state.update_count % c_nectar_gain_num_updates;
-	game->play_state.nectar_gain_arr[index] += amount;
-}
-
-func b8 is_mouse_clicked()
-{
-	return !game->click_consumed && is_key_pressed(g_input, c_left_mouse);
-}
-
-func s_ui_data* get_or_create_ui_data(u32 id)
-{
-	s_ui_data* data = game->ui_table.get(id);
-	if(!data) {
-		data = game->ui_table.set(id, zero);
-		*data = zero;
-	}
-	return data;
-}
-
-func bool for_ui_data(s_ui_iterator* it)
-{
-	auto t = &game->ui_table;
-	for(int i = it->index; i < t->max_elements(); i += 1) {
-		it->index = i + 1;
-		if(t->used[i]) {
-			it->element = &t->values[i];
-			return true;
-		}
-	}
-	return false;
-}
-
 func s_v2 get_random_creature_spawn_pos()
 {
 	float angle = game->rng.randf_range(0, tau);
@@ -1496,70 +616,6 @@ func s_v2 get_random_creature_spawn_pos()
 	s_v2 pos = c_base_pos + offset;
 	pos = constrain_pos(pos, get_map_bounds());
 	return pos;
-}
-
-func b8 counts_towards_defeat(e_creature type)
-{
-	switch(type) {
-		case e_creature_ant: {
-			return true;
-		} break;
-
-		case e_creature_deposit: {
-			return false;
-		} break;
-
-		invalid_default_case;
-	}
-	return false;
-}
-
-func b8 can_creature_move(e_creature type)
-{
-	switch(type) {
-		case e_creature_ant: {
-			return true;
-		} break;
-
-		case e_creature_deposit: {
-			return false;
-		} break;
-
-		invalid_default_case;
-	}
-	return false;
-}
-
-func int get_creature_max_health(e_creature type, int tier, b8 is_boss)
-{
-	int result = 0;
-
-	switch(type) {
-		case e_creature_ant: {
-			result = 20 * (tier + 1);
-			if(is_boss) {
-				result *= 10;
-			}
-		} break;
-
-		case e_creature_deposit: {
-			result = floorfi(400 * (tier + 1) * get_multiplier(game->play_state.upgrade_level_arr[e_upgrade_deposit_health], (float)c_deposit_health_multi_per_upgrade));
-		} break;
-
-		invalid_default_case;
-	}
-	return result;
-}
-
-func float get_nectar_per_second()
-{
-	float result = 0;
-	for(int i = 0; i < c_nectar_gain_num_updates; i += 1) {
-		result += game->play_state.nectar_gain_arr[i];
-	}
-	float ratio = c_nectar_gain_num_updates / (float)c_updates_per_second;
-	result /= ratio;
-	return result;
 }
 
 int s_auto_timer::tick()
@@ -1591,86 +647,6 @@ func s_auto_timer make_auto_timer(float curr, float duration)
 		.curr = curr,
 		.duration = duration,
 	};
-}
-
-func s_carray<s_v2, 8> get_broken_bot_pos_arr(s_rng* rng)
-{
-	s_carray<s_v2, 8> result;
-	s_bounds bounds = get_map_bounds();
-
-	// @Note(tkap, 06/10/2024): Left
-	for(int i = 0; i < 2; i += 1) {
-		s_v2 pos = v2(
-			rng->randf_range(bounds.min_x, bounds.min_x + 500),
-			rng->randf_range(bounds.min_y, bounds.max_y)
-		);
-		result[i] = pos;
-	}
-	// @Note(tkap, 06/10/2024): Right
-	for(int i = 0; i < 2; i += 1) {
-		s_v2 pos = v2(
-			rng->randf_range(bounds.max_x - 500, bounds.max_x),
-			rng->randf_range(bounds.min_y, bounds.max_y)
-		);
-		result[i + 2] = pos;
-	}
-	// @Note(tkap, 06/10/2024): Top
-	for(int i = 0; i < 2; i += 1) {
-		s_v2 pos = v2(
-			rng->randf_range(bounds.min_x, bounds.max_x),
-			rng->randf_range(bounds.min_y, bounds.min_y + 500)
-		);
-		result[i + 4] = pos;
-	}
-	// @Note(tkap, 06/10/2024): Bottom
-	for(int i = 0; i < 2; i += 1) {
-		s_v2 pos = v2(
-			rng->randf_range(bounds.min_x, bounds.max_x),
-			rng->randf_range(bounds.max_y - 500, bounds.max_y)
-		);
-		result[i + 6] = pos;
-	}
-
-	return result;
-}
-
-func int get_upgrade_cost(e_upgrade id)
-{
-	s_upgrade_data data = c_upgrade_data[id];
-	int curr_level = game->play_state.upgrade_level_arr[id];
-	int cost = data.base_cost * (curr_level + 1);
-	return cost;
-}
-
-func void do_leaderboard_stuff()
-{
-	if(!game->leaderboard_state.received) {
-		draw_text(g_r, strlit("Getting leaderboard..."), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
-	}
-	else if(game->leaderboard_arr.count <= 0) {
-		draw_text(g_r, strlit("No scores yet :("), c_half_res, 10, 48, make_color(0.66f), true, game->font, game->ui_render_pass1);
-	}
-
-	constexpr int c_max_visible_entries = 10;
-	s_v2 pos = c_half_res * v2(1.0f, 0.7f);
-	for(int entry_i = 0; entry_i < at_most(c_max_visible_entries + 1, game->leaderboard_arr.count); entry_i++) {
-		s_leaderboard_entry entry = game->leaderboard_arr[entry_i];
-		s_time_data data = update_count_to_time_data(entry.time, c_update_delay);
-		s_v4 color = make_color(0.8f);
-		int rank_number = entry_i + 1;
-		if(entry_i == c_max_visible_entries || strcmp(g_platform_data->leaderboard_public_uid.data, entry.internal_name.data) == 0) {
-			color = rgb(0xD3A861);
-			rank_number = entry.rank;
-		}
-		char* name = entry.internal_name.data;
-		if(entry.nice_name.len > 0) {
-			name = entry.nice_name.data;
-		}
-		draw_text(g_r, format_text("%i %s", rank_number, name), v2(c_base_res.x * 0.1f, pos.y - 24), 10, 32, color, false, game->font, game->ui_render_pass1);
-		s_len_str text = format_text("%02i:%02i.%03i", data.minutes, data.seconds, data.ms);
-		draw_text(g_r, text, v2(c_base_res.x * 0.5f, pos.y - 24), 10, 32, color, false, game->font, game->ui_render_pass1);
-		pos.y += 48;
-	}
 }
 
 func void draw_progress_bar(s_v2 pos, s_v2 size, s_v4 under_size, s_v4 over_size, s_len_str str, float progress)
@@ -1720,32 +696,6 @@ func s_timer make_timer(float curr, float duration)
 		.curr = curr,
 		.duration = duration
 	};
-}
-
-func void draw_hotkey(s_v2 pos, s_len_str str, float font_size, float color_multi)
-{
-	s_v2 text_size = get_text_size(str, game->font, font_size);
-	draw_texture(g_r, pos, 0, v2(font_size), make_color(0.9f * color_multi), game->hotkey_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
-	pos.x += font_size * 0.5f;
-	pos.x -= text_size.x * 0.5f;
-	pos.y += font_size * 0.5f;
-	pos.y -= text_size.y * 0.5f;
-	draw_text(g_r, str, pos, 0, font_size, make_color(0.4f * color_multi), false, game->font, game->ui_render_pass1);
-}
-
-func void draw_cost_and_hotkey(s_v2 pos, s_len_str cost_str, s_len_str hotkey_str, float font_size, float color_multi)
-{
-	s_v2 text_size = get_text_size(cost_str, game->font, font_size);
-	text_size.x += get_text_size(hotkey_str, game->font, font_size).x;
-	text_size.x += font_size;
-
-	s_v2 temp_pos = pos - v2(0.0f, font_size * 0.5f);
-	temp_pos.x -= text_size.x * 0.5f;
-	draw_texture(g_r, temp_pos - v2(0.0f, 4.0f), 0, v2(font_size), make_color(color_multi), game->base_texture, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
-	temp_pos.x += font_size;
-	temp_pos = draw_text(g_r, format_text("%.*s", expand_str(cost_str)), temp_pos, 0, font_size, make_color(color_multi), false, game->font, game->ui_render_pass1);
-	temp_pos.x += font_size * 0.5f;
-	draw_hotkey(temp_pos, hotkey_str, font_size, color_multi);
 }
 
 func int update_animator(s_animator* animator, float* time_ptr, float speed, b8 loop)
@@ -1929,7 +879,6 @@ func void add_float(s_animator* animator, float a, float b, float duration, floa
 func void on_websocket_open(void* user_data)
 {
 	printf("websocket open\n");
-	g_platform_data->websocket_send("fuck azenris baseg!", 19);
 }
 
 func void on_websocket_close(void* user_data)
@@ -1944,7 +893,62 @@ func void on_websocket_error(void* user_data)
 
 func void on_websocket_message(void* data, int data_len, void* user_data)
 {
-	printf("websocket message\n");
-	printf("%.*s\n", data_len, data);
+	s_buffer_reader reader = make_buffer_reader(data, data_len);
+	e_packet packet_type = buffer_read<e_packet>(&reader);
+
+	switch(packet_type) {
+		case e_packet_name_is_good: {
+			game->input_name_state.waiting_for_server_response = false;
+			set_state_next_frame(e_state_play);
+		} break;
+
+		case e_packet_new_word: {
+			s_word new_word = zero;
+			new_word.id = buffer_read<int>(&reader);
+			new_word.index = buffer_read<int>(&reader);
+			new_word.pos = buffer_read<s_v2>(&reader);
+			new_word.dir = buffer_read<s_v2>(&reader);
+			game->play.word_arr.add(new_word);
+			printf("got word %i\n", new_word.id);
+		} break;
+
+		invalid_default_case;
+	}
 }
 #endif // m_emscripten
+
+func void draw_cool_cursor(
+	s_v2 base_pos, s_len_str str, s_cool_cursor* out_cursor, float font_size, float last_action_time, float last_edit_time
+)
+{
+	s_v2 full_text_size = get_text_size(str, game->font, font_size);
+	s_v2 partial_text_size = get_text_size_with_count(str, game->font, font_size, out_cursor->index.value);
+	s_v2 cursor_pos = v2(
+		-full_text_size.x * 0.5f + base_pos.x + partial_text_size.x,
+		base_pos.y - font_size * 0.5f
+	);
+
+	s_v2 cursor_size = v2(15.0f, font_size);
+	float t = game->render_time - max(last_action_time, last_edit_time);
+	b8 blink = false;
+	constexpr float c_blink_rate = 0.75f;
+	if(t > 0.75f && fmodf(t, c_blink_rate) >= c_blink_rate / 2) {
+		blink = true;
+	}
+	float t2 = clamp(game->render_time - last_edit_time, 0.0f, 1.0f);
+	s_v4 color = lerp(rgb(0xffdddd), brighter(rgb(0xABC28F), 0.8f), 1 - powf(1 - t2, 3));
+	float extra_height = ease_out_elastic2_advanced(t2, 0, 0.75f, 20, 0);
+	cursor_size.y += extra_height;
+
+	if(!out_cursor->initialized) {
+		out_cursor->initialized = true;
+		out_cursor->visual_pos = cursor_pos;
+	}
+	else {
+		out_cursor->visual_pos = lerp_snap(out_cursor->visual_pos, cursor_pos, g_delta * 20);
+	}
+
+	if(!blink) {
+		draw_rect(g_r, out_cursor->visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	}
+}

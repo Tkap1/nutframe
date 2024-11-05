@@ -50,3 +50,4 @@ secret.py
 recorded_input
 *.sln
 leaderboard.json
+filter_words.py

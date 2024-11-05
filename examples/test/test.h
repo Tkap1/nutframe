@@ -4,10 +4,9 @@
 #define global static
 #define tag(...)
 
-global constexpr int c_updates_per_second = 60;
+global constexpr int c_updates_per_second = 30;
 global constexpr f64 c_update_delay = 1.0 / c_updates_per_second;
 global constexpr int c_max_leaderboard_entries = 16;
-global constexpr int c_max_particles = 8192;
 global constexpr s_v2 c_player_size = v2(128);
 global constexpr s_v2 c_creature_size = v2(64);
 global constexpr s_v2 c_bot_size = v2(64);
@@ -54,21 +53,6 @@ enum e_action
 	e_action_count,
 };
 
-constexpr s_len_str c_action_name_arr[] = {
-	m_strlit("Move left"),
-	m_strlit("Move right"),
-	m_strlit("Move up"),
-	m_strlit("Move down"),
-	m_strlit("Dash to keyboard"),
-	m_strlit("Dash to mouse"),
-};
-
-enum e_creature
-{
-	e_creature_ant,
-	e_creature_deposit,
-};
-
 enum e_sub_state
 {
 	e_sub_state_default,
@@ -78,45 +62,6 @@ enum e_sub_state
 	e_sub_state_winning,
 	e_sub_state_controls,
 };
-
-enum e_sound
-{
-	e_sound_creature_death00,
-	e_sound_creature_death01,
-	e_sound_creature_death02,
-	e_sound_buy_bot,
-	e_sound_upgrade,
-	e_sound_level_up,
-	e_sound_dash,
-	e_sound_count,
-};
-
-enum e_sound_group
-{
-	e_sound_group_creature_death,
-	e_sound_group_buy_bot,
-	e_sound_group_upgrade,
-	e_sound_group_level_up,
-	e_sound_group_dash,
-	e_sound_group_count,
-};
-
-struct s_sound_group_data
-{
-	int sound_count;
-	float cooldown;
-	s_carray<e_sound, 4> sound_arr;
-};
-
-global constexpr s_sound_group_data c_sound_group_data_arr[e_sound_group_count] = {
-	{3, 0.1f, {e_sound_creature_death00, e_sound_creature_death01, e_sound_creature_death02}},
-	{1, 0.1f, {e_sound_buy_bot}},
-	{1, 0.1f, {e_sound_upgrade}},
-	{1, 0, {e_sound_level_up}},
-	{1, 0, {e_sound_dash}},
-};
-
-global float g_sound_group_last_play_time_arr[e_sound_group_count];
 
 struct s_cells
 {
@@ -202,16 +147,6 @@ struct s_pickup
 	s_v2 pos;
 };
 
-enum e_state
-{
-	e_state_main_menu,
-	e_state_play,
-	e_state_leaderboard,
-	e_state_win_leaderboard,
-	e_state_input_name,
-	e_state_stats,
-};
-
 struct s_leaderboard_entry
 {
 	int rank;
@@ -285,71 +220,6 @@ struct s_timer
 	void reset();
 };
 
-
-struct s_player
-{
-	b8 flip_x;
-	b8 dashing;
-	int curr_level;
-	s64 curr_exp;
-	int active_dash_timer;
-	int harvest_timer;
-	int wanted_to_dash_timestamp;
-	float animation_timer;
-	s_timer dash_cooldown_timer;
-	s_v2 dash_dir;
-	s_v2 next_dash_dir;
-	s_v2 prev_pos;
-	s_v2 pos;
-	s_v2 dash_start;
-	s_sarray<s_laser_target, c_max_player_hits * c_max_player_hits> laser_target_arr;
-	s_carray<s_buff, e_pickup_count> buff_arr;
-};
-
-
-struct s_creature_arr
-{
-	s_entity_index_data index_data;
-	b8 active[c_max_creatures];
-	b8 targeted[c_max_creatures];
-	b8 flip_x[c_max_creatures];
-	b8 boss[c_max_creatures];
-	int id[c_max_creatures];
-	int roam_timer[c_max_creatures];
-	int curr_health[c_max_creatures];
-	int tier[c_max_creatures];
-	int tick_when_last_damaged[c_max_creatures];
-	e_creature type[c_max_creatures];
-	float animation_timer[c_max_creatures];
-	s_v2 prev_pos[c_max_creatures];
-	s_v2 pos[c_max_creatures];
-	s_v2 target_pos[c_max_creatures];
-};
-
-enum e_bot_state
-{
-	e_bot_state_going_to_creature,
-	e_bot_state_harvesting_creature,
-	e_bot_state_going_back_to_base,
-};
-
-struct s_bot_arr
-{
-	s_entity_index_data index_data;
-	b8 active[c_max_bots];
-	int id[c_max_bots];
-	int harvest_timer[c_max_bots];
-	int cargo[c_max_bots];
-	int cargo_count[c_max_bots];
-	float animation_timer[c_max_bots];
-	float tilt_timer[c_max_bots];
-	s_entity_index target[c_max_bots];
-	e_bot_state state[c_max_bots];
-	s_v2 prev_pos[c_max_bots];
-	s_v2 pos[c_max_bots];
-	s_sarray<s_laser_target, c_max_bot_hits> laser_target_arr[c_max_bots];
-};
-
 struct s_visual_effect
 {
 	e_visual_effect type;
@@ -361,22 +231,6 @@ struct s_visual_effect
 struct s_save_point
 {
 	s_v2i pos;
-};
-
-struct s_particle
-{
-	b8 attached_to_player;
-	float fade;
-	float shrink;
-	float slowdown;
-	s_v2 pos;
-	s_v2 dir;
-	int z;
-	float radius;
-	float speed;
-	float timer;
-	float duration;
-	s_v3 color;
 };
 
 struct s_particle_multiplier
@@ -532,12 +386,6 @@ struct s_leaderboard_state
 	b8 received;
 };
 
-struct s_input_name_state
-{
-	s_input_str<64> name;
-	s_str<64> error_str;
-};
-
 struct s_get_closest_creature
 {
 	float smallest_non_targeted_dist = 999999;
@@ -574,50 +422,17 @@ struct s_play_state
 	f64 spawn_creature_timer;
 	int resource_count;
 	int total_resource;
-	s_carray<int, e_upgrade_count> upgrade_level_arr;
 	s_sarray<s_particle, c_max_particles> particle_arr;
-	s_creature_arr creature_arr;
-	s_bot_arr bot_arr;
 	s_camera2d cam;
-	s_player player;
 	int update_count;
 	int update_count_at_win_time;
 	s_sarray<s_visual_effect, 1024> visual_effect_arr;
-	s_sarray<s_pickup, 128> pickup_arr;
-	s_sarray<s_broken_bot, c_max_broken_drones> broken_bot_arr;
-	s_carray<s_v2, c_max_craters> crater_pos_arr;
-	s_carray<float, c_max_craters> crater_size_arr;
-	s_carray<float, c_max_craters> crater_rotation_arr;
-	s_carray<b8, c_max_craters> crater_flip_arr;
-	int level_up_triggers;
-	s_carray<int, c_nectar_gain_num_updates> nectar_gain_arr;
-	float highest_nectar_gain_per_second;
-	s_auto_timer spawn_broken_bot_timer;
-	s_auto_timer spawn_deposit_timer;
-
-	int num_player_kills;
-	s_carray<int, c_max_statistics_index> num_player_kills_arr;
-
-	int num_bot_kills;
-	s_carray<int, c_max_statistics_index> num_bot_kills_arr;
-
-	s_carray<float, c_max_statistics_index> nectar_per_second_arr;
-	s_carray<int, c_max_statistics_index> nectar_arr;
-
-	s_carray<float, e_upgrade_count> upgrade_bought_timestamp_arr;
-
 };
 
 
 struct s_main_menu
 {
 	e_sub_state sub_state;
-};
-
-struct s_state
-{
-	b8 is_temporary;
-	e_state state;
 };
 
 struct s_ui_iterator
@@ -716,76 +531,6 @@ struct s_animator
 	float total_duration;
 	s_carray<float, 8> step_duration_arr;
 	s_carray<s_sarray<s_animator_property, 8>, 8> property_arr;
-};
-
-struct s_game
-{
-	b8 initialized;
-	b8 show_hitboxes;
-	b8 should_pop_state;
-	b8 reset_game;
-	b8 pick_free_upgrade_automatically;
-	b8 next_state_is_temporary;
-	b8 click_consumed;
-	b8 do_instant_camera;
-	b8 waiting_for_key;
-	int target_action;
-	int target_key;
-	b8 in_state_transition;
-	float state_transition_timer;
-
-	s_hold_input hold_input;
-	s_press_input press_input;
-
-	s_hashmap<u32, s_ui_data, 1024> ui_table;
-
-	s_sarray<s_state, 16> state_stack;
-
-	s_main_menu main_menu;
-
-	int next_state;
-	b8 sound_disabled;
-	b8 hide_timer;
-	b8 hide_tutorial;
-
-	s_play_state play_state;
-
-	s_carray<s_render_pass*, 2> world_render_pass_arr;
-	s_render_pass* ui_render_pass0;
-	s_render_pass* ui_render_pass1;
-	s_render_pass* ui_render_pass2;
-	s_render_pass* ui_render_pass3;
-
-	s_carray<s_sound*, e_sound_count> sound_arr;
-
-	s_animation bot_animation;
-	s_animation ant_animation;
-	s_animation player_animation;
-
-	s_texture placeholder_texture;
-	s_texture base_texture;
-	s_texture button_texture;
-	s_texture tile_texture;
-	s_texture broken_bot_texture;
-	s_texture crater_texture;
-	s_texture hotkey_texture;
-	s_carray<s_texture, 2> rock_texture_arr;
-	s_carray<s_texture, e_upgrade_count> upgrade_button_texture_arr;
-
-	s_leaderboard_state leaderboard_state;
-	s_input_name_state input_name_state;
-
-	float render_time;
-	s_framebuffer* particle_framebuffer;
-	s_framebuffer* text_framebuffer;
-	s_texture noise;
-	s_rng rng;
-	s_font* font;
-	s_framebuffer* main_fbo;
-	s_framebuffer* light_fbo;
-	s_sarray<s_leaderboard_entry, c_max_leaderboard_entries> leaderboard_arr;
-
-	s_carray<b8, 4> statistics_show_arr;
 };
 
 #include "generated/generated_test.cpp"
