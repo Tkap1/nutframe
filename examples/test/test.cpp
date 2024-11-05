@@ -153,7 +153,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			s_v2 pos = c_base_res * v2(0.5f, 0.4f);
 
 			b8 submitted = handle_string_input(&state->name, g_input, game->render_time);
-			if(state->name.last_edit_time == game->render_time) {
+			if(state->name.cursor.last_edit_time == game->render_time) {
 				play_sound_group(e_sound_group_click);
 			}
 			if(submitted) {
@@ -187,7 +187,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			draw_cool_cursor(
-				pos, strlit(state->name.str.data), &state->name.cursor, font_size, state->name.last_action_time, state->name.last_edit_time
+				pos, strlit(state->name.str.data), &state->name.cursor, font_size
 			);
 		} break;
 
@@ -211,8 +211,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 					play_sound_group(e_sound_group_click);
 
-					play->last_action_time = game->render_time;
-					play->last_edit_time = game->render_time;
+					play->cursor.last_action_time = game->render_time;
+					play->cursor.last_edit_time = game->render_time;
 					if(!play->cursor.index.valid) {
 						play->cursor.index = maybe(0);
 					}
@@ -241,7 +241,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 
 			draw_cool_cursor(
-				wxy(0.5f, 0.1f), str, &play->cursor, font_size, play->last_action_time, play->last_edit_time
+				wxy(0.5f, 0.1f), str, &play->cursor, font_size
 			);
 
 			#endif // m_emscripten
@@ -918,37 +918,37 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 #endif // m_emscripten
 
 func void draw_cool_cursor(
-	s_v2 base_pos, s_len_str str, s_cool_cursor* out_cursor, float font_size, float last_action_time, float last_edit_time
+	s_v2 base_pos, s_len_str str, s_cool_cursor* cursor, float font_size
 )
 {
 	s_v2 full_text_size = get_text_size(str, game->font, font_size);
-	s_v2 partial_text_size = get_text_size_with_count(str, game->font, font_size, out_cursor->index.value);
+	s_v2 partial_text_size = get_text_size_with_count(str, game->font, font_size, cursor->index.value);
 	s_v2 cursor_pos = v2(
 		-full_text_size.x * 0.5f + base_pos.x + partial_text_size.x,
 		base_pos.y - font_size * 0.5f
 	);
 
 	s_v2 cursor_size = v2(15.0f, font_size);
-	float t = game->render_time - max(last_action_time, last_edit_time);
+	float t = game->render_time - max(cursor->last_action_time, cursor->last_edit_time);
 	b8 blink = false;
 	constexpr float c_blink_rate = 0.75f;
 	if(t > 0.75f && fmodf(t, c_blink_rate) >= c_blink_rate / 2) {
 		blink = true;
 	}
-	float t2 = clamp(game->render_time - last_edit_time, 0.0f, 1.0f);
+	float t2 = clamp(game->render_time - cursor->last_edit_time, 0.0f, 1.0f);
 	s_v4 color = lerp(rgb(0xffdddd), brighter(rgb(0xABC28F), 0.8f), 1 - powf(1 - t2, 3));
 	float extra_height = ease_out_elastic2_advanced(t2, 0, 0.75f, 20, 0);
 	cursor_size.y += extra_height;
 
-	if(!out_cursor->initialized) {
-		out_cursor->initialized = true;
-		out_cursor->visual_pos = cursor_pos;
+	if(!cursor->initialized) {
+		cursor->initialized = true;
+		cursor->visual_pos = cursor_pos;
 	}
 	else {
-		out_cursor->visual_pos = lerp_snap(out_cursor->visual_pos, cursor_pos, g_delta * 20);
+		cursor->visual_pos = lerp_snap(cursor->visual_pos, cursor_pos, g_delta * 20);
 	}
 
 	if(!blink) {
-		draw_rect(g_r, out_cursor->visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+		draw_rect(g_r, cursor->visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 	}
 }

@@ -45,5 +45,5 @@ func void on_websocket_close(void* user_data);
 func void on_websocket_error(void* user_data);
 func void on_websocket_message(void* data, int data_len, void* user_data);
 func void draw_cool_cursor(
-	s_v2 base_pos, s_len_str str, s_cool_cursor* out_cursor, float font_size, float last_action_time, float last_edit_time
+	s_v2 base_pos, s_len_str str, s_cool_cursor* cursor, float font_size
 );

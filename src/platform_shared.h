@@ -781,13 +781,13 @@ struct s_cool_cursor
 	b8 initialized;
 	s_v2 visual_pos;
 	s_maybe<int> index;
+	float last_edit_time;
+	float last_action_time;
 };
 
 template <int n>
 struct s_input_str
 {
-	float last_edit_time;
-	float last_action_time;
 	s_cool_cursor cursor;
 	s_str<n> str;
 
@@ -6377,16 +6377,16 @@ static b8 handle_string_input(s_input_str<n>* str, s_input* input, float time)
 			if(!str->str.is_full()) {
 				str->str.insert(str->cursor.index.value, c);
 				str->cursor.index.value += 1;
-				str->last_edit_time = time;
-				str->last_action_time = str->last_edit_time;
+				str->cursor.last_edit_time = time;
+				str->cursor.last_action_time = str->cursor.last_edit_time;
 			}
 		}
 		else if(c == '\b') {
 			if(str->cursor.index.value > 0) {
 				str->cursor.index.value -= 1;
 				str->str.remove_char_at(str->cursor.index.value);
-				str->last_edit_time = time;
-				str->last_action_time = str->last_edit_time;
+				str->cursor.last_edit_time = time;
+				str->cursor.last_action_time = str->cursor.last_edit_time;
 			}
 		}
 	}
@@ -6395,14 +6395,14 @@ static b8 handle_string_input(s_input_str<n>* str, s_input* input, float time)
 		if(!event.went_down) { continue; }
 		if(event.key == c_key_enter) {
 			result = true;
-			str->last_action_time = time;
+			str->cursor.last_action_time = time;
 		}
 		else if(event.key == c_key_escape) {
 			str->cursor.index.value = 0;
 			str->str.len = 0;
 			str->str[0] = 0;
-			str->last_edit_time = time;
-			str->last_action_time = str->last_edit_time;
+			str->cursor.last_edit_time = time;
+			str->cursor.last_action_time = str->cursor.last_edit_time;
 		}
 	}
 	return result;
