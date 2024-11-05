@@ -37,6 +37,7 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../shaders/threshold.fragment@shaders/threshold.fragment
 	set comp=!comp! --preload-file ../shaders/blur.fragment@shaders/blur.fragment
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
+	set comp=!comp! --preload-file ../examples/test/words_alpha_new.txt@examples/test/words_alpha_new.txt
 	@REM set comp=!comp! -gsource-map
 	@REM set comp=!comp! -fsanitize=address
 )

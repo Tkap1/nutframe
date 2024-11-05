@@ -1,5 +1,6 @@
 #define m_game
 #define s_list s_sarray
+#define s_linear_arena s_lin_arena
 
 #include "../../src/platform_shared.h"
 #include "variables.h"
@@ -17,6 +18,8 @@ static s_game_renderer* g_r;
 static s_v2 g_mouse;
 static s_platform_data* g_platform_data;
 static float g_delta = 0;
+
+#include "../../../http_server/src/common.cpp"
 
 #ifdef m_build_dll
 extern "C" {
@@ -91,6 +94,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		platform_data->websocket_set_on_error_callback(on_websocket_error, NULL);
 		platform_data->websocket_set_on_message_callback(on_websocket_message, NULL);
 		#endif // m_emscripten
+
+		u64 size = 0;
+		char* data = platform_data->read_file("examples/test/words_alpha_new.txt", &platform_data->permanent_arena, &size);
+		parse_words(data, (s64)size);
 	}
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		initialize end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -197,7 +204,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			foreach_val(word_i, word, play->word_arr) {
 				s_v2 pos = lerp(word.prev_pos, word.pos, interp_dt);
-				draw_text(g_r, strlit("WORD"), pos, 0, 24, make_color(1), true, game->font, game->world_render_pass_arr[0]);
+				draw_text(g_r, g_word_list[word.index], pos, 0, 24, make_color(1), true, game->font, game->world_render_pass_arr[0]);
 			}
 
 			#if defined(m_emscripten)
@@ -205,20 +212,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			foreach_val(c_i, c, g_input->char_events) {
 				s_buffer_writer writer = zero;
 				buffer_write(&writer, e_packet_type_char);
-				if(is_alpha(c) && play->text_len < 1024) {
+				if(is_alpha(c) && play->text_len < c_max_text_input) {
 					buffer_write(&writer, c);
 					platform_data->websocket_send(writer.buffer, writer.len);
 
 					play_sound_group(e_sound_group_click);
 
-					play->cursor.last_action_time = game->render_time;
-					play->cursor.last_edit_time = game->render_time;
 					if(!play->cursor.index.valid) {
 						play->cursor.index = maybe(0);
 					}
 					play->text[play->cursor.index.value] = c;
 					play->cursor.index.value += 1;
 					play->text_len += 1;
+
+					play->cursor.last_action_time = game->render_time;
+					play->cursor.last_edit_time = game->render_time;
 				}
 				else if(c == '\b') {
 					if(play->cursor.index.value > 0) {
@@ -229,6 +237,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						play->text_len -= 1;
 						int to_copy = play->text_len - play->cursor.index.value;
 						memmove(&play->text[play->cursor.index.value], &play->text[play->cursor.index.value + 1], to_copy);
+
+						play->cursor.last_action_time = game->render_time;
+						play->cursor.last_edit_time = game->render_time;
 					}
 				}
 			}
