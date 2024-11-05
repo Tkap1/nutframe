@@ -4,6 +4,8 @@ cls
 
 SETLOCAL ENABLEDELAYEDEXPANSION
 
+func_decl_gen.exe examples/test/*
+
 set comp=
 set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl"
 set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
