@@ -1008,11 +1008,14 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 
 		case e_packet_client_disconnected: {
 			int index = buffer_read<int>(&reader);
+			printf("%i disconnected, my index is %i\n", index, game->my_index);
 			assert(index != game->my_index);
 
 			b8 is_my_client_the_last_in_the_array = play->client_arr.count - 1 == game->my_index;
-			play->client_arr.remove_and_shift(index);
-			game->my_index = index;
+			play->client_arr.remove_and_swap(index);
+			if(is_my_client_the_last_in_the_array) {
+				game->my_index = index;
+			}
 		} break;
 
 		invalid_default_case;
