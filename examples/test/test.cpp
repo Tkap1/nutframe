@@ -246,35 +246,40 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			#endif // m_emscripten
 
-			float font_size = 48;
+			float font_size0 = 48;
+			float font_size1 = 24;
 
 			draw_rect(g_r, c_play_area_center, 0, c_play_area_size, make_color(0.1f), game->world_render_pass_arr[0]);
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			foreach_val(word_i, word, play->word_arr) {
 				s_v2 pos = lerp(word.prev_pos, word.pos, interp_dt);
-				draw_text(g_r, g_word_list[word.index], pos, 0, 24, make_color(1), true, game->font, game->world_render_pass_arr[0]);
+				draw_text(g_r, g_word_list[word.index], pos, 0, font_size1, make_color(1), true, game->font, game->world_render_pass_arr[0]);
 			}
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			s_len_str str = play->input_text.to_len_str();
 			if(str.len > 0) {
-				draw_text(g_r, str, wxy(0.5f, 0.1f), 0, font_size, make_color(1), true, game->font, game->world_render_pass_arr[0]);
+				draw_text(g_r, str, wxy(0.5f, 0.1f), 0, font_size0, make_color(1), true, game->font, game->world_render_pass_arr[0]);
 			}
 
 			draw_cool_cursor(
-				wxy(0.5f, 0.1f), str, &play->cursor, font_size
+				wxy(0.5f, 0.1f), str, &play->cursor, font_size0
 			);
 			draw_rect(g_r, v2(0.0f), 0, c_ui_size, make_color(0.15f), game->world_render_pass_arr[0], {}, {.origin_offset = c_origin_topleft});
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui names start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			s_pos_area area = make_vertical_layout(v2(4), v2(font_size), 4, 0);
-			draw_text(g_r, play->name.to_len_str(), pos_area_get_advance(&area), 0, font_size, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+			s_pos_area area = make_vertical_layout(v2(4), v2(font_size0), 4, 0);
+			{
+				auto builder = play->name;
+				builder.add(": %i", play->score);
+				draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size1, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+			}
 			foreach_val(client_i, client, play->client_arr) {
 				auto builder = client.name;
 				builder.add(": %i", client.score);
-				draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+				draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size1, make_color(1), false, game->font, game->world_render_pass_arr[0]);
 			}
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui names end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
