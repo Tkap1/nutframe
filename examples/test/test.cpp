@@ -171,7 +171,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					buffer_write(&writer, e_packet_send_name);
 					buffer_write(&writer, state->name.str.len);
 					buffer_write_array(&writer, state->name.str.data, state->name.str.len);
-					game->play.name.from_data(state->name.str.data, state->name.str.len);
+					game->play.my_client.name.from_data(state->name.str.data, state->name.str.len);
 
 					#if defined(m_emscripten)
 					platform_data->websocket_send(writer.buffer, writer.len);
@@ -271,8 +271,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui names start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			s_pos_area area = make_vertical_layout(v2(4), v2(font_size1), 4, 0);
 			{
-				auto builder = play->name;
-				builder.add(": %i", play->score);
+				auto builder = play->my_client.name;
+				builder.add(": %i", play->my_client.score);
 				draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size1, make_color(1), false, game->font, game->world_render_pass_arr[0]);
 			}
 			foreach_val(client_i, client, play->client_arr) {
@@ -952,24 +952,34 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 		} break;
 
 		case e_packet_delete_word: {
-			int index = buffer_read<int>(&reader);
-			if(index < play->word_arr.count) {
-				s_len_str word = g_word_list[play->word_arr[index].index];
-				play->input_text.remove_until_and_including(word);
-				play->cursor.index.value = at_most(play->input_text.len, play->cursor.index.value);
-				play->word_arr.remove_and_swap(index);
-				printf("deleted: %.*s\n", word.len, word.str);
+			int word_index = buffer_read<int>(&reader);
+			int killer_id = buffer_read<int>(&reader);
+			assert(word_index < play->word_arr.count);
+
+			s_len_str word = g_word_list[play->word_arr[word_index].index];
+			play->input_text.remove_until_and_including(word);
+			play->cursor.index.value = at_most(play->input_text.len, play->cursor.index.value);
+			play->word_arr.remove_and_swap(word_index);
+			printf("deleted: %.*s\n", word.len, word.str);
+
+			s_client* killer = get_client_by_id(killer_id);
+			if(killer) {
+				killer->score += word.len;
 			}
 		} break;
 
 		case e_packet_new_client: {
-			int score = buffer_read<int>(&reader);
+			s_client new_client = zero;
+			new_client.id = buffer_read<int>(&reader);
+			new_client.score = buffer_read<int>(&reader);
 			int name_len = buffer_read<int>(&reader);
 			char* name_ptr = (char*)(reader.buffer + reader.cursor);
-			s_client new_client = zero;
 			new_client.name.from_data(name_ptr, name_len);
-			new_client.score = score;
 			play->client_arr.add(new_client);
+		} break;
+
+		case e_packet_your_id: {
+			play->my_client.id = buffer_read<int>(&reader);
 		} break;
 
 		invalid_default_case;
@@ -1011,4 +1021,13 @@ func void draw_cool_cursor(
 	if(!blink) {
 		draw_rect(g_r, cursor->visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
 	}
+}
+
+func s_client* get_client_by_id(int id)
+{
+	foreach_ptr(client_i, client, game->play.client_arr) {
+		if(client->id == id) { return client; }
+	}
+	if(game->play.my_client.id == id) { return &game->play.my_client; }
+	return nullptr;
 }
