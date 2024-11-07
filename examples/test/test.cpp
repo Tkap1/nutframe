@@ -203,12 +203,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			int num_chars_to_send = 0;
 			s_buffer_writer writer = zero;
 			buffer_write(&writer, e_packet_type_char);
-			u8* count_dst = buffer_write(&writer, num_chars_to_send); // @Note(tkap, 07/11/2024): placeholder for later
+			u8* count_dst = buffer_write(&writer, num_chars_to_send); // @Note(tkap, 07/11/2024): placeholder to be written later
 			foreach_val(c_i, c, g_input->char_events) {
 				if(is_alpha(c) && play->input_text.len < c_max_text_input) {
 					buffer_write(&writer, c);
 					num_chars_to_send += 1;
-					printf("SENT: %c\n", c);
 
 					play_sound_group(e_sound_group_click);
 
@@ -270,7 +269,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui names start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-			s_pos_area area = make_vertical_layout(v2(4), v2(font_size0), 4, 0);
+			s_pos_area area = make_vertical_layout(v2(4), v2(font_size1), 4, 0);
 			{
 				auto builder = play->name;
 				builder.add(": %i", play->score);
