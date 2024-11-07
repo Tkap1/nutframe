@@ -37,11 +37,6 @@ generate_ctags.bat
 *.rdbg
 *_output.txt
 *.zip
-*.html
-*.js
-*.wasm
-*.data
-*.wasm.map
 embed.h
 chat_messages.txt
 __pycache__

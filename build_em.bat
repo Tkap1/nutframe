@@ -10,6 +10,7 @@ set comp=
 set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\sdl"
 set comp=!comp! -I"C:\Users\34687\Desktop\Dev\C\SDL_mixer\include"
 set comp=!comp! -I"..\..\libs"
+set comp=!comp! -I"..\..\my_libs2"
 set comp=!comp! -lSDL2_mixer
 set comp=!comp! -lopenal
 set comp=!comp! -lwebsocket.js
@@ -18,6 +19,7 @@ set comp=!comp! -sSTACK_SIZE=1048576
 set comp=!comp! --shell-file ../shell.html
 set comp=!comp! -sFETCH
 set comp=!comp! -Dm_emscripten
+set comp=!comp! -Wshadow
 
 set debug=1
 if !debug!==0 (

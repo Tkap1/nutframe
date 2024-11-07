@@ -8,6 +8,12 @@
 #include <stdarg.h>
 #include <math.h>
 
+#define assert(cond) do { if(!(cond)) { on_failed_assert(#cond, __FILE__, __LINE__); } } while(0)
+static void on_failed_assert(const char* cond, const char* file, int line);
+
+#define m_tk_string_impl
+#include "tk_string.h"
+
 #ifdef _WIN32
 #ifdef m_build_dll
 #define m_dll_export __declspec(dllexport)
@@ -181,7 +187,6 @@ enum e_wrap
 	e_wrap_clamp,
 };
 
-#define assert(cond) do { if(!(cond)) { on_failed_assert(#cond, __FILE__, __LINE__); } } while(0)
 #define unreferenced(thing) (void)thing;
 #define check(cond) do { if(!(cond)) { error(false); }} while(0)
 #define invalid_default_case default: { assert(false); }
@@ -229,8 +234,6 @@ static constexpr int c_max_actions = 64;
 
 #define rad2deg (pi * 180)
 #define deg2rad (pi / 180)
-
-static void on_failed_assert(const char* cond, const char* file, int line);
 
 template<typename t0, typename t1>
 struct is_same_ { static constexpr b8 is_it = false; };
@@ -680,19 +683,6 @@ struct s_render_pass
 	s_sarray<s_render_group, 128> render_group_arr;
 };
 
-struct s_len_str
-{
-	char* str;
-	int len;
-
-	char operator[](int index)
-	{
-		assert(index >= 0);
-		return str[index];
-	}
-};
-
-
 template <typename t>
 struct s_maybe
 {
@@ -799,35 +789,6 @@ struct s_input_str
 
 #define m_strlit(s) {.str = s, .len = sizeof(s) - 1}
 
-static s_len_str strlit(char* s)
-{
-	return {.str = s, .len = (int)strlen(s)};
-}
-
-[[nodiscard]] static s_len_str get_substr_from(s_len_str x, s_len_str needle)
-{
-	char* match = strstr(x.str, needle.str);
-	if(match) {
-		return {.str = match, .len = (int)((x.str + x.len) - match)};
-	}
-	else {
-		return {};
-	}
-}
-
-[[nodiscard]] static s_len_str substr_from_to_exclusive(s_len_str x, int start, int end)
-{
-	assert(start >= 0);
-	assert(end > start);
-	return {.str = x.str + start, .len = end - start};
-}
-
-[[nodiscard]] static s_len_str advance(s_len_str x, int n)
-{
-	assert(n > 0);
-	assert(x.len - n >= 0);
-	return {.str = x.str + n, .len = x.len - n};
-}
 
 struct s_recti
 {
@@ -1749,22 +1710,6 @@ static void la_pop(s_lin_arena* arena)
 	arena->used = arena->push.pop();
 }
 
-
-static b8 is_number(char c)
-{
-	return c >= '0' && c <= '9';
-}
-
-static b8 is_alpha(char c)
-{
-	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-
-static b8 is_alpha_numeric(char c)
-{
-	return is_number(c) || is_alpha(c);
-}
-
 static b8 can_start_identifier(char c)
 {
 	return is_alpha(c) || c == '_';
@@ -1801,117 +1746,117 @@ static s_parse_identifier parse_identifier(char* str)
 }
 
 
-template <int max_chars>
-struct s_str_builder
-{
-	int tab_count;
-	int len = 0;
-	char data[max_chars];
+// template <int max_chars>
+// struct s_str_builder
+// {
+// 	int tab_count;
+// 	int len = 0;
+// 	char data[max_chars];
 
-	void add_(const char* what, b8 use_tabs, va_list args);
-	void add(const char* what, ...);
-	void add_char(char c);
-	void add_with_tabs(const char* what, ...);
-	void add_line(const char* what, ...);
-	void add_line_with_tabs(const char* what, ...);
-	void add_tabs();
-	void line();
-	void push_tab();
-	void pop_tab();
-};
+// 	void add_(const char* what, b8 use_tabs, va_list args);
+// 	void add(const char* what, ...);
+// 	void add_char(char c);
+// 	void add_with_tabs(const char* what, ...);
+// 	void add_line(const char* what, ...);
+// 	void add_line_with_tabs(const char* what, ...);
+// 	void add_tabs();
+// 	void line();
+// 	void push_tab();
+// 	void pop_tab();
+// };
 
-template <int max_chars>
-void s_str_builder<max_chars>::add_(const char* what, b8 use_tabs, va_list args)
-{
-	if(use_tabs)
-	{
-		for(int tab_i = 0; tab_i < tab_count; tab_i++)
-		{
-			data[len++] = '\t';
-		}
-	}
-	char* where_to_write = &data[len];
-	int written = vsnprintf(where_to_write, max_chars + 1 - len, what, args);
-	assert(written > 0 && written < max_chars);
-	len += written;
-	assert(len < max_chars);
-	data[len] = 0;
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::add_(const char* what, b8 use_tabs, va_list args)
+// {
+// 	if(use_tabs)
+// 	{
+// 		for(int tab_i = 0; tab_i < tab_count; tab_i++)
+// 		{
+// 			data[len++] = '\t';
+// 		}
+// 	}
+// 	char* where_to_write = &data[len];
+// 	int written = vsnprintf(where_to_write, max_chars + 1 - len, what, args);
+// 	assert(written > 0 && written < max_chars);
+// 	len += written;
+// 	assert(len < max_chars);
+// 	data[len] = 0;
+// }
 
-template <int max_chars>
-void s_str_builder<max_chars>::add(const char* what, ...)
-{
-	va_list args;
-	va_start(args, what);
-	add_(what, false, args);
-	va_end(args);
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::add(const char* what, ...)
+// {
+// 	va_list args;
+// 	va_start(args, what);
+// 	add_(what, false, args);
+// 	va_end(args);
+// }
 
-template <int max_chars>
-void s_str_builder<max_chars>::add_char(char c)
-{
-	assert(len < max_chars);
-	data[len++] = c;
-	data[len] = 0;
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::add_char(char c)
+// {
+// 	assert(len < max_chars);
+// 	data[len++] = c;
+// 	data[len] = 0;
+// }
 
-template <int max_chars>
-void s_str_builder<max_chars>::add_with_tabs(const char* what, ...)
-{
-	va_list args;
-	va_start(args, what);
-	builder_add_(this, what, true, args);
-	va_end(args);
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::add_with_tabs(const char* what, ...)
+// {
+// 	va_list args;
+// 	va_start(args, what);
+// 	builder_add_(this, what, true, args);
+// 	va_end(args);
+// }
 
-template <int max_chars>
-void s_str_builder<max_chars>::add_line(const char* what, ...)
-{
-	va_list args;
-	va_start(args, what);
-	add_(what, false, args);
-	va_end(args);
-	add("\n");
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::add_line(const char* what, ...)
+// {
+// 	va_list args;
+// 	va_start(args, what);
+// 	add_(what, false, args);
+// 	va_end(args);
+// 	add("\n");
+// }
 
-template <int max_chars>
-void s_str_builder<max_chars>::add_line_with_tabs(const char* what, ...)
-{
-	va_list args;
-	va_start(args, what);
-	builder_add_(this, what, true, args);
-	va_end(args);
-	builder_add(this, "\n");
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::add_line_with_tabs(const char* what, ...)
+// {
+// 	va_list args;
+// 	va_start(args, what);
+// 	builder_add_(this, what, true, args);
+// 	va_end(args);
+// 	builder_add(this, "\n");
+// }
 
-template <int max_chars>
-void s_str_builder<max_chars>::add_tabs()
-{
-	for(int tab_i = 0; tab_i < tab_count; tab_i++)
-	{
-		data[len++] = '\t';
-	}
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::add_tabs()
+// {
+// 	for(int tab_i = 0; tab_i < tab_count; tab_i++)
+// 	{
+// 		data[len++] = '\t';
+// 	}
+// }
 
-template <int max_chars>
-void s_str_builder<max_chars>::line()
-{
-	builder_add(this, "\n");
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::line()
+// {
+// 	builder_add(this, "\n");
+// }
 
-template <int max_chars>
-void s_str_builder<max_chars>::push_tab()
-{
-	assert(tab_count <= 64);
-	tab_count++;
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::push_tab()
+// {
+// 	assert(tab_count <= 64);
+// 	tab_count++;
+// }
 
-template <int max_chars>
-void s_str_builder<max_chars>::pop_tab()
-{
-	assert(tab_count > 0);
-	tab_count--;
-}
+// template <int max_chars>
+// void s_str_builder<max_chars>::pop_tab()
+// {
+// 	assert(tab_count > 0);
+// 	tab_count--;
+// }
 
 
 enum e_mesh
@@ -4252,7 +4197,7 @@ static void write_embed_file()
 
 	{
 		FILE* file = fopen("src/embed.h", "wb");
-		fwrite(builder->data, 1, builder->len, file);
+		fwrite(builder->str, 1, builder->len, file);
 		fclose(file);
 	}
 
@@ -4560,7 +4505,7 @@ static void do_game_layer(
 				printf("Path to variables file is not set!!\n");
 			}
 			else {
-				write_file(g_platform_data.variables_path, builder.data, builder.len);
+				write_file(g_platform_data.variables_path, builder.str, builder.len);
 			}
 		}
 	}

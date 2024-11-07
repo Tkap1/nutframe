@@ -89,6 +89,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 
 		#ifdef m_emscripten
 		platform_data->create_websocket("wss://discrete-miserably-gopher.ngrok-free.app");
+		// platform_data->create_websocket("ws://localhost:8000");
 		platform_data->websocket_set_on_open_callback(on_websocket_open, NULL);
 		platform_data->websocket_set_on_close_callback(on_websocket_close, NULL);
 		platform_data->websocket_set_on_error_callback(on_websocket_error, NULL);
@@ -125,7 +126,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			s_play* play = &game->play;
 			foreach_ptr(word_i, word, play->word_arr) {
 				word->prev_pos = word->pos;
-				word->pos += word->dir * 128 * delta;
+				word->pos += word->dir * c_word_speed * delta;
 			}
 		} break;
 	}
@@ -209,21 +210,24 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			#if defined(m_emscripten)
 
+			int num_chars_to_send = 0;
+			s_buffer_writer writer = zero;
+			buffer_write(&writer, e_packet_type_char);
+			u8* count_dst = buffer_write(&writer, num_chars_to_send); // @Note(tkap, 07/11/2024): placeholder for later
 			foreach_val(c_i, c, g_input->char_events) {
-				s_buffer_writer writer = zero;
-				buffer_write(&writer, e_packet_type_char);
-				if(is_alpha(c) && play->text_len < c_max_text_input) {
+				if(is_alpha(c) && play->input_text.len < c_max_text_input) {
 					buffer_write(&writer, c);
-					platform_data->websocket_send(writer.buffer, writer.len);
+					num_chars_to_send += 1;
+					printf("SENT: %c\n", c);
 
 					play_sound_group(e_sound_group_click);
 
 					if(!play->cursor.index.valid) {
 						play->cursor.index = maybe(0);
 					}
-					play->text[play->cursor.index.value] = c;
+					play->input_text.str[play->cursor.index.value] = c;
 					play->cursor.index.value += 1;
-					play->text_len += 1;
+					play->input_text.len += 1;
 
 					play->cursor.last_action_time = game->render_time;
 					play->cursor.last_edit_time = game->render_time;
@@ -231,12 +235,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				else if(c == '\b') {
 					if(play->cursor.index.value > 0) {
 						buffer_write(&writer, c);
-						platform_data->websocket_send(writer.buffer, writer.len);
+						num_chars_to_send += 1;
+
 						play_sound_group(e_sound_group_click);
 						play->cursor.index.value -= 1;
-						play->text_len -= 1;
-						int to_copy = play->text_len - play->cursor.index.value;
-						memmove(&play->text[play->cursor.index.value], &play->text[play->cursor.index.value + 1], to_copy);
+						play->input_text.len -= 1;
+						int to_copy = play->input_text.len - play->cursor.index.value;
+						memmove(&play->input_text.str[play->cursor.index.value], &play->input_text.str[play->cursor.index.value + 1], to_copy);
 
 						play->cursor.last_action_time = game->render_time;
 						play->cursor.last_edit_time = game->render_time;
@@ -244,9 +249,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 
+			*(int*)count_dst = num_chars_to_send;
+			if(num_chars_to_send > 0) {
+				platform_data->websocket_send(writer.buffer, writer.len);
+			}
+
 			float font_size = 48;
 
-			s_len_str str = {.str = play->text, .len = play->text_len};
+			s_len_str str = play->input_text.to_len_str();
 			if(str.len > 0) {
 				draw_text(g_r, str, wxy(0.5f, 0.1f), 0, font_size, make_color(1), true, game->font, game->world_render_pass_arr[0]);
 			}
@@ -907,6 +917,8 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 	s_buffer_reader reader = make_buffer_reader(data, data_len);
 	e_packet packet_type = buffer_read<e_packet>(&reader);
 
+	s_play* play = &game->play;
+
 	switch(packet_type) {
 		case e_packet_name_is_good: {
 			game->input_name_state.waiting_for_server_response = false;
@@ -920,7 +932,16 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			new_word.pos = buffer_read<s_v2>(&reader);
 			new_word.dir = buffer_read<s_v2>(&reader);
 			game->play.word_arr.add(new_word);
-			printf("got word %i\n", new_word.id);
+		} break;
+
+		case e_packet_delete_word: {
+			int index = buffer_read<int>(&reader);
+			if(index < play->word_arr.count) {
+				s_len_str word = g_word_list[play->word_arr[index].index];
+				play->input_text.remove_until_and_including(word);
+				play->cursor.index.value = at_most(play->input_text.len, play->cursor.index.value);
+				play->word_arr.remove_and_swap(index);
+			}
 		} break;
 
 		invalid_default_case;
