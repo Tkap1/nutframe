@@ -271,14 +271,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui names start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			s_pos_area area = make_vertical_layout(v2(4), v2(font_size1), 4, 0);
 			foreach_val(client_i, client, play->client_arr) {
-				auto builder = client.name;
-				builder.add(": %i", client.score);
-				b8 is_this_my_client = game->my_index == client_i;
-				s_v4 color = make_color(1);
-				if(is_this_my_client) {
-					color = make_color(0.438f, 0.239f, 0.652f);
+				if(client.in_play) {
+					auto builder = client.name;
+					builder.add(": %i", client.score);
+					b8 is_this_my_client = game->my_index == client_i;
+					s_v4 color = make_color(1);
+					if(is_this_my_client) {
+						color = make_color(0.438f, 0.239f, 0.652f);
+					}
+					draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->world_render_pass_arr[0]);
 				}
-				draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->world_render_pass_arr[0]);
 			}
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui names end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -937,8 +939,22 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 
 	switch(packet_type) {
 		case e_packet_name_is_good: {
+			int index = buffer_read<int>(&reader);
+			int name_len = buffer_read<int>(&reader);
+			assert(name_len > 0);
+			char* name_ptr = (char*)(reader.buffer + reader.cursor);
+
+			game->play.client_arr[index].in_play = true;
+			game->play.client_arr[index].name.from_data(name_ptr, name_len);
 			game->input_name_state.waiting_for_server_response = false;
-			set_state_next_frame(e_state_play);
+
+			printf("got name for %i: %i, %.*s\n", index, name_len, name_len, name_ptr);
+
+			if(index == game->my_index) {
+				set_state_next_frame(e_state_play);
+				printf("it's my name!\n");
+			}
+
 		} break;
 
 		case e_packet_new_word: {
@@ -972,16 +988,19 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 		case e_packet_new_client: {
 			s_client new_client = zero;
 			b8 is_this_my_client = buffer_read<b8>(&reader);
+			new_client.in_play = buffer_read<b8>(&reader);
 			new_client.score = buffer_read<int>(&reader);
 			int name_len = buffer_read<int>(&reader);
-			char* name_ptr = (char*)(reader.buffer + reader.cursor);
-			new_client.name.from_data(name_ptr, name_len);
+			if(name_len > 0) {
+				char* name_ptr = (char*)(reader.buffer + reader.cursor);
+				new_client.name.from_data(name_ptr, name_len);
+			}
 
 			printf("new client: %.*s\n", new_client.name.len, new_client.name.str);
 
 			if(is_this_my_client) {
 				game->my_index = play->client_arr.count;
-				printf("it's my client!\n");
+				printf("it's my client! I'm index %i\n", game->my_index);
 			}
 
 			play->client_arr.add(new_client);
