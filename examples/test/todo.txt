@@ -1,9 +1,4 @@
 
 
 sanitize input on server
-
-
 different arrays for different word lengths??
-
-have our own client in the clients array. otherwise it's gonna be if check city
-	keep a pointer to our own though, or just make a function to get our own? idk

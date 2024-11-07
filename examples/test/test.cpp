@@ -987,6 +987,15 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			play->client_arr.add(new_client);
 		} break;
 
+		case e_packet_client_disconnected: {
+			int index = buffer_read<int>(&reader);
+			assert(index != game->my_index);
+
+			b8 is_my_client_the_last_in_the_array = play->client_arr.count - 1 == game->my_index;
+			play->client_arr.remove_and_shift(index);
+			game->my_index = index;
+		} break;
+
 		invalid_default_case;
 	}
 }
