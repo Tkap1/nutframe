@@ -530,7 +530,7 @@ static void create_window(int width, int height)
 		g_window.handle = CreateWindowEx(
 			0,
 			class_name,
-			"Hive Havoc",
+			"TTTD",
 			style,
 			CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top,
 			NULL,

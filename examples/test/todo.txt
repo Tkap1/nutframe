@@ -2,9 +2,5 @@
 
 sanitize input on server
 
-if a client connects late, all the requests to create and delete words will have fucked indices from the perspective of the client
-	maybe we should move to an array with holes
 
-
-RACE condition on server.
-	we push a char on network thread, and pop a char on game thread
+different arrays for different word lengths??

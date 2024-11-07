@@ -62,10 +62,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->font = &renderer->fonts[0];
 		platform_data->variables_path = "examples/test/variables.h";
 
-		if(g_platform_data->register_leaderboard_client) {
-			g_platform_data->register_leaderboard_client();
-		}
-
 		for(int i = 0; i < game->world_render_pass_arr.max_elements(); i += 1) {
 			game->world_render_pass_arr[i] = make_render_pass(g_r, &platform_data->permanent_arena);
 		}
@@ -175,7 +171,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					buffer_write(&writer, e_packet_send_name);
 					buffer_write(&writer, state->name.str.len);
 					buffer_write_array(&writer, state->name.str.data, state->name.str.len);
-					game->name = state->name.str;
+					game->play.name.from_data(state->name.str.data, state->name.str.len);
 
 					#if defined(m_emscripten)
 					platform_data->websocket_send(writer.buffer, writer.len);
@@ -201,12 +197,6 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 		case e_state_play: {
 			s_play* play = &game->play;
-			draw_text(g_r, strlit("We are playing BAAAAAAT"), c_base_res * v2(0.5f, 0.2f), 10, 42, make_color(1), true, game->font, game->ui_render_pass1);
-
-			foreach_val(word_i, word, play->word_arr) {
-				s_v2 pos = lerp(word.prev_pos, word.pos, interp_dt);
-				draw_text(g_r, g_word_list[word.index], pos, 0, 24, make_color(1), true, game->font, game->world_render_pass_arr[0]);
-			}
 
 			#if defined(m_emscripten)
 
@@ -254,7 +244,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				platform_data->websocket_send(writer.buffer, writer.len);
 			}
 
+			#endif // m_emscripten
+
 			float font_size = 48;
+
+			draw_rect(g_r, c_play_area_center, 0, c_play_area_size, make_color(0.1f), game->world_render_pass_arr[0]);
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+
+			foreach_val(word_i, word, play->word_arr) {
+				s_v2 pos = lerp(word.prev_pos, word.pos, interp_dt);
+				draw_text(g_r, g_word_list[word.index], pos, 0, 24, make_color(1), true, game->font, game->world_render_pass_arr[0]);
+			}
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			s_len_str str = play->input_text.to_len_str();
 			if(str.len > 0) {
@@ -264,8 +265,19 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			draw_cool_cursor(
 				wxy(0.5f, 0.1f), str, &play->cursor, font_size
 			);
+			draw_rect(g_r, v2(0.0f), 0, c_ui_size, make_color(0.15f), game->world_render_pass_arr[0], {}, {.origin_offset = c_origin_topleft});
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
-			#endif // m_emscripten
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui names start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			s_pos_area area = make_vertical_layout(v2(4), v2(font_size), 4, 0);
+			draw_text(g_r, play->name.to_len_str(), pos_area_get_advance(&area), 0, font_size, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+			foreach_val(client_i, client, play->client_arr) {
+				auto builder = client.name;
+				builder.add(": %i", client.score);
+				draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+			}
+			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui names end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 		} break;
 	}
@@ -931,6 +943,7 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			new_word.index = buffer_read<int>(&reader);
 			new_word.pos = buffer_read<s_v2>(&reader);
 			new_word.dir = buffer_read<s_v2>(&reader);
+			new_word.prev_pos = new_word.pos;
 			game->play.word_arr.add(new_word);
 		} break;
 
@@ -941,7 +954,18 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 				play->input_text.remove_until_and_including(word);
 				play->cursor.index.value = at_most(play->input_text.len, play->cursor.index.value);
 				play->word_arr.remove_and_swap(index);
+				printf("deleted: %.*s\n", word.len, word.str);
 			}
+		} break;
+
+		case e_packet_new_client: {
+			int score = buffer_read<int>(&reader);
+			int name_len = buffer_read<int>(&reader);
+			char* name_ptr = (char*)(reader.buffer + reader.cursor);
+			s_client new_client = zero;
+			new_client.name.from_data(name_ptr, name_len);
+			new_client.score = score;
+			play->client_arr.add(new_client);
 		} break;
 
 		invalid_default_case;
