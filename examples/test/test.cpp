@@ -171,7 +171,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					buffer_write(&writer, e_packet_send_name);
 					buffer_write(&writer, state->name.str.len);
 					buffer_write_array(&writer, state->name.str.data, state->name.str.len);
-					game->play.my_client.name.from_data(state->name.str.data, state->name.str.len);
+					game->name.from_data(state->name.str.data, state->name.str.len);
 
 					#if defined(m_emscripten)
 					platform_data->websocket_send(writer.buffer, writer.len);
@@ -270,15 +270,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui names start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			s_pos_area area = make_vertical_layout(v2(4), v2(font_size1), 4, 0);
-			{
-				auto builder = play->my_client.name;
-				builder.add(": %i", play->my_client.score);
-				draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size1, make_color(1), false, game->font, game->world_render_pass_arr[0]);
-			}
 			foreach_val(client_i, client, play->client_arr) {
 				auto builder = client.name;
 				builder.add(": %i", client.score);
-				draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size1, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+				b8 is_this_my_client = game->my_index == client_i;
+				s_v4 color = make_color(1);
+				if(is_this_my_client) {
+					color = make_color(0.438f, 0.239f, 0.652f);
+				}
+				draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->world_render_pass_arr[0]);
 			}
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui names end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -953,7 +953,7 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 
 		case e_packet_delete_word: {
 			int word_index = buffer_read<int>(&reader);
-			int killer_id = buffer_read<int>(&reader);
+			int killer_index = buffer_read<int>(&reader);
 			assert(word_index < play->word_arr.count);
 
 			s_len_str word = g_word_list[play->word_arr[word_index].index];
@@ -962,7 +962,8 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			play->word_arr.remove_and_swap(word_index);
 			printf("deleted: %.*s\n", word.len, word.str);
 
-			s_client* killer = get_client_by_id(killer_id);
+			s_client* killer = get_client(killer_index);
+			assert(killer); // @Note(tkap, 07/11/2024): not sure about this one. we'll see when we remove clients
 			if(killer) {
 				killer->score += word.len;
 			}
@@ -970,16 +971,20 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 
 		case e_packet_new_client: {
 			s_client new_client = zero;
-			new_client.id = buffer_read<int>(&reader);
+			b8 is_this_my_client = buffer_read<b8>(&reader);
 			new_client.score = buffer_read<int>(&reader);
 			int name_len = buffer_read<int>(&reader);
 			char* name_ptr = (char*)(reader.buffer + reader.cursor);
 			new_client.name.from_data(name_ptr, name_len);
-			play->client_arr.add(new_client);
-		} break;
 
-		case e_packet_your_id: {
-			play->my_client.id = buffer_read<int>(&reader);
+			printf("new client: %.*s\n", new_client.name.len, new_client.name.str);
+
+			if(is_this_my_client) {
+				game->my_index = play->client_arr.count;
+				printf("it's my client!\n");
+			}
+
+			play->client_arr.add(new_client);
 		} break;
 
 		invalid_default_case;
@@ -1023,11 +1028,16 @@ func void draw_cool_cursor(
 	}
 }
 
-func s_client* get_client_by_id(int id)
+func s_client* get_client(int index)
 {
-	foreach_ptr(client_i, client, game->play.client_arr) {
-		if(client->id == id) { return client; }
-	}
-	if(game->play.my_client.id == id) { return &game->play.my_client; }
-	return nullptr;
+	s_client* result = &game->play.client_arr[index];
+	assert(result);
+	return result;
+}
+
+func s_client* get_my_client()
+{
+	s_client* result = &game->play.client_arr[game->my_index];
+	assert(result);
+	return result;
 }
