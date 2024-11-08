@@ -1,6 +1,7 @@
 
 
-sanitize input on server
-different arrays for different word lengths??
+sanitize offensive names?
 
-typing too much in input fails assert
+lose condition
+visual effects when killing word
+rounds?
