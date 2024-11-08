@@ -2,3 +2,5 @@
 
 sanitize input on server
 different arrays for different word lengths??
+
+typing too much in input fails assert

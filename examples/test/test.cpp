@@ -193,6 +193,18 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			draw_cool_cursor(
 				pos, strlit(state->name.str.data), &state->name.cursor, font_size
 			);
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw "version" start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_str_builder<64> builder0;
+				s_str_builder<64> builder1;
+				builder1.add("%s", __TIME__);
+				builder1.remove_all(m_strlit(":"));
+				builder0.add("Version: %.*s", builder1.len, builder1.str);
+				draw_text(g_r, builder0.to_len_str(), wxy(0.01f, 0.95f), 10, font_size, make_color(1), false, game->font, game->ui_render_pass1);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw "version" end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 		} break;
 
 		case e_state_play: {
@@ -235,6 +247,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						play->cursor.last_action_time = game->render_time;
 						play->cursor.last_edit_time = game->render_time;
 					}
+				}
+				else if(c == c_ctrl_backspace) {
+					play->input_text.len = 0;
+					play->cursor.index.value = 0;
+					buffer_write(&writer, c);
+					num_chars_to_send += 1;
 				}
 			}
 

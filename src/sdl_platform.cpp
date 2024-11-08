@@ -276,7 +276,17 @@ static void do_one_frame()
 
 				// @Note(tkap, 11/11/2023): SDL does not give us a text input event for backspace, so let's hack it
 				if(key == c_key_backspace && is_down) {
-					g_platform_data.input.char_events.add('\b');
+					if(is_key_down(&g_platform_data.input, c_key_left_ctrl)) {
+						// @Hack(tkap, 08/11/2024): Pretending that char 7 is ctrl + backspace
+						g_platform_data.input.char_events.add(7);
+					}
+					else {
+						g_platform_data.input.char_events.add('\b');
+					}
+				}
+				if(key == c_key_escape && is_down) {
+					// @Hack(tkap, 08/11/2024): Pretending that char 7 is ctrl + backspace
+					g_platform_data.input.char_events.add(7);
 				}
 
 			} break;
