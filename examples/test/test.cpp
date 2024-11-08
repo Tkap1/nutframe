@@ -269,11 +269,38 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			draw_rect(g_r, c_play_area_center, 0, c_play_area_size, make_color(0.1f), game->world_render_pass_arr[0]);
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
-			foreach_val(word_i, word, play->word_arr) {
-				s_v2 pos = lerp(word.prev_pos, word.pos, interp_dt);
-				draw_text(g_r, g_word_list[word.index], pos, 0, font_size1, make_color(1), true, game->font, game->world_render_pass_arr[0]);
+			{
+				s_len_str input = play->input_text.to_len_str();
+				foreach_val(word_i, word, play->word_arr) {
+					s_v2 pos = lerp(word.prev_pos, word.pos, interp_dt);
+					s_len_str word2 = g_word_list[word.index];
+					s_len_str match = find_longest_match(word2, input);
+					s_v2 text_size = get_text_size(word2, game->font, font_size1);
+
+					pos -= text_size * 0.5f;
+
+					if(match.len > 0) {
+						int start = (int)(match.str - input.str);
+						int num_bad_chars = input.len - (start + match.len);
+						s_len_str s0 = substr_from_to_exclusive(word2, 0, match.len);
+						s_len_str s1 = substr_from_to_exclusive(word2, match.len, match.len + num_bad_chars);
+						s_len_str s2 = substr_from_to_exclusive(word2, match.len + num_bad_chars, word2.len);
+						if(s0.len > 0) {
+							pos = draw_text(g_r, s0, pos, 0, font_size1, make_color(0, 1, 0), false, game->font, game->world_render_pass_arr[0]);
+						}
+						if(s1.len > 0) {
+							pos = draw_text(g_r, s1, pos, 0, font_size1, make_color(1, 0, 0), false, game->font, game->world_render_pass_arr[0]);
+						}
+						if(s2.len > 0) {
+							pos = draw_text(g_r, s2, pos, 0, font_size1, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+						}
+					}
+					else {
+						draw_text(g_r, word2, pos, 0, font_size1, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+					}
+				}
+				g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			}
-			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			s_len_str str = play->input_text.to_len_str();
 			if(str.len > 0) {
