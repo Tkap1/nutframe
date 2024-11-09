@@ -329,7 +329,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			s_pos_area area = make_vertical_layout(v2(4), v2(font_size1), 4, 0);
 			foreach_val(client_i, client, game->client_arr) {
 				if(client.in_play) {
-					auto builder = client.name;
+					s_str_builder<64> builder = str_builder_to_builder<64>(&client.name);
 					builder_add(&builder, ": %i", client.score);
 					b8 is_this_my_client = game->my_index == client_i;
 					s_v4 color = make_color(1);
