@@ -4,8 +4,6 @@
 #define global static
 #define tag(...)
 
-global constexpr int c_updates_per_second = 30;
-global constexpr f64 c_update_delay = 1.0 / c_updates_per_second;
 global constexpr int c_max_leaderboard_entries = 16;
 global constexpr s_v2 c_player_size = v2(128);
 global constexpr s_v2 c_creature_size = v2(64);

@@ -4172,28 +4172,28 @@ static void write_embed_file()
 		data[file_size] = 0;
 		u8* cursor = data;
 
-		builder->add_line("static constexpr u8 embed%i[%u] = {", embed_i, file_size + 1);
+		builder_add_line(builder, "static constexpr u8 embed%i[%u] = {", embed_i, file_size + 1);
 		for(u64 i = 0; i < file_size + 1; i++) {
-			builder->add("%u,", *cursor);
+			builder_add(builder, "%u,", *cursor);
 			cursor++;
 		}
-		builder->add_line("\n};");
+		builder_add_line(builder, "\n};");
 
 		fclose(file);
 		free(data);
 	}
 
-	builder->add_line("static constexpr u8* embed_data[%i] = {", g_to_embed.count);
+	builder_add_line(builder, "static constexpr u8* embed_data[%i] = {", g_to_embed.count);
 	foreach_val(embed_i, embed, g_to_embed) {
-		builder->add("(u8*)embed%i,", embed_i);
+		builder_add(builder, "(u8*)embed%i,", embed_i);
 	}
-	builder->add_line("\n};");
+	builder_add_line(builder, "\n};");
 
-	builder->add_line("static constexpr int embed_sizes[%i] = {", g_to_embed.count);
+	builder_add_line(builder, "static constexpr int embed_sizes[%i] = {", g_to_embed.count);
 	foreach_val(embed_i, embed, g_to_embed) {
-		builder->add("array_count(embed%i),", embed_i);
+		builder_add(builder, "array_count(embed%i),", embed_i);
 	}
-	builder->add_line("\n};");
+	builder_add_line(builder, "\n};");
 
 	{
 		FILE* file = fopen("src/embed.h", "wb");
@@ -4491,13 +4491,13 @@ static void do_game_layer(
 			s_str_builder<10 * c_kb> builder;
 			foreach_val(var_i, var, g_platform_data.vars) {
 				if(var.type == e_var_type_int) {
-					builder.add_line("static int %s = %i;", var.name, *(int*)var.ptr);
+					builder_add_line(&builder, "static int %s = %i;", var.name, *(int*)var.ptr);
 				}
 				else if(var.type == e_var_type_float) {
-					builder.add_line("static float %s = %ff;", var.name, *(float*)var.ptr);
+					builder_add_line(&builder, "static float %s = %ff;", var.name, *(float*)var.ptr);
 				}
 				else if(var.type == e_var_type_bool) {
-					builder.add_line("static b8 %s = %s;", var.name, *(b8*)var.ptr ? "true" : "false");
+					builder_add_line(&builder, "static b8 %s = %s;", var.name, *(b8*)var.ptr ? "true" : "false");
 				}
 				invalid_else;
 			}

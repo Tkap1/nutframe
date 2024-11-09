@@ -198,10 +198,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_str_builder<64> builder0;
 				s_str_builder<64> builder1;
-				builder1.add("%s", __TIME__);
-				builder1.remove_all(m_strlit(":"));
-				builder0.add("Version: %.*s", builder1.len, builder1.str);
-				draw_text(g_r, builder0.to_len_str(), wxy(0.01f, 0.95f), 10, font_size, make_color(1), false, game->font, game->ui_render_pass1);
+				builder_add(&builder1, "%s", __TIME__);
+				builder_remove_all(&builder1, m_strlit(":"));
+				builder_add(&builder0, "Version: %.*s", builder1.len, builder1.str);
+				draw_text(g_r, builder_to_len_str(&builder0), wxy(0.01f, 0.95f), 10, font_size, make_color(1), false, game->font, game->ui_render_pass1);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw "version" end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -217,12 +217,9 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			buffer_write(&writer, e_packet_type_char);
 			u8* count_dst = buffer_write(&writer, num_chars_to_send); // @Note(tkap, 07/11/2024): placeholder to be written later
 			foreach_val(c_i, c, g_input->char_events) {
+				b8 send = false;
 				if(is_alpha(c) && play->input_text.len < c_max_text_input) {
-					buffer_write(&writer, c);
-					num_chars_to_send += 1;
-
-					play_sound_group(e_sound_group_click);
-
+					send = true;
 					if(!play->cursor.index.valid) {
 						play->cursor.index = maybe(0);
 					}
@@ -235,10 +232,8 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 				else if(c == '\b') {
 					if(play->cursor.index.value > 0) {
-						buffer_write(&writer, c);
-						num_chars_to_send += 1;
+						send = true;
 
-						play_sound_group(e_sound_group_click);
 						play->cursor.index.value -= 1;
 						play->input_text.len -= 1;
 						int to_copy = play->input_text.len - play->cursor.index.value;
@@ -249,10 +244,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					}
 				}
 				else if(c == c_ctrl_backspace) {
+					send = true;
 					play->input_text.len = 0;
 					play->cursor.index.value = 0;
+				}
+				if(send) {
 					buffer_write(&writer, c);
 					num_chars_to_send += 1;
+					play_sound_group(e_sound_group_click);
 				}
 			}
 
@@ -270,7 +269,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			{
-				s_len_str input = play->input_text.to_len_str();
+				s_len_str input = builder_to_len_str(&play->input_text);
 				foreach_val(word_i, word, play->word_arr) {
 					s_v2 pos = lerp(word.prev_pos, word.pos, interp_dt);
 					s_len_str word2 = g_word_list[word.index];
@@ -302,7 +301,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			}
 
-			s_len_str str = play->input_text.to_len_str();
+			s_len_str str = builder_to_len_str(&play->input_text);
 			if(str.len > 0) {
 				draw_text(g_r, str, wxy(0.5f, 0.1f), 0, font_size0, make_color(1), true, game->font, game->world_render_pass_arr[0]);
 			}
@@ -318,13 +317,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			foreach_val(client_i, client, play->client_arr) {
 				if(client.in_play) {
 					auto builder = client.name;
-					builder.add(": %i", client.score);
+					builder_add(&builder, ": %i", client.score);
 					b8 is_this_my_client = game->my_index == client_i;
 					s_v4 color = make_color(1);
 					if(is_this_my_client) {
 						color = make_color(0.438f, 0.239f, 0.652f);
 					}
-					draw_text(g_r, builder.to_len_str(), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->world_render_pass_arr[0]);
+					draw_text(g_r, builder_to_len_str(&builder), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->world_render_pass_arr[0]);
 				}
 			}
 			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
@@ -1018,7 +1017,7 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			assert(word_index < play->word_arr.count);
 
 			s_len_str word = g_word_list[play->word_arr[word_index].index];
-			play->input_text.remove_until_and_including(word);
+			builder_remove_until_and_including(&play->input_text, word);
 			play->cursor.index.value = at_most(play->input_text.len, play->cursor.index.value);
 			play->word_arr.remove_and_swap(word_index);
 			printf("deleted: %.*s\n", word.len, word.str);
