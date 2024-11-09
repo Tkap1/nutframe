@@ -9,3 +9,6 @@ rounds?
 coffee lava called himself "azenris_partner" but on my screen it shows "azen" and it lacks the ": {score}"
 	it also looked like "aze" at first and then became "azen"
 	and then "azenr" WHAT
+
+display health
+display round

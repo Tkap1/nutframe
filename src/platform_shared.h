@@ -2260,11 +2260,6 @@ static void max_by_ptr(t* a, t b)
 	*a = max(*a, b);
 }
 
-static int roundfi(float x)
-{
-	return (int)roundf(x);
-}
-
 static float sinf2(float t)
 {
 	return sinf(t) * 0.5f + 0.5f;
@@ -2396,16 +2391,6 @@ static int double_until_greater_or_equal(int current, int target)
 	if(current <= 0) { current = 1; }
 	while(current < target) { current *= 2; }
 	return current;
-}
-
-static int floorfi(float x)
-{
-	return (int)floorf(x);
-}
-
-static int ceilfi(float x)
-{
-	return (int)ceilf(x);
 }
 
 static float fract(float x)

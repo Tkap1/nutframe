@@ -120,7 +120,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(get_state()) {
 		case e_state_play: {
 			s_play* play = &game->play;
-			if(!is_game_paused(play)) {
+			if(!is_play_paused(play)) {
 				foreach_ptr(word_i, word, play->word_arr) {
 					word->prev_pos = word->pos;
 					word->pos += word->dir * c_word_speed * delta;
@@ -327,7 +327,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui names start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			s_pos_area area = make_vertical_layout(v2(4), v2(font_size1), 4, 0);
-			foreach_val(client_i, client, play->client_arr) {
+			foreach_val(client_i, client, game->client_arr) {
 				if(client.in_play) {
 					auto builder = client.name;
 					builder_add(&builder, ": %i", client.score);
@@ -1035,8 +1035,8 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			assert(name_len > 0);
 			char* name_ptr = (char*)(reader.buffer + reader.cursor);
 
-			game->play.client_arr[index].in_play = true;
-			game->play.client_arr[index].name.from_data(name_ptr, name_len);
+			game->client_arr[index].in_play = true;
+			game->client_arr[index].name.from_data(name_ptr, name_len);
 			game->input_name_state.waiting_for_server_response = false;
 
 			printf("got name for %i: %i, %.*s\n", index, name_len, name_len, name_ptr);
@@ -1092,11 +1092,11 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			printf("new client: %.*s\n", new_client.name.len, new_client.name.str);
 
 			if(is_this_my_client) {
-				game->my_index = play->client_arr.count;
+				game->my_index = game->client_arr.count;
 				printf("it's my client! I'm index %i\n", game->my_index);
 			}
 
-			play->client_arr.add(new_client);
+			game->client_arr.add(new_client);
 		} break;
 
 		case e_packet_client_disconnected: {
@@ -1104,8 +1104,8 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			printf("%i disconnected, my index is %i\n", index, game->my_index);
 			assert(index != game->my_index);
 
-			b8 is_my_client_the_last_in_the_array = play->client_arr.count - 1 == game->my_index;
-			play->client_arr.remove_and_swap(index);
+			b8 is_my_client_the_last_in_the_array = game->client_arr.count - 1 == game->my_index;
+			game->client_arr.remove_and_swap(index);
 			if(is_my_client_the_last_in_the_array) {
 				game->my_index = index;
 			}
@@ -1130,6 +1130,10 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 		case e_packet_defeat: {
 			play_sound_group(e_sound_group_lose_life);
 			play->state = e_play_state_defeat;
+		} break;
+
+		case e_packet_restart_game: {
+			struct_memset_zero(play);
 		} break;
 
 		invalid_default_case;
@@ -1175,14 +1179,14 @@ func void draw_cool_cursor(
 
 func s_client* get_client(int index)
 {
-	s_client* result = &game->play.client_arr[index];
+	s_client* result = &game->client_arr[index];
 	assert(result);
 	return result;
 }
 
 func s_client* get_my_client()
 {
-	s_client* result = &game->play.client_arr[game->my_index];
+	s_client* result = &game->client_arr[game->my_index];
 	assert(result);
 	return result;
 }
