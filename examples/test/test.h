@@ -474,13 +474,6 @@ enum e_animator
 	e_animator_color,
 };
 
-#define X(fname, ename) ename,
-enum e_ease
-{
-	m_advanced_easings
-};
-#undef X
-
 struct s_animator_property
 {
 	e_animator type;

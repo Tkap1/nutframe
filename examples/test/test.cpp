@@ -2,6 +2,10 @@
 #define s_list s_sarray
 #define s_linear_arena s_lin_arena
 
+#if defined(m_emscripten)
+#include <emscripten.h>
+#endif // m_emscripten
+
 #include "../../src/platform_shared.h"
 #include "variables.h"
 
@@ -10,7 +14,7 @@
 #include "../../../http_server/src/common.h"
 #include "test.h"
 
-static constexpr s_bounds c_base_res_bounds = rect_to_bounds(v2(0), c_base_res);
+// static constexpr s_bounds c_base_res_bounds = rect_to_bounds(v2(0), c_base_res);
 
 static s_input* g_input;
 static s_game* game;
@@ -55,6 +59,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->sound_arr[e_sound_level_up] = platform_data->load_sound(platform_data, "examples/test/level_up.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_dash] = platform_data->load_sound(platform_data, "examples/test/dash.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_click] = platform_data->load_sound(platform_data, "examples/test/keypress.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_lose_life] = platform_data->load_sound(platform_data, "examples/test/oof.wav", platform_data->frame_arena);
 
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
 		game->light_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
@@ -62,13 +67,7 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->font = &renderer->fonts[0];
 		platform_data->variables_path = "examples/test/variables.h";
 
-		for(int i = 0; i < game->world_render_pass_arr.max_elements(); i += 1) {
-			game->world_render_pass_arr[i] = make_render_pass(g_r, &platform_data->permanent_arena);
-		}
-		game->ui_render_pass0 = make_render_pass(g_r, &platform_data->permanent_arena);
-		game->ui_render_pass1 = make_render_pass(g_r, &platform_data->permanent_arena);
-		game->ui_render_pass2 = make_render_pass(g_r, &platform_data->permanent_arena);
-		game->ui_render_pass3 = make_render_pass(g_r, &platform_data->permanent_arena);
+		game->render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 		g_r->default_render_pass = make_render_pass(g_r, &platform_data->permanent_arena);
 
 		g_r->game_speed_index = 5;
@@ -117,12 +116,15 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		handle state change end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 	float delta = (float)c_update_delay;
+
 	switch(get_state()) {
 		case e_state_play: {
 			s_play* play = &game->play;
-			foreach_ptr(word_i, word, play->word_arr) {
-				word->prev_pos = word->pos;
-				word->pos += word->dir * c_word_speed * delta;
+			if(!is_game_paused(play)) {
+				foreach_ptr(word_i, word, play->word_arr) {
+					word->prev_pos = word->pos;
+					word->pos += word->dir * c_word_speed * delta;
+				}
 			}
 		} break;
 	}
@@ -181,13 +183,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				}
 			}
 
-			draw_text(g_r, strlit("Enter your name"), c_base_res * v2(0.5f, 0.2f), 10, font_size, make_color(1), true, game->font, game->ui_render_pass1);
+			draw_text(g_r, strlit("Enter your name"), c_base_res * v2(0.5f, 0.2f), 0, font_size, make_color(1), true, game->font, game->render_pass);
 			if(state->error_str.len > 0) {
-				draw_text(g_r, strlit(state->error_str.data), c_base_res * v2(0.5f, 0.3f), 10, font_size, rgb(0xD77870), true, game->font, game->ui_render_pass1);
+				draw_text(g_r, strlit(state->error_str.data), c_base_res * v2(0.5f, 0.3f), 0, font_size, rgb(0xD77870), true, game->font, game->render_pass);
 			}
 
 			if(state->name.str.len > 0) {
-				draw_text(g_r, strlit(state->name.str.data), pos, 10, font_size, make_color(1), true, game->font, game->ui_render_pass1);
+				draw_text(g_r, strlit(state->name.str.data), pos, 0, font_size, make_color(1), true, game->font, game->render_pass);
 			}
 
 			draw_cool_cursor(
@@ -201,9 +203,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				builder_add(&builder1, "%s", __TIME__);
 				builder_remove_all(&builder1, m_strlit(":"));
 				builder_add(&builder0, "Version: %.*s", builder1.len, builder1.str);
-				draw_text(g_r, builder_to_len_str(&builder0), wxy(0.01f, 0.95f), 10, font_size, make_color(1), false, game->font, game->ui_render_pass1);
+				draw_text(g_r, builder_to_len_str(&builder0), wxy(0.01f, 0.95f), 0, font_size, make_color(1), false, game->font, game->render_pass);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw "version" end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 		} break;
 
@@ -265,9 +269,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			float font_size0 = 48;
 			float font_size1 = 24;
 
-			draw_rect(g_r, c_play_area_center, 0, c_play_area_size, make_color(0.1f), game->world_render_pass_arr[0]);
-			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+			draw_rect(g_r, c_play_area_center, 0, c_play_area_size, make_color(0.1f), game->render_pass);
+			draw_rect(g_r, c_play_area_center, 1, c_our_area_size, make_color(0.167f, 0.731f, 0.882f, 0.5f), game->render_pass);
+			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw words start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
 				s_len_str input = builder_to_len_str(&play->input_text);
 				foreach_val(word_i, word, play->word_arr) {
@@ -285,32 +291,39 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						s_len_str s1 = substr_from_to_exclusive(word2, match.len, match.len + num_bad_chars);
 						s_len_str s2 = substr_from_to_exclusive(word2, match.len + num_bad_chars, word2.len);
 						if(s0.len > 0) {
-							pos = draw_text(g_r, s0, pos, 0, font_size1, make_color(0, 1, 0), false, game->font, game->world_render_pass_arr[0]);
+							pos = draw_text(g_r, s0, pos, 0, font_size1, make_color(0, 1, 0), false, game->font, game->render_pass);
 						}
 						if(s1.len > 0) {
-							pos = draw_text(g_r, s1, pos, 0, font_size1, make_color(1, 0, 0), false, game->font, game->world_render_pass_arr[0]);
+							pos = draw_text(g_r, s1, pos, 0, font_size1, make_color(1, 0, 0), false, game->font, game->render_pass);
 						}
 						if(s2.len > 0) {
-							pos = draw_text(g_r, s2, pos, 0, font_size1, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+							pos = draw_text(g_r, s2, pos, 0, font_size1, make_color(1), false, game->font, game->render_pass);
 						}
 					}
 					else {
-						draw_text(g_r, word2, pos, 0, font_size1, make_color(1), false, game->font, game->world_render_pass_arr[0]);
+						draw_text(g_r, word2, pos, 0, font_size1, make_color(1), false, game->font, game->render_pass);
 					}
 				}
-				g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw words end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			s_len_str str = builder_to_len_str(&play->input_text);
-			if(str.len > 0) {
-				draw_text(g_r, str, wxy(0.5f, 0.1f), 0, font_size0, make_color(1), true, game->font, game->world_render_pass_arr[0]);
+			draw_rect(g_r, v2(0.0f), 0, c_ui_size, make_color(0.15f), game->render_pass, {}, {.origin_offset = c_origin_topleft});
+			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		display input start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_len_str str = builder_to_len_str(&play->input_text);
+				if(str.len > 0) {
+					draw_text(g_r, str, pxy(0.5f, 0.1f), 0, font_size0, make_color(1), true, game->font, game->render_pass);
+				}
+
+				draw_cool_cursor(
+					pxy(0.5f, 0.1f), str, &play->cursor, font_size0
+				);
+				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			}
-
-			draw_cool_cursor(
-				wxy(0.5f, 0.1f), str, &play->cursor, font_size0
-			);
-			draw_rect(g_r, v2(0.0f), 0, c_ui_size, make_color(0.15f), game->world_render_pass_arr[0], {}, {.origin_offset = c_origin_topleft});
-			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		display input end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui names start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			s_pos_area area = make_vertical_layout(v2(4), v2(font_size1), 4, 0);
@@ -323,24 +336,50 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					if(is_this_my_client) {
 						color = make_color(0.438f, 0.239f, 0.652f);
 					}
-					draw_text(g_r, builder_to_len_str(&builder), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->world_render_pass_arr[0]);
+					draw_text(g_r, builder_to_len_str(&builder), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->render_pass);
 				}
 			}
-			g_r->end_render_pass(g_r, game->world_render_pass_arr[0], game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui names end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		round popup start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				float time_passed = game->render_time - play->set_round_timestamp;
+				if(time_passed < 10) {
+					s_animator a = zero;
+					float alpha = 1;
+					float temp_font_size = 0;
+					add_float(&a, 0.0f, 64.0f, 0.2f, 0.0f, &temp_font_size, e_ease_out_back);
+					animator_wait_completed(&a, 3.0f);
+					add_float(&a, 64.0f, 0.0f, 0.5f, 0.0f, &temp_font_size, e_ease_linear);
+					add_float(&a, 1.0f, 0.0f, 0.5f, 0.0f, &alpha, e_ease_linear);
+					animator_wait_completed(&a, 0.0f);
+					update_animator(&a, &time_passed, 1, false);
+
+					if(temp_font_size > 0) {
+						s_len_str str = format_text("Round %i", play->curr_round + 1);
+						draw_text(g_r, str, pxy(0.5f, 0.3f), 0, temp_font_size, make_color(1.0f, alpha), true, game->font, game->render_pass);
+						g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		round popup end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			if(play->state == e_play_state_defeat) {
+				s_len_str str = m_strlit("Defeat");
+				draw_rect(g_r, c_play_area_center, 0, c_play_area_size, make_color(0.0f, 0.75f), game->render_pass);
+				draw_text(g_r, str, pxy(0.5f, 0.3f), 0, 64, make_color(1.0f), true, game->font, game->render_pass);
+				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
+			}
 
 		} break;
 	}
 
 	// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		draw start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-	g_r->end_render_pass(g_r, game->ui_render_pass0, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
-	g_r->end_render_pass(g_r, game->ui_render_pass1, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
-	g_r->end_render_pass(g_r, game->ui_render_pass2, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
-	g_r->end_render_pass(g_r, game->ui_render_pass3, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 	g_r->clear_framebuffer(g_r->default_fbo, zero, c_default_fbo_clear_flags);
-	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo, game->world_render_pass_arr[0]);
-	g_r->end_render_pass(g_r, game->world_render_pass_arr[0], g_r->default_fbo, {.projection = ortho});
+	draw_framebuffer(g_r, c_half_res, 0, c_base_res, make_color(1), game->main_fbo, game->render_pass);
+	g_r->end_render_pass(g_r, game->render_pass, g_r->default_fbo, {.projection = ortho});
 	// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 }
@@ -398,14 +437,14 @@ func void do_particles(int count, s_v2 pos, int z, b8 attached_to_player, s_part
 	}
 }
 
-func void draw_tooltip(s_tooltip tooltip, s_len_str description, float font_size)
-{
-	s_rectf panel = fit_rect(tooltip.pos, tooltip.size, c_base_res_bounds);
-	tooltip.pos = panel.pos;
-	tooltip.size = panel.size;
-	draw_rect(g_r, tooltip.pos, 0, tooltip.size, hex_rgb_plus_alpha(0x9E8642, 0.85f), game->ui_render_pass2, {}, {.origin_offset = c_origin_topleft});
-	draw_text(g_r, description, tooltip.text_pos, 0, font_size, make_color(1), false, game->font, game->ui_render_pass3);
-}
+// func void draw_tooltip(s_tooltip tooltip, s_len_str description, float font_size)
+// {
+// 	s_rectf panel = fit_rect(tooltip.pos, tooltip.size, c_base_res_bounds);
+// 	tooltip.pos = panel.pos;
+// 	tooltip.size = panel.size;
+// 	draw_rect(g_r, tooltip.pos, 0, tooltip.size, hex_rgb_plus_alpha(0x9E8642, 0.85f), game->ui_render_pass2, {}, {.origin_offset = c_origin_topleft});
+// 	draw_text(g_r, description, tooltip.text_pos, 0, font_size, make_color(1), false, game->font, game->ui_render_pass3);
+// }
 
 func s_v2 get_center(s_v2 pos, s_v2 size)
 {
@@ -525,12 +564,12 @@ func void set_state_next_frame_temporary(e_state new_state)
 
 func void draw_light(s_v2 pos, float radius, s_v4 color, float smoothness)
 {
-	draw_circle(g_r, pos, 0, radius, color, game->world_render_pass_arr[0], {.shader = 5, .circle_smoothness = smoothness});
+	draw_circle(g_r, pos, 0, radius, color, game->render_pass, {.shader = 5, .circle_smoothness = smoothness});
 }
 
 func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness)
 {
-	draw_circle(g_r, pos, e_layer_shadow, radius, make_color(strength), game->world_render_pass_arr[0], {.shader = 5, .circle_smoothness = smoothness});
+	draw_circle(g_r, pos, e_layer_shadow, radius, make_color(strength), game->render_pass, {.shader = 5, .circle_smoothness = smoothness});
 }
 
 func s_v2i get_cell_index(s_v2 pos)
@@ -616,6 +655,11 @@ func void play_sound_group(e_sound_group group_id)
 func s_v2 wxy(float x, float y)
 {
 	return c_base_res * v2(x, y);
+}
+
+func s_v2 pxy(float x, float y)
+{
+	return c_play_area_start + c_play_area_size * v2(x, y);
 }
 
 
@@ -734,14 +778,14 @@ func s_auto_timer make_auto_timer(float curr, float duration)
 
 func void draw_progress_bar(s_v2 pos, s_v2 size, s_v4 under_size, s_v4 over_size, s_len_str str, float progress)
 {
-	draw_rect(g_r, pos, 0, size, under_size, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(g_r, pos, 0, size, under_size, game->render_pass, {}, {.origin_offset = c_origin_topleft});
 	float width = progress * size.x;
-	draw_rect(g_r, pos, 1, v2(width, size.y), over_size, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+	draw_rect(g_r, pos, 1, v2(width, size.y), over_size, game->render_pass, {}, {.origin_offset = c_origin_topleft});
 
 	if(str.len > 0) {
 		draw_text(
 			g_r, str, pos + size * 0.5f + v2(0.0f, 3.0f), 0,
-			24, make_color(1), true, game->font, game->ui_render_pass1
+			24, make_color(1), true, game->font, game->render_pass
 		);
 	}
 }
@@ -785,7 +829,10 @@ func int update_animator(s_animator* animator, float* time_ptr, float speed, b8 
 {
 	assert(animator->step_count > 0);
 	assert(speed > 0);
+
+	#if defined(m_debug)
 	assert(!animator->needs_wait_call);
+	#endif // m_debug
 
 	int result = 0;
 	if(*time_ptr * speed >= animator->total_duration) {
@@ -1022,10 +1069,12 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			play->word_arr.remove_and_swap(word_index);
 			printf("deleted: %.*s\n", word.len, word.str);
 
-			s_client* killer = get_client(killer_index);
-			assert(killer); // @Note(tkap, 07/11/2024): not sure about this one. we'll see when we remove clients
-			if(killer) {
-				killer->score += word.len;
+			if(killer_index >= 0) {
+				s_client* killer = get_client(killer_index);
+				assert(killer); // @Note(tkap, 07/11/2024): not sure about this one. we'll see when we remove clients
+				if(killer) {
+					killer->score += word.len;
+				}
 			}
 		} break;
 
@@ -1060,6 +1109,27 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			if(is_my_client_the_last_in_the_array) {
 				game->my_index = index;
 			}
+		} break;
+
+		case e_packet_set_round: {
+			play->set_round_timestamp = game->render_time;
+			play->curr_round = buffer_read<int>(&reader);
+			printf("got round %i\n", play->curr_round);
+		} break;
+
+		case e_packet_set_lives_lost: {
+			play->lives_lost = buffer_read<int>(&reader);
+		} break;
+
+		case e_packet_lose_life: {
+			// @TODO(tkap, 09/11/2024): effect
+			play_sound_group(e_sound_group_lose_life);
+			play->lives_lost = buffer_read<int>(&reader);
+		} break;
+
+		case e_packet_defeat: {
+			play_sound_group(e_sound_group_lose_life);
+			play->state = e_play_state_defeat;
 		} break;
 
 		invalid_default_case;
@@ -1099,7 +1169,7 @@ func void draw_cool_cursor(
 	}
 
 	if(!blink) {
-		draw_rect(g_r, cursor->visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, game->ui_render_pass0, {}, {.origin_offset = c_origin_topleft});
+		draw_rect(g_r, cursor->visual_pos - v2(0.0f, extra_height / 2), 15, cursor_size, color, game->render_pass, {}, {.origin_offset = c_origin_topleft});
 	}
 }
 

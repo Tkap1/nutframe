@@ -14,6 +14,9 @@ static void on_failed_assert(const char* cond, const char* file, int line);
 #define m_tk_string_impl
 #include "tk_string.h"
 
+#define m_tk_math_impl
+#include "tk_math.h"
+
 #ifdef _WIN32
 #ifdef m_build_dll
 #define m_dll_export __declspec(dllexport)
@@ -221,13 +224,6 @@ static constexpr s64 c_mb = 1024 * c_kb;
 static constexpr s64 c_gb = 1024 * c_mb;
 static constexpr s64 c_tb = 1024 * c_gb;
 
-static constexpr float pi = 3.1415926f;
-static constexpr float half_pi = pi * 0.5f;
-static constexpr float quarter_pi = pi * 0.25f;
-static constexpr float tau = 6.283185f;
-static constexpr float epsilon = 0.000001f;
-static constexpr f64 epsilon64 = 0.000000001;
-
 static constexpr int c_max_shaders = 32;
 
 static constexpr int c_max_actions = 64;
@@ -244,12 +240,6 @@ constexpr b8 is_same = is_same_<t0, t1>::is_it;
 
 struct s_game_renderer;
 
-struct s_v2
-{
-	float x;
-	float y;
-};
-#define m_v2_members(v) (v.x), (v.y)
 
 struct s_v2i
 {
@@ -912,21 +902,9 @@ enum e_blend_mode
 };
 
 template <typename t>
-static constexpr t at_least(t a, t b)
-{
-	return a > b ? a : b;
-}
-
-template <typename t>
 static void at_least_ptr(t a, t* b)
 {
 	*b = at_least(a, *b);
-}
-
-template <typename t>
-static constexpr t at_most(t a, t b)
-{
-	return b > a ? a : b;
 }
 
 
@@ -1096,34 +1074,6 @@ static constexpr s_v4 rgba(int hex)
 	result.z = ((hex & 0x0000FF00) >> 8) / 255.0f;
 	result.w = ((hex & 0x000000FF) >> 0) / 255.0f;
 	return result;
-}
-
-static b8 floats_equal(float a, float b)
-{
-	return (a >= b - epsilon && a <= b + epsilon);
-}
-
-static b8 floats64_equal(f64 a, f64 b)
-{
-	return (a >= b - epsilon64 && a <= b + epsilon64);
-}
-
-static b8 is_zero(float x)
-{
-	return floats_equal(x, 0);
-}
-
-static float ilerp(float start, float end, float val)
-{
-	float b = end - start;
-	if(floats_equal(b, 0)) { return val; }
-	return (val - start) / b;
-}
-
-template <typename t>
-static constexpr t clamp(t current, t min_val, t max_val)
-{
-	return at_most(max_val, at_least(min_val, current));
 }
 
 static constexpr s_v4 brighter(s_v4 color, float val)
@@ -1402,11 +1352,6 @@ static s_m4 m4_orthographic(float Left, float Right, float Bottom, float Top, fl
 	Result.elements[3][2] = (Near + Far) / (Near - Far);
 
 	return (Result);
-}
-
-static float lerp(float a, float b, float t)
-{
-	return a + (b - a) * t;
 }
 
 static s_v2 lerp(s_v2 a, s_v2 b, float t)
@@ -2066,14 +2011,6 @@ static s_v4 v41f(float v)
 }
 
 
-static s_v2 operator+(s_v2 a, s_v2 b)
-{
-	s_v2 result;
-	result.x = a.x + b.x;
-	result.y = a.y + b.y;
-	return result;
-}
-
 static s_v3 operator+(s_v3 a, s_v3 b)
 {
 	s_v3 result;
@@ -2099,27 +2036,11 @@ static s_v2i operator-(s_v2i a, s_v2i b)
 	return result;
 }
 
-static s_v2 operator-(s_v2 a, s_v2 b)
-{
-	s_v2 result;
-	result.x = a.x - b.x;
-	result.y = a.y - b.y;
-	return result;
-}
-
 static s_v2 operator*(s_v2 a, s_v2 b)
 {
 	s_v2 result;
 	result.x = a.x * b.x;
 	result.y = a.y * b.y;
-	return result;
-}
-
-static s_v2 operator*(s_v2 a, float b)
-{
-	s_v2 result;
-	result.x = a.x * b;
-	result.y = a.y * b;
 	return result;
 }
 
@@ -2297,12 +2218,6 @@ static s_v2 v2_rotate_around(s_v2 v, s_v2 pivot, float angle)
 	return p;
 }
 
-static void operator+=(s_v2& left, s_v2 right)
-{
-	left.x += right.x;
-	left.y += right.y;
-}
-
 static void operator+=(s_v3& left, s_v3 right)
 {
 	left.x += right.x;
@@ -2339,48 +2254,10 @@ static float v2_angle(s_v2 v)
 	return atan2f(v.y, v.x);
 }
 
-static float v2_length(s_v2 a)
-{
-	return sqrtf(a.x * a.x + a.y * a.y);
-}
-
-static s_v2 v2_normalized(s_v2 v)
-{
-	s_v2 result;
-	float length = v2_length(v);
-	if(length != 0)
-	{
-		result.x = v.x / length;
-		result.y = v.y / length;
-	}
-	else
-	{
-		result = v;
-	}
-	return result;
-}
-
-static s_v2 v2_dir_from_to(s_v2 from, s_v2 to)
-{
-	return v2_normalized(to - from);
-}
-
-template <typename t>
-static t max(t a, t b)
-{
-	return a >= b ? a : b;
-}
-
 template <typename t>
 static void max_by_ptr(t* a, t b)
 {
 	*a = max(*a, b);
-}
-
-template <typename t>
-static t min(t a, t b)
-{
-	return a <= b ? a : b;
 }
 
 static int roundfi(float x)
@@ -2500,17 +2377,6 @@ static b8 rect_collides_circle_topleft(s_v2 rect_pos, s_v2 rect_size, s_v2 cente
 static b8 rect_collides_circle_center(s_v2 rect_pos, s_v2 rect_size, s_v2 center, float radius)
 {
 	return rect_collides_circle_topleft(rect_pos - rect_size * 0.5f, rect_size, center, radius);
-}
-
-static b8 rect_collides_rect_topleft(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
-{
-	return pos0.x + size0.x > pos1.x && pos0.x < pos1.x + size1.x &&
-		pos0.y + size0.y > pos1.y && pos0.y < pos1.y + size1.y;
-}
-
-static b8 rect_collides_rect_center(s_v2 pos0, s_v2 size0, s_v2 pos1, s_v2 size1)
-{
-	return rect_collides_rect_topleft(pos0 - size0 * 0.5f, size0, pos1 - size1 * 0.5f, size1);
 }
 
 static b8 mouse_collides_rect_topleft(s_v2 mouse, s_v2 pos, s_v2 size)
@@ -3901,6 +3767,10 @@ static s_lin_arena make_lin_arena_from_memory(u64 capacity, void* memory)
 
 static void on_failed_assert(const char* cond, const char* file, int line)
 {
+	#if defined(__EMSCRIPTEN__)
+	emscripten_run_script("console.trace()");
+	#endif // __EMSCRIPTEN__
+
 	printf("FAILED ASSERT: %s\n%s (%i)\n", cond, file, line);
 	#ifndef __EMSCRIPTEN__
 	__debugbreak();
@@ -6215,85 +6085,6 @@ static s_len_str alloc_string(void* data, int len)
 	return result;
 }
 
-[[nodiscard]]
-static float ilerp_clamp(float start, float end, float value)
-{
-	return ilerp(start, end, clamp(value, start, end));
-}
-
-static float handle_advanced_easing(float x, float x_start, float x_end)
-{
-	x = clamp(ilerp_clamp(x_start, x_end, x), 0.0f, 1.0f);
-	return x;
-}
-
-static float ease_in_expo(float x)
-{
-	if(floats_equal(x, 0)) { return 0; }
-	return powf(2, 10 * x - 10);
-}
-
-static float ease_linear(float x)
-{
-	return x;
-}
-
-static float ease_in_quad(float x)
-{
-	return x * x;
-}
-
-static float ease_out_quad(float x)
-{
-	float x2 = 1 - x;
-	return 1 - x2 * x2;
-}
-
-static float ease_out_expo(float x)
-{
-	if(floats_equal(x, 1)) { return 1; }
-	return 1 - powf(2, -10 * x);
-}
-
-static float ease_out_elastic(float x)
-{
-	constexpr float c4 = (2 * pi) / 3;
-	if(floats_equal(x, 0) || floats_equal(x, 1)) { return x; }
-	return powf(2, -5 * x) * sinf((x * 5 - 0.75f) * c4) + 1;
-}
-
-static float ease_out_elastic2(float x)
-{
-	constexpr float c4 = (2 * pi) / 3;
-	if(floats_equal(x, 0) || floats_equal(x, 1)) { return x; }
-	return powf(2, -10 * x) * sinf((x * 10 - 0.75f) * c4) + 1;
-}
-
-static float ease_out_back(float x)
-{
-	float c1 = 1.70158f;
-	float c3 = c1 + 1;
-	return 1 + c3 * powf(x - 1, 3) + c1 * powf(x - 1, 2);
-}
-
-#define m_advanced_easings \
-X(ease_linear, e_ease_linear) \
-X(ease_in_expo, e_ease_in_expo) \
-X(ease_in_quad, e_ease_in_quad) \
-X(ease_out_quad, e_ease_out_quad) \
-X(ease_out_expo, e_ease_out_expo) \
-X(ease_out_elastic, e_ease_out_elastic) \
-X(ease_out_elastic2, e_ease_out_elastic2) \
-X(ease_out_back, e_ease_out_back) \
-
-#define X(fname, ename) \
-static float fname##_advanced(float x, float x_start, float x_end, float target_start, float target_end) \
-{ \
-	x = handle_advanced_easing(x, x_start, x_end); \
-	return lerp(target_start, target_end, fname(x)); \
-}
-m_advanced_easings
-#undef X
 
 static void add_clamp(float* ptr, float to_add, float min_val, float max_val)
 {
