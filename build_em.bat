@@ -29,6 +29,7 @@ if !debug!==0 (
 	set comp=!comp! -O0
 	set comp=!comp! -sSAFE_HEAP=0
 	set comp=!comp! -sASSERTIONS=0
+	@REM set comp=!comp! -gsource-map
 	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
 	set comp=!comp! --preload-file ../shaders/fragment.fragment@shaders/fragment.fragment
 	set comp=!comp! --preload-file ../shaders/light.fragment@shaders/light.fragment
@@ -40,7 +41,6 @@ if !debug!==0 (
 	set comp=!comp! --preload-file ../shaders/blur.fragment@shaders/blur.fragment
 	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
 	set comp=!comp! --preload-file ../examples/test/words_alpha_new.txt@examples/test/words_alpha_new.txt
-	set comp=!comp! -gsource-map
 	@REM set comp=!comp! -fsanitize=address
 )
 

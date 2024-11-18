@@ -11,10 +11,12 @@ display round
 words spawning on top of each other rarely is very cringe
 too easy for too long
 if we beat a level without losing a life, skip 1 level
-when words spawn from the right, you can type them as they reveal themselves, but can't do that for words on the left.
-	maybe words don't spawn offscreen at all. they spawn on screen (some kind of descending animation), stay still for a while, then begin moving
 
 a word you're typing disappearing is very annoying. what can we do about this
 	grace period for which cleared words still accept the player's input even if completed
 	OR
 	if you complete a word a lil bit after someone else, you automatically complete another random word of the same length??
+
+kill word sound
+beat round sound
+reset scores on lose

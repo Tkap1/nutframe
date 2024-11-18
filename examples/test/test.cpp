@@ -122,8 +122,14 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			s_play* play = &game->play;
 			if(!is_play_paused(play)) {
 				foreach_ptr(word_i, word, play->word_arr) {
+					word->prev_fall_timer = word->fall_timer;
 					word->prev_pos = word->pos;
-					word->pos += word->dir * c_word_speed * delta;
+					if(word->fall_timer < c_word_fall_time) {
+						word->fall_timer += delta;
+					}
+					else {
+						word->pos += word->dir * c_word_speed * delta;
+					}
 				}
 			}
 		} break;
@@ -277,7 +283,15 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			{
 				s_len_str input = builder_to_len_str(&play->input_text);
 				foreach_val(word_i, word, play->word_arr) {
-					s_v2 pos = lerp(word.prev_pos, word.pos, interp_dt);
+					s_v2 pos;
+					if(word.fall_timer < c_word_fall_time) {
+						float lerped_timer = lerp(word.prev_fall_timer, word.fall_timer, interp_dt);
+						float p = lerped_timer / c_word_fall_time;
+						pos = lerp(word.pos - v2(0.0f, c_play_area_size.y), word.pos, p);
+					}
+					else {
+						pos = lerp(word.prev_pos, word.pos, interp_dt);
+					}
 					s_len_str word2 = g_word_list[word.index];
 					s_len_str match = find_longest_match(word2, input);
 					s_v2 text_size = get_text_size(word2, game->font, font_size1);
