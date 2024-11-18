@@ -284,7 +284,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_len_str input = builder_to_len_str(&play->input_text);
 				foreach_val(word_i, word, play->word_arr) {
 					s_v2 pos;
-					float fall_passed = play->timer + interp_dt * c_update_delay - word.spawn_timestamp;
+					float fall_passed = play->timer + interp_dt * (float)c_update_delay - word.spawn_timestamp;
 					if(fall_passed >= c_word_fall_time) {
 						pos = lerp(word.prev_pos, word.pos, interp_dt);
 					}
@@ -300,7 +300,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 					float alpha = 1;
 					if(word.killed_timestamp > 0) {
-						float passed = play->timer + interp_dt * c_update_delay - word.killed_timestamp;
+						float passed = play->timer + interp_dt * (float)c_update_delay - word.killed_timestamp;
 						alpha = 1.0f - passed;
 					}
 
@@ -327,6 +327,36 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		draw words end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		dead words start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				foreach_val(dead_word_i, dead_word, play->dead_word_arr) {
+					s_len_str word2 = g_word_list[dead_word.index];
+					s_v2 text_size = get_text_size(word2, game->font, font_size1);
+					constexpr float c_duration = 2;
+					float passed = play->timer + interp_dt * (float)c_update_delay - dead_word.spawn_timestamp;
+					float alpha = 1.0f - passed;
+					s_v2 pos = dead_word.pos;
+					pos -= text_size * 0.5f;
+					s_rng rng = make_rng(dead_word.seed);
+					for(int i = 0; i < word2.len; i += 1) {
+						s_v2 offset = v2(rng.randf32_11(), rng.randf32_11());
+						offset = v2_normalized(offset) * 64 * passed;
+						s_len_str temp = substr_from_to_inclusive(word2, i, i);
+						pos = draw_text(
+							g_r, temp, pos + offset, 0, font_size1, make_color(1, alpha), false, game->font, game->render_pass, zero,
+							{.rotation = rng.randf32() * tau * passed}
+						);
+						pos -= offset;
+					}
+
+					if(passed >= c_duration) {
+						play->dead_word_arr.remove_and_swap(dead_word_i);
+						dead_word_i -= 1;
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		dead words end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 			draw_rect(g_r, v2(0.0f), 0, c_ui_size, make_color(0.15f), game->render_pass, {}, {.origin_offset = c_origin_topleft});
 			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
@@ -1082,9 +1112,22 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 		case e_packet_delete_word: {
 			int word_index = buffer_read<int>(&reader);
 			assert(word_index < play->word_arr.count);
-			s_len_str word = g_word_list[play->word_arr[word_index].index];
+			s_word word = play->word_arr[word_index];
 			play->word_arr.remove_and_swap(word_index);
-			printf("deleted: %.*s\n", word.len, word.str);
+			// @TODO(tkap, 18/11/2024): we actually need to know if it died because it hit the center or if it was killed!
+
+			{
+				s_len_str word2 = g_word_list[word.index];
+				printf("deleted: %.*s\n", word2.len, word2.str);
+			}
+
+			s_dead_word dead_word = zero;
+			dead_word.index = word.index;
+			dead_word.seed = g_platform_data->get_random_seed();
+			dead_word.pos = word.pos;
+			dead_word.spawn_timestamp = play->timer;
+			play->dead_word_arr.add(dead_word);
+
 		} break;
 
 		case e_packet_kill_word: {

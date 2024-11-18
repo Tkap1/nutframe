@@ -20,3 +20,5 @@ a word you're typing disappearing is very annoying. what can we do about this
 kill word sound
 beat round sound
 reset scores on lose
+
+sort players by score

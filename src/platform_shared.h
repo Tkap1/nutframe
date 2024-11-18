@@ -3630,14 +3630,17 @@ static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_po
 			// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), {}, {.origin_offset = c_origin_bottomleft});
 			// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), {}, {.origin_offset = c_origin_topleft});
 
-			t.pos.xy = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
+			// t.pos.xy = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
+			t.pos.xy = center + (bottomleft - center);
 
 			s_m4 model = m4_translate(v3(t.pos.xy, -99.0f + layer * 2));
-			model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
 			// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
-			// if(!is_zero(t.rotation)) {
-			// 	model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
-			// }
+			if(!is_zero(t.rotation)) {
+				model = m4_multiply(model, m4_translate(v3(t.draw_size.x, -t.draw_size.y * 0.5f, 0.0f)));
+				model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+				model = m4_multiply(model, m4_translate(v3(-t.draw_size.x * 0.5f, t.draw_size.y * 0.5f, 0.0f)));
+			}
+			model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
 			t.model = model;
 
 			t.color = it.color;
@@ -3703,14 +3706,15 @@ static s_v2 draw_text_3d(s_game_renderer* game_renderer, s_len_str text, s_v3 in
 			// draw_rect(bottomleft, 75, v2(4), make_color(1, 1,0), {}, {.origin_offset = c_origin_bottomleft});
 			// draw_rect(in_pos, 77, v2(4), make_color(0, 1,1), {}, {.origin_offset = c_origin_topleft});
 
-			t.pos.xy = v2_rotate_around(center, in_pos.xy, t.rotation) + (bottomleft - center);
+			// t.pos.xy = v2_rotate_around(center, in_pos.xy, t.rotation) + (bottomleft - center);
+			t.pos.xy = center + (bottomleft - center);
 
 			s_m4 model = m4_translate(v3(t.pos.xy, in_pos.z));
-			model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
 			// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
-			// if(!is_zero(t.rotation)) {
-			// 	model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
-			// }
+			if(!is_zero(t.rotation)) {
+				model = m4_multiply(model, m4_rotate(t.rotation, v3(0, 0, 1)));
+			}
+			model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
 			t.model = model;
 
 			t.color = it.color;
