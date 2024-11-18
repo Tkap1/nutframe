@@ -123,13 +123,12 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 			if(!is_play_paused(play)) {
 				play->timer += delta;
 				foreach_ptr(word_i, word, play->word_arr) {
-					word->prev_fall_timer = word->fall_timer;
 					word->prev_pos = word->pos;
-					if(word->fall_timer < c_word_fall_time) {
-						word->fall_timer += delta;
-					}
-					else if(word->killed_timestamp <= 0) {
-						word->pos += word->dir * c_word_speed * delta;
+					float fall_passed = play->timer - word->spawn_timestamp;
+					if(fall_passed >= c_word_fall_time) {
+						if(word->killed_timestamp <= 0) {
+							word->pos += word->dir * c_word_speed * delta;
+						}
 					}
 				}
 			}
@@ -285,13 +284,13 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				s_len_str input = builder_to_len_str(&play->input_text);
 				foreach_val(word_i, word, play->word_arr) {
 					s_v2 pos;
-					if(word.fall_timer < c_word_fall_time) {
-						float lerped_timer = lerp(word.prev_fall_timer, word.fall_timer, interp_dt);
-						float p = lerped_timer / c_word_fall_time;
-						pos = lerp(word.pos - v2(0.0f, c_play_area_size.y), word.pos, p);
+					float fall_passed = play->timer + interp_dt * c_update_delay - word.spawn_timestamp;
+					if(fall_passed >= c_word_fall_time) {
+						pos = lerp(word.prev_pos, word.pos, interp_dt);
 					}
 					else {
-						pos = lerp(word.prev_pos, word.pos, interp_dt);
+						float p = fall_passed / c_word_fall_time;
+						pos = lerp(word.pos - v2(0.0f, c_play_area_size.y), word.pos, p);
 					}
 					s_len_str word2 = g_word_list[word.index];
 					s_len_str match = find_longest_match(word2, input);
@@ -1076,6 +1075,7 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			new_word.pos = buffer_read<s_v2>(&reader);
 			new_word.dir = buffer_read<s_v2>(&reader);
 			new_word.prev_pos = new_word.pos;
+			new_word.spawn_timestamp = game->play.timer;
 			game->play.word_arr.add(new_word);
 		} break;
 
