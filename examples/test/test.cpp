@@ -275,7 +275,21 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			float font_size0 = 48;
 			float font_size1 = 24;
 
-			draw_rect(g_r, c_play_area_center, 0, c_play_area_size, make_color(0.1f), game->render_pass);
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		background start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				constexpr int c_tile_size = 64;
+				int tiles_right = ceilfi(c_play_area_size.x / c_tile_size);
+				int tiles_down = ceilfi(c_play_area_size.y / c_tile_size);
+				for(int y = 0; y < tiles_down; y += 1) {
+					for(int x = 0; x < tiles_right; x += 1) {
+						b8 odd = (x + y) & 1;
+						s_v4 color = make_color(odd ? 0.1f : 0.15f);
+						draw_rect(g_r, c_play_area_start + v2(x, y) * c_tile_size, 0, v2(c_tile_size), color, game->render_pass, {}, {.origin_offset = c_origin_topleft});
+					}
+				}
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		background end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 			draw_rect(g_r, c_play_area_center, 1, c_our_area_size, make_color(0.167f, 0.731f, 0.882f, 0.5f), game->render_pass);
 			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
@@ -358,7 +372,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		dead words end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-			draw_rect(g_r, v2(0.0f), 0, c_ui_size, make_color(0.15f), game->render_pass, {}, {.origin_offset = c_origin_topleft});
+			draw_rect(g_r, v2(0.0f), 0, c_ui_size, make_color(0.2f), game->render_pass, {}, {.origin_offset = c_origin_topleft});
 			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		display input start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -648,29 +662,6 @@ func s_bounds get_cam_bounds(s_camera2d cam)
 	bounds.min_y = cam.pos.y - cam.offset.y / cam.zoom;
 	bounds.max_x = cam.pos.x + (c_base_res.x - cam.offset.x) / cam.zoom;
 	bounds.max_y = cam.pos.y + (c_base_res.y - cam.offset.y) / cam.zoom;
-	return bounds;
-}
-
-func s_bounds get_cam_bounds_snap_to_tile_size(s_camera2d cam)
-{
-	s_bounds bounds = zero;
-	bounds.min_x = cam.pos.x - cam.offset.x / cam.zoom;
-	bounds.min_y = cam.pos.y - cam.offset.y / cam.zoom;
-	bounds.max_x = cam.pos.x + (c_base_res.x - cam.offset.x) / cam.zoom;
-	bounds.max_y = cam.pos.y + (c_base_res.y - cam.offset.y) / cam.zoom;
-
-	float x_diff = fmodf(bounds.min_x, c_tile_size);
-	float y_diff = fmodf(bounds.min_y, c_tile_size);
-	if(x_diff < 0) {
-		x_diff = c_tile_size + x_diff;
-	}
-	if(y_diff < 0) {
-		y_diff = c_tile_size + y_diff;
-	}
-	bounds.min_x -= x_diff;
-	bounds.max_x -= x_diff;
-	bounds.min_y -= y_diff;
-	bounds.max_y -= y_diff;
 	return bounds;
 }
 

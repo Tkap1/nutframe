@@ -15,7 +15,6 @@ func void draw_shadow(s_v2 pos, float radius, float strength, float smoothness);
 func s_v2i get_cell_index(s_v2 pos);
 func s_bounds get_map_bounds();
 func s_bounds get_cam_bounds(s_camera2d cam);
-func s_bounds get_cam_bounds_snap_to_tile_size(s_camera2d cam);
 func s_particle_data multiply_particle_data(s_particle_data data, s_particle_multiplier multi);
 func void play_sound_group(e_sound_group group_id);
 func s_v2 wxy(float x, float y);

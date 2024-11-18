@@ -26,7 +26,6 @@ global constexpr s_v2 c_cells_topleft = v2(c_base_pos.x - c_cell_area * 0.5f, c_
 global constexpr int c_max_player_hits = 16;
 global constexpr int c_max_bot_hits = 16;
 global constexpr s_v2 c_pickup_size = v2(64);
-global constexpr float c_tile_size = 256;
 global constexpr int c_max_craters = 32;
 global constexpr int c_dash_duration = 20;
 global constexpr float c_dash_cooldown = 0.833f;
