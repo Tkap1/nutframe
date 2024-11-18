@@ -121,13 +121,14 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		case e_state_play: {
 			s_play* play = &game->play;
 			if(!is_play_paused(play)) {
+				play->timer += delta;
 				foreach_ptr(word_i, word, play->word_arr) {
 					word->prev_fall_timer = word->fall_timer;
 					word->prev_pos = word->pos;
 					if(word->fall_timer < c_word_fall_time) {
 						word->fall_timer += delta;
 					}
-					else {
+					else if(word->killed_timestamp <= 0) {
 						word->pos += word->dir * c_word_speed * delta;
 					}
 				}
@@ -298,6 +299,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 					pos -= text_size * 0.5f;
 
+					float alpha = 1;
+					if(word.killed_timestamp > 0) {
+						float passed = play->timer + interp_dt * c_update_delay - word.killed_timestamp;
+						alpha = 1.0f - passed;
+					}
+
 					if(match.len > 0) {
 						int start = (int)(match.str - input.str);
 						int num_bad_chars = input.len - (start + match.len);
@@ -305,17 +312,17 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						s_len_str s1 = substr_from_to_exclusive(word2, match.len, match.len + num_bad_chars);
 						s_len_str s2 = substr_from_to_exclusive(word2, match.len + num_bad_chars, word2.len);
 						if(s0.len > 0) {
-							pos = draw_text(g_r, s0, pos, 0, font_size1, make_color(0, 1, 0), false, game->font, game->render_pass);
+							pos = draw_text(g_r, s0, pos, 0, font_size1, make_color(0, 1, 0, alpha), false, game->font, game->render_pass);
 						}
 						if(s1.len > 0) {
-							pos = draw_text(g_r, s1, pos, 0, font_size1, make_color(1, 0, 0), false, game->font, game->render_pass);
+							pos = draw_text(g_r, s1, pos, 0, font_size1, make_color(1, 0, 0, alpha), false, game->font, game->render_pass);
 						}
 						if(s2.len > 0) {
-							pos = draw_text(g_r, s2, pos, 0, font_size1, make_color(1), false, game->font, game->render_pass);
+							pos = draw_text(g_r, s2, pos, 0, font_size1, make_color(1, alpha), false, game->font, game->render_pass);
 						}
 					}
 					else {
-						draw_text(g_r, word2, pos, 0, font_size1, make_color(1), false, game->font, game->render_pass);
+						draw_text(g_r, word2, pos, 0, font_size1, make_color(1, alpha), false, game->font, game->render_pass);
 					}
 				}
 				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
@@ -1074,14 +1081,28 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 
 		case e_packet_delete_word: {
 			int word_index = buffer_read<int>(&reader);
-			int killer_index = buffer_read<int>(&reader);
 			assert(word_index < play->word_arr.count);
-
 			s_len_str word = g_word_list[play->word_arr[word_index].index];
-			builder_remove_until_and_including(&play->input_text, word);
-			play->cursor.index.value = at_most(play->input_text.len, play->cursor.index.value);
 			play->word_arr.remove_and_swap(word_index);
 			printf("deleted: %.*s\n", word.len, word.str);
+		} break;
+
+		case e_packet_kill_word: {
+			int word_index = buffer_read<int>(&reader);
+			int killer_index = buffer_read<int>(&reader);
+			assert(killer_index >= 0);
+			assert(word_index < play->word_arr.count);
+			s_len_str word = g_word_list[play->word_arr[word_index].index];
+
+			if(play->word_arr[word_index].killed_timestamp <= 0) {
+				play->word_arr[word_index].killed_timestamp = play->timer;
+			}
+
+			if(killer_index == game->my_index) {
+				builder_remove_until_and_including(&play->input_text, word);
+				play->cursor.index.value = at_most(play->input_text.len, play->cursor.index.value);
+				printf("killed: %.*s\n", word.len, word.str);
+			}
 
 			if(killer_index >= 0) {
 				s_client* killer = get_client(killer_index);
