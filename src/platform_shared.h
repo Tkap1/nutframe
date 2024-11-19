@@ -17,6 +17,9 @@ static void on_failed_assert(const char* cond, const char* file, int line);
 #define m_tk_math_impl
 #include "tk_math.h"
 
+#define m_tk_array_impl
+#include "tk_array.h"
+
 #ifdef _WIN32
 #ifdef m_build_dll
 #define m_dll_export __declspec(dllexport)
@@ -205,14 +208,6 @@ enum e_wrap
 #define breakable_block__(a, b) for(int a##b = 1; a##b--;)
 #define breakable_block_(a) breakable_block__(tkinternal_condblock, a)
 #define breakable_block breakable_block_(__LINE__)
-
-#define foreach_ptr__(a, index_name, element_name, array) if(0) finished##a: ; else for(auto element_name = &(array).elements[0];;) if(1) goto body##a; else while(1) if(1) goto finished##a; else body##a: for(int index_name = 0; index_name < (array).count && (bool)(element_name = &(array)[index_name]); index_name++)
-#define foreach_ptr_(a, index_name, element_name, array) foreach_ptr__(a, index_name, element_name, array)
-#define foreach_ptr(index_name, element_name, array) foreach_ptr_(__LINE__, index_name, element_name, array)
-
-#define foreach_val__(a, index_name, element_name, array) if(0) finished##a: ; else for(auto element_name = (array).elements[0];;) if(1) goto body##a; else while(1) if(1) goto finished##a; else body##a: for(int index_name = 0; index_name < (array).count && (void*)&(element_name = (array)[index_name]); index_name++)
-#define foreach_val_(a, index_name, element_name, array) foreach_val__(a, index_name, element_name, array)
-#define foreach_val(index_name, element_name, array) foreach_val_(__LINE__, index_name, element_name, array)
 
 #define for_enum(mname, menum) for(menum mname = {}; mname < menum##_count; mname = (menum)(mname + 1))
 
@@ -421,204 +416,11 @@ static s_rng make_rng(u64 seed)
 	return rng;
 }
 
-template <typename T, int N>
-struct s_sarray
-{
-	static_assert(N > 0);
-	int count = 0;
-	T elements[N];
-
-	constexpr void shuffle(s_rng* rng)
-	{
-		assert(count > 0);
-		for(int i = 0; i < count; i++) {
-			swap(i, rng->rand_range_ie(i, count));
-		}
-	}
-
-	constexpr T& operator[](int index)
-	{
-		assert(index >= 0);
-		assert(index < count);
-		return elements[index];
-	}
-
-	constexpr T get(int index)
-	{
-		return (*this)[index];
-	}
-
-	T pop()
-	{
-		assert(count > 0);
-		return elements[--count];
-	}
-
-	constexpr void remove_and_swap(int index)
-	{
-		assert(index >= 0);
-		assert(index < count);
-		count -= 1;
-		elements[index] = elements[count];
-	}
-
-	constexpr T remove_and_shift(int index)
-	{
-		assert(index >= 0);
-		assert(index < count);
-		T result = elements[index];
-		count -= 1;
-
-		int to_move = count - index;
-		if(to_move > 0)
-		{
-			// @Note(tkap, 13/10/2023): memcpy is good enough here, but the sanitizer complains.
-			memmove(elements + index, elements + index + 1, to_move * sizeof(T));
-		}
-		return result;
-	}
-
-	constexpr T* get_ptr(int index)
-	{
-		return &(*this)[index];
-	}
-
-	constexpr void swap(int index0, int index1)
-	{
-		assert(index0 >= 0);
-		assert(index1 >= 0);
-		assert(index0 < count);
-		assert(index1 < count);
-		T temp = elements[index0];
-		elements[index0] = elements[index1];
-		elements[index1] = temp;
-	}
-
-	constexpr T& get_last()
-	{
-		assert(count > 0);
-		return elements[count - 1];
-	}
-
-	constexpr T* get_last_ptr()
-	{
-		assert(count > 0);
-		return &elements[count - 1];
-	}
-
-	constexpr int add(T element)
-	{
-		assert(count < N);
-		elements[count] = element;
-		count += 1;
-		return count - 1;
-	}
-
-	constexpr b8 add_checked(T element)
-	{
-		if(count < N)
-		{
-			add(element);
-			return true;
-		}
-		return false;
-	}
-
-	constexpr b8 contains(T what)
-	{
-		for(int element_i = 0; element_i < count; element_i++)
-		{
-			if(what == elements[element_i])
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-	// @TODO(tkap, 15/11/2023): Currently, if the array if full and you call this, the last element will get removed.
-	// Not sure if that is what we want...
-	constexpr void insert(int index, T element)
-	{
-		assert(index >= 0);
-		assert(index < N);
-		assert(index <= count);
-
-		if(count >= N) {
-			count -= 1;
-		}
-
-		int to_move = count - index;
-		count += 1;
-		if(to_move > 0)
-		{
-			memmove(&elements[index + 1], &elements[index], to_move * sizeof(T));
-		}
-		elements[index] = element;
-	}
-
-	constexpr int max_elements()
-	{
-		return N;
-	}
-
-	constexpr b8 is_last(int index)
-	{
-		assert(index >= 0);
-		assert(index < count);
-		return index == count - 1;
-	}
-
-	constexpr b8 is_full()
-	{
-		return count >= N;
-	}
-
-	b8 is_empty()
-	{
-		return count <= 0;
-	}
-
-	void small_sort(bool (*compare_func)(T, T) = NULL, b8 reverse = false)
-	{
-		// @Note(tkap, 25/06/2023): Let's not get crazy with insertion sort, bro
-		assert(count < 256);
-
-		for(int i = 1; i < count; i++)
-		{
-			for(int j = i; j > 0; j--)
-			{
-				T* a = &elements[j];
-				T* b = &elements[j - 1];
-
-				if(compare_func) {
-					if(reverse) {
-						if(!compare_func(*a, *b)) { break; }
-					}
-					else {
-						if(compare_func(*a, *b)) { break; }
-					}
-				}
-				else {
-					if(reverse) {
-						if(*a < *b) { break; }
-					}
-					else {
-						if(*a > *b) { break; }
-					}
-				}
-				T temp = *a;
-				*a = *b;
-				*b = temp;
-			}
-		}
-	}
-};
 
 static constexpr int c_max_arena_push = 16;
 struct s_lin_arena
 {
-	s_sarray<u64, c_max_arena_push> push;
+	s_list<u64, c_max_arena_push> push;
 	u64 used;
 	u64 capacity;
 	void* memory;
@@ -670,7 +472,7 @@ struct s_render_pass
 {
 	bool* seen_arr;
 	u8* index_arr;
-	s_sarray<s_render_group, 128> render_group_arr;
+	s_list<s_render_group, 128> render_group_arr;
 };
 
 template <typename t>
@@ -1524,15 +1326,6 @@ static s_m4 m4_multiply(s_m4 left, s_m4 right)
 	return result;
 }
 
-
-template <typename t>
-static void swap(t* a, t* b)
-{
-	t temp = *a;
-	*a = *b;
-	*b = temp;
-}
-
 static s_v4 hsv_to_rgb(s_v3 color)
 {
 	s_v4 rgba;
@@ -1652,7 +1445,7 @@ static void la_push(s_lin_arena* arena)
 static void la_pop(s_lin_arena* arena)
 {
 	assert(arena->push.count > 0);
-	arena->used = arena->push.pop();
+	arena->used = list_pop_last(&arena->push);
 }
 
 static b8 can_start_identifier(char c)
@@ -1831,7 +1624,7 @@ struct s_attrib
 
 struct s_attrib_handler
 {
-	s_sarray<s_attrib, 32> attribs;
+	s_list<s_attrib, 32> attribs;
 };
 
 struct s_shader_paths
@@ -1852,7 +1645,7 @@ struct s_platform_renderer
 	s_vbo default_vbo;
 	u32 index_buffer_2d;
 	u32 index_buffer_3d;
-	s_sarray<s_shader_paths, c_max_shaders> shader_path_arr;
+	s_list<s_shader_paths, c_max_shaders> shader_path_arr;
 };
 static s_platform_renderer g_platform_renderer = {};
 
@@ -2786,8 +2579,8 @@ struct s_recorded_key
 struct s_recorded_input
 {
 	int starting_update;
-	s_sarray<s_v2, 10240> mouse;
-	s_sarray<s_recorded_key, 1024> keys;
+	s_list<s_v2, 10240> mouse;
+	s_list<s_recorded_key, 1024> keys;
 };
 #endif // m_debug
 
@@ -2808,8 +2601,8 @@ struct s_input
 {
 	float wheel_movement;
 
-	s_sarray<s_key_event, 128> key_events;
-	s_sarray<char, 128> char_events;
+	s_list<s_key_event, 128> key_events;
+	s_list<char, 128> char_events;
 	s_carray<s_key, c_max_keys> keys;
 };
 
@@ -2876,9 +2669,9 @@ struct s_console
 	int last_command_index;
 	float cursor_visual_x;
 	s_str<128> input;
-	s_sarray<s_str<128>, 32> buffer;
-	s_sarray<s_str<128>, 32> prev_commands;
-	s_sarray<s_console_command, 128> commands;
+	s_list<s_str<128>, 32> buffer;
+	s_list<s_str<128>, 32> prev_commands;
+	s_list<s_console_command, 128> commands;
 };
 #else // m_debug
 #define add_console_command(...)
@@ -2983,7 +2776,7 @@ struct s_platform_data
 	t_get_random_seed get_random_seed;
 	t_load_sound load_sound;
 	t_play_sound play_sound;
-	s_sarray<s_sound, 16> sounds;
+	s_list<s_sound, 16> sounds;
 	t_show_cursor show_cursor;
 	t_cycle_between_available_resolutions cycle_between_available_resolutions;
 	t_read_file read_file;
@@ -2999,7 +2792,7 @@ struct s_platform_data
 	s_v2 vars_pos;
 	s_v2 vars_pos_offset;
 	b8 show_live_vars;
-	s_sarray<s_var, 128> vars;
+	s_list<s_var, 128> vars;
 	#endif // m_debug
 };
 
@@ -3051,11 +2844,11 @@ struct s_game_renderer
 
 	s_lin_arena frame_arena;
 	s_render_pass* default_render_pass;
-	s_sarray<s_framebuffer, c_max_framebuffers> framebuffer_arr;
+	s_list<s_framebuffer, c_max_framebuffers> framebuffer_arr;
 
-	s_sarray<s_texture, 64> texture_arr;
-	s_sarray<s_shader, c_max_shaders> shader_arr;
-	s_sarray<s_font, 4> fonts;
+	s_list<s_texture, 64> texture_arr;
+	s_list<s_shader, c_max_shaders> shader_arr;
+	s_list<s_font, 4> fonts;
 };
 
 typedef void (t_update)(s_platform_data*, void*, s_game_renderer*, b8);
@@ -3084,7 +2877,7 @@ struct s_text_iterator
 {
 	int index;
 	s_len_str text;
-	s_sarray<s_v4, 4> color_stack;
+	s_list<s_v4, 4> color_stack;
 	s_v4 color;
 };
 
@@ -3536,7 +3329,7 @@ static b8 iterate_text(s_text_iterator* it, s_len_str text, s_v4 color)
 		it->color_stack.add(color);
 	}
 
-	it->color = it->color_stack.get_last();
+	it->color = list_get_last(&it->color_stack);
 
 	int index = it->index;
 	int advance = 0;
@@ -3556,7 +3349,7 @@ static b8 iterate_text(s_text_iterator* it, s_len_str text, s_v4 color)
 			if(index == it->index) {
 				index += 8;
 				it->index += 8;
-				it->color = it->color_stack.get_last();
+				it->color = list_get_last(&it->color_stack);
 				continue;
 			}
 			else {
@@ -3566,15 +3359,15 @@ static b8 iterate_text(s_text_iterator* it, s_len_str text, s_v4 color)
 		}
 		else if(c == '$' && next_c == '.') {
 			if(index == it->index) {
-				it->color_stack.pop();
-				it->color = it->color_stack.get_last();
+				list_pop_last(&it->color_stack);
+				it->color = list_get_last(&it->color_stack);
 				index += 2;
 				it->index += 2;
 				continue;
 			}
 			else {
 				advance = 2;
-				it->color_stack.pop();
+				list_pop_last(&it->color_stack);
 				break;
 			}
 		}
@@ -3810,7 +3603,7 @@ static void add_msg_to_console_(s_console* cn, s_len_str text)
 	assert(text.len < 128);
 	str.len = text.len;
 	memcpy(str.data, text.str, text.len + 1);
-	cn->buffer.insert(0, str);
+	list_insert(&cn->buffer, 0, str);
 }
 #endif // m_debug
 
@@ -4012,7 +3805,7 @@ static void ui_checkbox(s_game_renderer* game_renderer, s_len_str text, s_v2 pos
 }
 
 static b8 g_do_embed = false;
-static s_sarray<const char*, 128> g_to_embed;
+static s_list<const char*, 128> g_to_embed;
 static int g_asset_index = 0;
 
 static void write_embed_file()
@@ -4109,7 +3902,7 @@ static void update_console(s_console* cn, s_game_renderer* game_renderer)
 		foreach_val(c_i, c, input->char_events) {
 			if(c == '\r') {
 				if(cn->input.len > 0) {
-					cn->prev_commands.insert(0, cn->input);
+					list_insert(&cn->prev_commands, 0, cn->input);
 					b8 found_command = false;
 					s_parse_identifier result = parse_identifier(cn->input.data);
 					if(result.end) {
@@ -5301,10 +5094,10 @@ static b8 set_shader_v2(u32 gl_id, const char* uniform_name, s_v2 val)
 
 #if defined(m_debug)
 
-static s_var* get_var_by_ptr(s_sarray<s_var, 128>* vars, void* ptr);
+static s_var* get_var_by_ptr(s_list<s_var, 128>* vars, void* ptr);
 
 template <typename t>
-static void live_variable_(s_sarray<s_var, 128>* vars, t* ptr, char* name, t min_val, t max_val, b8 display)
+static void live_variable_(s_list<s_var, 128>* vars, t* ptr, char* name, t min_val, t max_val, b8 display)
 {
 	constexpr b8 is_int = is_same<t, int>;
 	constexpr b8 is_float = is_same<t, float>;
@@ -5336,11 +5129,11 @@ static void live_variable_(s_sarray<s_var, 128>* vars, t* ptr, char* name, t min
 	}
 }
 
-static s_var* get_var_by_ptr(s_sarray<s_var, 128>* vars, void* ptr)
+static s_var* get_var_by_ptr(s_list<s_var, 128>* vars, void* ptr)
 {
 	for(int var_i = 0; var_i < vars->count; var_i++)
 	{
-		s_var* var = vars->get_ptr(var_i);
+		s_var* var = &list_get(vars, var_i);
 		if(var->ptr == ptr) { return var; }
 	}
 	return NULL;
@@ -6175,7 +5968,7 @@ static void circular_index_add(t* out_value, int to_add, int count)
 
 struct s_animation
 {
-	s_sarray<s_texture, 16> texture_arr;
+	s_list<s_texture, 16> texture_arr;
 	int fps;
 };
 

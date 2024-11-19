@@ -58,7 +58,7 @@ static f64 g_start_of_frame_seconds = 0;
 
 static void* g_game_memory;
 static s_game_renderer* g_game_renderer;
-static s_sarray<Mix_Chunk*, 16> g_sdl_audio;
+static s_list<Mix_Chunk*, 16> g_sdl_audio;
 s_lin_arena g_game_frame_arena = {};
 
 #ifdef __EMSCRIPTEN__

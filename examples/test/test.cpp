@@ -101,8 +101,8 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 	if(game->next_state >= 0) {
 		if(game->should_pop_state) {
 			while(true) {
-				game->state_stack.pop();
-				s_state previous_state = game->state_stack.get_last();
+				list_pop_last(&game->state_stack);
+				s_state previous_state = list_get_last(&game->state_stack);
 				if(!previous_state.is_temporary) { break; }
 			}
 			game->should_pop_state = false;
@@ -409,17 +409,25 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		ui names start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			s_pos_area area = make_vertical_layout(v2(4), v2(font_size1), 4, 0);
+			s_list<int, c_max_clients> index_arr;
 			foreach_val(client_i, client, game->client_arr) {
 				if(client.in_play) {
-					s_str_builder<64> builder = str_builder_to_builder<64>(&client.name);
-					builder_add(&builder, ": %i", client.score);
-					b8 is_this_my_client = game->my_index == client_i;
-					s_v4 color = make_color(1);
-					if(is_this_my_client) {
-						color = make_color(0.438f, 0.239f, 0.652f);
-					}
-					draw_text(g_r, builder_to_len_str(&builder), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->render_pass);
+					index_arr.add(client_i);
 				}
+			}
+			bubble_sort_list(&index_arr, [](int* a, int* b) { return game->client_arr[*a].score < game->client_arr[*b].score; });
+			foreach_val(index_i, index, index_arr) {
+				s_client client = game->client_arr[index];
+				assert(client.in_play);
+
+				s_str_builder<64> builder = str_builder_to_builder<64>(&client.name);
+				builder_add(&builder, ": %i", client.score);
+				b8 is_this_my_client = game->my_index == index;
+				s_v4 color = make_color(1);
+				if(is_this_my_client) {
+					color = make_color(0.438f, 0.239f, 0.652f);
+				}
+				draw_text(g_r, builder_to_len_str(&builder), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->render_pass);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui names end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -770,7 +778,8 @@ func void do_options_menu(b8 in_play_mode)
 
 func e_state get_state()
 {
-	return game->state_stack.get_last().state;
+	e_state result = list_get_last(&game->state_stack).state;
+	return result;
 }
 
 func void go_back_to_prev_state()
