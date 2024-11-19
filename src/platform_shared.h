@@ -2868,12 +2868,25 @@ static s_framebuffer* make_framebuffer_with_existing_depth(s_game_renderer* game
 // static void delete_framebuffer(s_game_renderer* game_renderer, s_framebuffer* fbo);
 #endif
 
+enum e_text_cmd
+{
+	e_text_cmd_color,
+	e_text_cmd_shake,
+};
+
+struct s_text_cmd
+{
+	e_text_cmd type;
+	union {
+		s_v4 color;
+	};
+};
+
 struct s_text_iterator
 {
 	int index;
 	s_len_str text;
-	s_list<s_v4, 4> color_stack;
-	s_v4 color;
+	s_list<s_text_cmd, 8> cmd_stack;
 };
 
 
@@ -2888,7 +2901,7 @@ static s_len_str alloc_string(void* data, int len);
 static char* to_cstr(s_len_str str, s_lin_arena* arena);
 static s_render_pass* make_render_pass(s_game_renderer* gr, s_lin_arena* arena);
 static void when_shader_first_loaded(s_shader* shader);
-static b8 iterate_text(s_text_iterator* it, s_len_str text, s_v4 color);
+static b8 iterate_text(s_text_iterator* it, s_len_str text);
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		function headers end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
@@ -2945,7 +2958,7 @@ static s_v2 get_text_size_with_count(s_len_str in_text, s_font* font, float font
 
 	s_len_str text = substr_from_to_exclusive(in_text, 0, count);
 	s_text_iterator it = {};
-	while(iterate_text(&it, text, make_color(0))) {
+	while(iterate_text(&it, text)) {
 		for(int char_i = 0; char_i < it.text.len; char_i++) {
 			char c = it.text[char_i];
 			s_glyph glyph = font->glyph_arr[c];
@@ -3316,60 +3329,64 @@ static int hex_str_to_int(s_len_str str)
 	return result;
 }
 
-static b8 iterate_text(s_text_iterator* it, s_len_str text, s_v4 color)
+static b8 iterate_text(s_text_iterator* it, s_len_str text)
 {
 	if(it->index >= text.len) { return false; }
 
-	if(it->color_stack.count <= 0) {
-		it->color_stack.add(color);
-	}
-
-	it->color = list_get_last(&it->color_stack);
-
 	int index = it->index;
-	int advance = 0;
+	// int advance = 0;
 	while(index < text.len) {
 		char c = text[index];
 		char next_c = index < text.len - 1 ? text[index + 1] : 0;
 		if(c == '$' && next_c == '$') {
-			s_len_str red_str = substr_from_to_exclusive(text, index + 2, index + 4);
-			s_len_str green_str = substr_from_to_exclusive(text, index + 4, index + 6);
-			s_len_str blue_str = substr_from_to_exclusive(text, index + 6, index + 8);
-			float red = hex_str_to_int(red_str) / 255.0f;
-			float green = hex_str_to_int(green_str) / 255.0f;
-			float blue = hex_str_to_int(blue_str) / 255.0f;
-			s_v4 temp_color = make_color(red, green, blue);
-			it->color_stack.add(temp_color);
-
 			if(index == it->index) {
-				index += 8;
-				it->index += 8;
-				it->color = list_get_last(&it->color_stack);
-				continue;
+				if(index + 5 + 2 <= text.len && memcmp(&text.str[index + 2], "shake", 5) == 0) {
+					s_text_cmd new_cmd = {};
+					new_cmd.type = e_text_cmd_shake;
+					it->cmd_stack.add(new_cmd);
+					index += 7;
+					it->index += 7;
+					continue;
+				}
+				else {
+					s_len_str red_str = substr_from_to_exclusive(text, index + 2, index + 4);
+					s_len_str green_str = substr_from_to_exclusive(text, index + 4, index + 6);
+					s_len_str blue_str = substr_from_to_exclusive(text, index + 6, index + 8);
+					float red = hex_str_to_int(red_str) / 255.0f;
+					float green = hex_str_to_int(green_str) / 255.0f;
+					float blue = hex_str_to_int(blue_str) / 255.0f;
+					s_v4 temp_color = make_color(red, green, blue);
+
+					s_text_cmd new_cmd = {};
+					new_cmd.type = e_text_cmd_color;
+					new_cmd.color = temp_color;
+					it->cmd_stack.add(new_cmd);
+
+					index += 8;
+					it->index += 8;
+					continue;
+				}
 			}
 			else {
-				advance = 8;
 				break;
 			}
 		}
 		else if(c == '$' && next_c == '.') {
 			if(index == it->index) {
-				list_pop_last(&it->color_stack);
-				it->color = list_get_last(&it->color_stack);
+				list_pop_last(&it->cmd_stack);
 				index += 2;
 				it->index += 2;
 				continue;
 			}
 			else {
-				advance = 2;
-				list_pop_last(&it->color_stack);
 				break;
 			}
 		}
 		index += 1;
 	}
+	int advance = index - it->index;
 	it->text = substr_from_to_exclusive(text, it->index, index);
-	it->index = index + advance;
+	it->index += advance;
 	return true;
 }
 
@@ -3386,8 +3403,23 @@ static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_po
 	s_v2 pos = in_pos;
 	pos.y += font->ascent * scale;
 
+	// @Hack(tkap, 19/11/2024):
+	static u64 seed = 0;
+	s_rng rng = make_rng(seed);
+	seed += 1;
+
 	s_text_iterator it = {};
-	while(iterate_text(&it, text, color)) {
+	while(iterate_text(&it, text)) {
+
+		s_v4 it_color = color;
+		b8 do_shake = false;
+		foreach_val(cmd_i, cmd, it.cmd_stack) {
+			if(cmd.type == e_text_cmd_shake) { do_shake = true; }
+			else if(cmd.type == e_text_cmd_color) {
+				it_color = cmd.color;
+			}
+		}
+
 		for(int char_i = 0; char_i < it.text.len; char_i++) {
 			int c = it.text[char_i];
 			if(c <= 0 || c >= 128) { continue; }
@@ -3423,6 +3455,11 @@ static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_po
 			// t.pos.xy = v2_rotate_around(center, in_pos, t.rotation) + (bottomleft - center);
 			t.pos.xy = center + (bottomleft - center);
 
+			if(do_shake) {
+				t.pos.x += rng.randf32_11() * 2;
+				t.pos.y += rng.randf32_11() * 2;
+			}
+
 			s_m4 model = m4_translate(v3(t.pos.xy, -99.0f + layer * 2));
 			// model = m4_multiply(model, m4_scale(v3(t.draw_size.x, t.draw_size.y * -1, 1)));
 			if(!is_zero(t.rotation)) {
@@ -3433,7 +3470,7 @@ static s_v2 draw_text(s_game_renderer* game_renderer, s_len_str text, s_v2 in_po
 			model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
 			t.model = model;
 
-			t.color = it.color;
+			t.color = it_color;
 			t.uv_min = glyph.uv_min;
 			t.uv_max = glyph.uv_max;
 			swap(&t.uv_min.y, &t.uv_max.y);
@@ -3462,7 +3499,16 @@ static s_v2 draw_text_3d(s_game_renderer* game_renderer, s_len_str text, s_v3 in
 	s_v2 pos = in_pos.xy;
 	pos.y += font->ascent * scale;
 	s_text_iterator it = {};
-	while(iterate_text(&it, text, color)) {
+	while(iterate_text(&it, text)) {
+
+		s_v4 it_color = color;
+		b8 do_shake = false;
+		foreach_val(cmd_i, cmd, it.cmd_stack) {
+			if(cmd.type == e_text_cmd_shake) { do_shake = true; }
+			else if(cmd.type == e_text_cmd_color) {
+				it_color = cmd.color;
+			}
+		}
 
 		for(int char_i = 0; char_i < it.text.len; char_i++) {
 			int c = it.text[char_i];
@@ -3507,7 +3553,7 @@ static s_v2 draw_text_3d(s_game_renderer* game_renderer, s_len_str text, s_v3 in
 			model = m4_multiply(model, m4_scale(v3(t.draw_size, 1)));
 			t.model = model;
 
-			t.color = it.color;
+			t.color = it_color;
 			t.uv_min = glyph.uv_min;
 			t.uv_max = glyph.uv_max;
 			swap(&t.uv_min.y, &t.uv_max.y);

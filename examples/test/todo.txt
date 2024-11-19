@@ -2,15 +2,8 @@
 
 sanitize offensive names?
 
-too easy for too long
-
-a word you're typing disappearing is very annoying. what can we do about this
-	grace period for which cleared words still accept the player's input even if completed
-	OR
-	if you complete a word a lil bit after someone else, you automatically complete another random word of the same length??
-
 kill word sound
 beat round sound
 
 make the font atlas a square because we exceed 2048 width and it breaks for people with specific GPU AND firefox because it reports 2048 max texture size
-make the grace period longer but keep the alpha reduction the same
+make the grace period longer?

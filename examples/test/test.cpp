@@ -164,42 +164,10 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		testing start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				s_particle_data data = zero;
-				data.speed *= 10;
-				data.color.x *= 2;
-				data.color.y *= 2;
-				data.speed_rand = 1;
-				data.slowdown = 1;
-				data.color_rand.x = 0.5f;
-				data.color_rand.z = 1;
-				do_particles(1, g_mouse, data);
-				if(is_key_pressed(g_input, c_right_mouse)) {
-						do_particles(128, g_mouse + v2(300, 0), data);
-				}
 
-				foreach_ptr(particle_i, p, game->play.particle_arr) {
-					s_v4 color;
-					color.x = p->color.x;
-					color.y = p->color.y;
-					color.z = p->color.z;
-					color.w = 1.0f;
-					float percent_done = at_most(1.0f, p->timer / p->duration);
-					float speed = p->speed * (1.0f - percent_done * p->slowdown);
-					speed = at_least(0.0f, speed);
-					p->pos += p->dir * speed * (float)platform_data->frame_time;
-					color.w *= 1.0f - (percent_done * p->fade);
-					color.w = at_least(0.0f, color.w);
-					float radius = p->radius * (1.0f - percent_done * p->shrink);
-					radius = at_least(0.0f, radius);
-					draw_circle(g_r, p->pos, 0, radius, color, game->render_pass);
-					p->timer += (float)platform_data->frame_time;
-					if(percent_done >= 1) {
-						game->play.particle_arr.remove_and_swap(particle_i);
-						particle_i -= 1;
-					}
-				}
+				draw_text(g_r, strlit("$$00ff00$$shakeFOO$.$$ff0000OOO$$shakeO"), wxy(0.5f, 0.5f), 0, 48, make_color(1), false, game->font, game->render_pass);
 
-				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_additive, .projection = ortho});
+				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		testing end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -359,30 +327,53 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 					pos -= text_size * 0.5f;
 
-					float alpha = 1;
+					s_v4 color = make_color(1);
+					b8 do_shake = false;
 					if(word.killed_timestamp > 0) {
-						float passed = play->timer + interp_dt * (float)c_update_delay - word.killed_timestamp;
-						alpha = 1.0f - passed;
+						do_shake = true;
+						// float passed = play->timer + interp_dt * (float)c_update_delay - word.killed_timestamp;
+						color = make_color(1, 1, 0);
 					}
 
 					if(match.len > 0) {
 						int start = (int)(match.str - input.str);
 						int num_bad_chars = input.len - (start + match.len);
+
 						s_len_str s0 = substr_from_to_exclusive(word2, 0, match.len);
 						s_len_str s1 = substr_from_to_exclusive(word2, match.len, match.len + num_bad_chars);
 						s_len_str s2 = substr_from_to_exclusive(word2, match.len + num_bad_chars, word2.len);
 						if(s0.len > 0) {
-							pos = draw_text(g_r, s0, pos, 0, font_size1, make_color(0, 1, 0, alpha), false, game->font, game->render_pass);
+							s_str_builder<64> builder;
+							if(do_shake) {
+								builder_add(&builder, "$$shake");
+							}
+							builder_add(&builder, "%.*s", s0.len, s0.str);
+							pos = draw_text(g_r, builder_to_len_str(&builder), pos, 0, font_size1, make_color(0, 1, 0), false, game->font, game->render_pass);
 						}
 						if(s1.len > 0) {
-							pos = draw_text(g_r, s1, pos, 0, font_size1, make_color(1, 0, 0, alpha), false, game->font, game->render_pass);
+							s_str_builder<64> builder;
+							if(do_shake) {
+								builder_add(&builder, "$$shake");
+							}
+							builder_add(&builder, "%.*s", s1.len, s1.str);
+							pos = draw_text(g_r, builder_to_len_str(&builder), pos, 0, font_size1, make_color(1, 0, 0), false, game->font, game->render_pass);
 						}
 						if(s2.len > 0) {
-							pos = draw_text(g_r, s2, pos, 0, font_size1, make_color(1, alpha), false, game->font, game->render_pass);
+							s_str_builder<64> builder;
+							if(do_shake) {
+								builder_add(&builder, "$$shake");
+							}
+							builder_add(&builder, "%.*s", s2.len, s2.str);
+							pos = draw_text(g_r, builder_to_len_str(&builder), pos, 0, font_size1, color, false, game->font, game->render_pass);
 						}
 					}
 					else {
-						draw_text(g_r, word2, pos, 0, font_size1, make_color(1, alpha), false, game->font, game->render_pass);
+						s_str_builder<64> builder;
+						if(do_shake) {
+							builder_add(&builder, "$$shake");
+						}
+						builder_add(&builder, "%.*s", word2.len, word2.str);
+						draw_text(g_r, builder_to_len_str(&builder), pos, 0, font_size1, color, false, game->font, game->render_pass);
 					}
 				}
 				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
@@ -405,7 +396,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						offset = v2_normalized(offset) * 64 * passed;
 						s_len_str temp = substr_from_to_inclusive(word2, i, i);
 						pos = draw_text(
-							g_r, temp, pos + offset, 0, font_size1, make_color(1, alpha), false, game->font, game->render_pass, zero,
+							g_r, temp, pos + offset, 0, font_size1, make_color(1, 1, 0, alpha), false, game->font, game->render_pass, zero,
 							{.rotation = rng.randf32() * tau * passed}
 						);
 						pos -= offset;
