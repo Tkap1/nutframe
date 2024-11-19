@@ -61,6 +61,10 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->sound_arr[e_sound_click] = platform_data->load_sound(platform_data, "examples/test/keypress.wav", platform_data->frame_arena);
 		game->sound_arr[e_sound_lose_life] = platform_data->load_sound(platform_data, "examples/test/oof.wav", platform_data->frame_arena);
 
+		game->sound_arr[e_sound_kill_word_00] = platform_data->load_sound(platform_data, "examples/test/pop.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_kill_word_01] = platform_data->load_sound(platform_data, "examples/test/pop2.wav", platform_data->frame_arena);
+		game->sound_arr[e_sound_kill_word_02] = platform_data->load_sound(platform_data, "examples/test/pop3.wav", platform_data->frame_arena);
+
 		game->main_fbo = g_r->make_framebuffer(g_r, v2i(c_base_res));
 		game->light_fbo = g_r->make_framebuffer_with_existing_depth(g_r, v2i(c_base_res), game->main_fbo->depth);
 
@@ -1235,6 +1239,8 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 				builder_remove_until_and_including(&play->input_text, word);
 				play->cursor.index.value = at_most(play->input_text.len, play->cursor.index.value);
 				printf("killed: %.*s\n", word.len, word.str);
+
+				play_sound_group(e_sound_group_kill_word);
 			}
 
 			if(killer_index >= 0) {
