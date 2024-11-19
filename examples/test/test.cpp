@@ -449,7 +449,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 				assert(client.in_play);
 
 				s_str_builder<64> builder = str_builder_to_builder<64>(&client.name);
-				builder_add(&builder, ": %i", client.score);
+				builder_add(&builder, ": %i (%i)", client.score, client.score_this_round);
 				b8 is_this_my_client = game->my_index == index;
 				s_v4 color = make_color(1);
 				if(is_this_my_client) {
@@ -1242,6 +1242,7 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 				assert(killer); // @Note(tkap, 07/11/2024): not sure about this one. we'll see when we remove clients
 				if(killer) {
 					killer->score += word.len;
+					killer->score_this_round += word.len;
 				}
 			}
 		} break;
@@ -1282,6 +1283,11 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 		case e_packet_set_round: {
 			play->set_round_timestamp = game->render_time;
 			play->curr_round = buffer_read<int>(&reader);
+
+			foreach_ptr(client_i, client, game->client_arr) {
+				client->score_this_round = 0;
+			}
+
 			printf("got round %i\n", play->curr_round);
 		} break;
 
