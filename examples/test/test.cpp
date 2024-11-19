@@ -1238,6 +1238,9 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 
 		case e_packet_restart_game: {
 			struct_memset_zero(play);
+			foreach_ptr(client_i, client, game->client_arr) {
+				client->score = 0;
+			}
 		} break;
 
 		invalid_default_case;
