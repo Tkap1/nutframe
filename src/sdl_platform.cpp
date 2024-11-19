@@ -202,6 +202,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	init_gl(&g_platform_renderer, g_game_renderer, &platform_frame_arena);
 
+	int foo = 0;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &foo);
+	printf("MAX TEXTUTURE SIZE %i\n", foo);
+
 	b8 running = true;
 	g_platform_data.recompiled = true;
 

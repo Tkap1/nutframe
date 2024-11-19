@@ -158,9 +158,20 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(get_state()) {
 		case e_state_input_name: {
 
-			s_input_name_state* state = &game->input_name_state;
-
 			float font_size = 36;
+
+			#if !defined(m_emscripten)
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		testing start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_len_str str = strlit("HELLO");
+				draw_text(g_r, str, pxy(0.5f, 0.1f), 0, font_size, make_color(1), true, game->font, game->render_pass);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		testing end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			#else // m_emscripten
+
+			s_input_name_state* state = &game->input_name_state;
 
 			s_v2 pos = c_base_res * v2(0.5f, 0.4f);
 
@@ -215,6 +226,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
+			#endif
 		} break;
 
 		case e_state_play: {
@@ -372,6 +384,14 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		dead words end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		display current lives start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				int curr_lives = c_starting_lives - play->lives_lost;
+				s_len_str str = format_text("%i / %i", curr_lives, c_starting_lives);
+				draw_text(g_r, str, c_play_area_center, 0, font_size1, make_color(1), true, game->font, game->render_pass);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		display current lives end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 			draw_rect(g_r, v2(0.0f), 0, c_ui_size, make_color(0.2f), game->render_pass, {}, {.origin_offset = c_origin_topleft});
 			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
@@ -403,8 +423,16 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					draw_text(g_r, builder_to_len_str(&builder), pos_area_get_advance(&area), 0, font_size1, color, false, game->font, game->render_pass);
 				}
 			}
-			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		ui names end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		round indicator start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				s_len_str str = format_text("Round %i", play->curr_round + 1);
+				draw_text(g_r, str, pxy(0.88f, 0.025f), 0, 36, make_color(1), false, game->font, game->render_pass);
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		round indicator end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+			g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_premultiply_alpha, .projection = ortho});
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		round popup start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{

@@ -2,12 +2,6 @@
 
 sanitize offensive names?
 
-visual effects when killing word
-
-display health
-display round
-
-
 words spawning on top of each other rarely is very cringe
 too easy for too long
 if we beat a level without losing a life, skip 1 level
@@ -22,3 +16,6 @@ beat round sound
 reset scores on lose
 
 sort players by score
+
+enter clear
+space clear
