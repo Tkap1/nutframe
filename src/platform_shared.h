@@ -2659,6 +2659,8 @@ static constexpr int c_key_right_ctrl = 0xA3;
 static constexpr int c_left_mouse = 1020;
 static constexpr int c_right_mouse = 1021;
 
+static constexpr int c_ctrl_backspace = 7;
+
  // @TODO(tkap, 13/11/2023): handle this on windows
 static constexpr int c_middle_mouse = 1022;
 

@@ -202,10 +202,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	init_gl(&g_platform_renderer, g_game_renderer, &platform_frame_arena);
 
-	int foo = 0;
-	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &foo);
-	printf("MAX TEXTUTURE SIZE %i\n", foo);
-
 	b8 running = true;
 	g_platform_data.recompiled = true;
 
@@ -282,15 +278,15 @@ static void do_one_frame()
 				if(key == c_key_backspace && is_down) {
 					if(is_key_down(&g_platform_data.input, c_key_left_ctrl)) {
 						// @Hack(tkap, 08/11/2024): Pretending that char 7 is ctrl + backspace
-						g_platform_data.input.char_events.add(7);
+						g_platform_data.input.char_events.add(c_ctrl_backspace);
 					}
 					else {
 						g_platform_data.input.char_events.add('\b');
 					}
 				}
-				if(key == c_key_escape && is_down) {
+				if((key == c_key_escape || key == c_key_enter) && is_down) {
 					// @Hack(tkap, 08/11/2024): Pretending that char 7 is ctrl + backspace
-					g_platform_data.input.char_events.add(7);
+					g_platform_data.input.char_events.add(c_ctrl_backspace);
 				}
 
 			} break;

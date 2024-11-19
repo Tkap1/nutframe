@@ -158,14 +158,12 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 	switch(get_state()) {
 		case e_state_input_name: {
 
-			float font_size = 36;
+			constexpr float font_size = 36;
 
 			#if !defined(m_emscripten)
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		testing start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
-				s_len_str str = strlit("HELLO");
-				draw_text(g_r, str, pxy(0.5f, 0.1f), 0, font_size, make_color(1), true, game->font, game->render_pass);
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		testing end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -265,7 +263,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 						play->cursor.last_edit_time = game->render_time;
 					}
 				}
-				else if(c == c_ctrl_backspace) {
+				else if(c == c_ctrl_backspace || c == ' ') {
 					send = true;
 					play->input_text.len = 0;
 					play->cursor.index.value = 0;
