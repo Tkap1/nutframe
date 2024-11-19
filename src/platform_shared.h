@@ -2191,11 +2191,6 @@ static float fract(float x)
 	return x - (int)x;
 }
 
-static float v2_distance(s_v2 a, s_v2 b)
-{
-	return v2_length(a - b);
-}
-
 static s_v2 lerp_snap(s_v2 a, s_v2 b, float t)
 {
 	s_v2 result;

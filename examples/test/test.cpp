@@ -164,6 +164,43 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 
 			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		testing start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 			{
+				s_particle_data data = zero;
+				data.speed *= 10;
+				data.color.x *= 2;
+				data.color.y *= 2;
+				data.speed_rand = 1;
+				data.slowdown = 1;
+				data.color_rand.x = 0.5f;
+				data.color_rand.z = 1;
+				do_particles(1, g_mouse, data);
+				if(is_key_pressed(g_input, c_right_mouse)) {
+						do_particles(128, g_mouse + v2(300, 0), data);
+				}
+
+				foreach_ptr(particle_i, p, game->play.particle_arr) {
+					s_v4 color;
+					color.x = p->color.x;
+					color.y = p->color.y;
+					color.z = p->color.z;
+					color.w = 1.0f;
+					float percent_done = at_most(1.0f, p->timer / p->duration);
+					float speed = p->speed * (1.0f - percent_done * p->slowdown);
+					speed = at_least(0.0f, speed);
+					p->pos += p->dir * speed * (float)platform_data->frame_time;
+					color.w *= 1.0f - (percent_done * p->fade);
+					color.w = at_least(0.0f, color.w);
+					float radius = p->radius * (1.0f - percent_done * p->shrink);
+					radius = at_least(0.0f, radius);
+					draw_circle(g_r, p->pos, 0, radius, color, game->render_pass);
+					p->timer += (float)platform_data->frame_time;
+					if(percent_done >= 1) {
+						game->play.particle_arr.remove_and_swap(particle_i);
+						particle_i -= 1;
+					}
+				}
+
+				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_additive, .projection = ortho});
+
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		testing end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -463,6 +500,34 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 			}
 			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		round popup end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv		particles start		vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+			{
+				foreach_ptr(particle_i, p, game->play.particle_arr) {
+					s_v4 color;
+					color.x = p->color.x;
+					color.y = p->color.y;
+					color.z = p->color.z;
+					color.w = 1.0f;
+					float percent_done = at_most(1.0f, p->timer / p->duration);
+					float speed = p->speed * (1.0f - percent_done * p->slowdown);
+					speed = at_least(0.0f, speed);
+					p->pos += p->dir * speed * (float)platform_data->frame_time;
+					color.w *= 1.0f - (percent_done * p->fade);
+					color.w = at_least(0.0f, color.w);
+					float radius = p->radius * (1.0f - percent_done * p->shrink);
+					radius = at_least(0.0f, radius);
+					draw_circle(g_r, p->pos, 0, radius, color, game->render_pass);
+					p->timer += (float)platform_data->frame_time;
+					if(percent_done >= 1) {
+						game->play.particle_arr.remove_and_swap(particle_i);
+						particle_i -= 1;
+					}
+				}
+
+				g_r->end_render_pass(g_r, game->render_pass, game->main_fbo, {.blend_mode = e_blend_mode_additive, .projection = ortho});
+			}
+			// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		particles end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 			if(play->state == e_play_state_defeat) {
 				s_len_str str = m_strlit("Defeat");
 				draw_rect(g_r, c_play_area_center, 0, c_play_area_size, make_color(0.0f, 0.75f), game->render_pass);
@@ -509,16 +574,12 @@ s_m4 s_camera2d::get_matrix()
 	return m;
 }
 
-func void do_particles(int count, s_v2 pos, int z, b8 attached_to_player, s_particle_data data)
+func void do_particles(int count, s_v2 pos, s_particle_data data)
 {
 	s_rng* rng = &game->rng;
 	for(int particle_i = 0; particle_i < count; particle_i++) {
 		s_particle p = {};
-		p.attached_to_player = attached_to_player;
-		if(!attached_to_player) {
-			p.pos = pos;
-		}
-		p.z = z;
+		p.pos = pos;
 		p.fade = data.fade;
 		p.shrink = data.shrink;
 		p.duration = data.duration * (1.0f - rng->randf32() * data.duration_rand);
@@ -1162,6 +1223,18 @@ func void on_websocket_message(void* data, int data_len, void* user_data)
 			assert(killer_index >= 0);
 			assert(word_index < play->word_arr.count);
 			s_len_str word = g_word_list[play->word_arr[word_index].index];
+
+			{
+				s_particle_data particle_data = zero;
+				particle_data.speed *= 10;
+				particle_data.color.x *= 2;
+				particle_data.color.y *= 2;
+				particle_data.speed_rand = 1;
+				particle_data.slowdown = 1;
+				particle_data.color_rand.x = 0.5f;
+				particle_data.color_rand.z = 1;
+				do_particles(128, play->word_arr[word_index].pos, particle_data);
+			}
 
 			if(play->word_arr[word_index].killed_timestamp <= 0) {
 				play->word_arr[word_index].killed_timestamp = play->timer;

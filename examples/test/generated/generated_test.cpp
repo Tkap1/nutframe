@@ -1,6 +1,6 @@
 func s_v2i pos_to_index(s_v2 pos, int tile_size);
 func s_v2 index_to_pos(s_v2i index, int tile_size);
-func void do_particles(int count, s_v2 pos, int z, b8 attached_to_player, s_particle_data data);
+func void do_particles(int count, s_v2 pos, s_particle_data data);
 func s_v2 get_center(s_v2 pos, s_v2 size);
 func s_pos_area make_pos_area(s_v2 pos, s_v2 size, s_v2 element_size, float spacing, int count, int flags);
 func s_pos_area make_horizontal_layout(s_v2 pos, s_v2 element_size, float spacing, int flags);
