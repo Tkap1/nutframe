@@ -7,3 +7,5 @@ beat round sound
 
 make the font atlas a square because we exceed 2048 width and it breaks for people with specific GPU AND firefox because it reports 2048 max texture size
 make the grace period longer?
+
+now with the killed system, what happens if we have a duplicate word?

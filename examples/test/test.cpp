@@ -79,13 +79,6 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		game->next_state = -1;
 		set_state_next_frame(e_state_input_name);
 
-		register_action(g_platform_data, e_action_left, c_key_a, c_key_left);
-		register_action(g_platform_data, e_action_right, c_key_d, c_key_right);
-		register_action(g_platform_data, e_action_up, c_key_w, c_key_up);
-		register_action(g_platform_data, e_action_down, c_key_s, c_key_down);
-		register_action(g_platform_data, e_action_dash_to_keyboard, c_key_space, 0);
-		register_action(g_platform_data, e_action_dash_to_mouse, c_right_mouse, 0);
-
 		#ifdef m_emscripten
 		platform_data->create_websocket("wss://discrete-miserably-gopher.ngrok-free.app");
 		// platform_data->create_websocket("ws://localhost:8000");
@@ -163,6 +156,7 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 		case e_state_input_name: {
 
 			constexpr float font_size = 36;
+			unreferenced(font_size);
 
 			#if !defined(m_emscripten)
 
