@@ -83,16 +83,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	}
 	Mix_Volume(-1, floorfi(MIX_MAX_VOLUME * 0.1f));
 
-	#if defined(m_debug) || !defined(_WIN32)
-	if(argc > 1 && strcmp(argv[1], "embed") == 0) {
-		g_do_embed = true;
-	}
-	#else
-	if(__argc > 1 && strcmp(__argv[1], "embed") == 0) {
-		g_do_embed = true;
-	}
-	#endif
-
 	g_platform_data.get_random_seed = get_random_seed;
 	g_platform_data.load_sound = load_sound;
 	g_platform_data.play_sound = play_sound;
@@ -404,23 +394,10 @@ static f64 get_seconds()
 
 static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
 {
-	if(g_do_embed) {
-		g_to_embed.add(path);
-	}
-
 	s_sound sound = {};
-
-	#ifdef m_debug
 
 	Mix_Chunk* chunk = load_sound_from_file(path);
 	assert(chunk);
-
-	#else // m_debug
-
-	Mix_Chunk* chunk = load_sound_from_data(embed_data[g_asset_index], embed_sizes[g_asset_index]);
-	g_asset_index += 1;
-
-	#endif // m_debug
 
 	g_sdl_audio.add(chunk);
 	sound.index = platform_data->sounds.count;

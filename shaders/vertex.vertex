@@ -30,12 +30,13 @@ out vec4 v_mix_color;
 out vec2 v_local_uv;
 out vec2 v_uv;
 
-uniform vec2 base_res;
-uniform vec2 window_size;
-
-uniform mat4 projection;
-uniform mat4 view;
-uniform mat4 view_projection;
+layout(std140) uniform ublock
+{
+	mat4 view;
+	mat4 projection;
+	vec2 base_res;
+	vec2 window_size;
+};
 
 mat2 rot(float angle)
 {
@@ -127,7 +128,7 @@ void main()
 	v_local_uv = local_uv[gl_VertexID];
 
 	if((in_flags & 16) != 0) {
-		gl_Position = view_projection * vec4(vertices[gl_VertexID], in_pos.z, 1.0);
+		gl_Position = projection * view * vec4(vertices[gl_VertexID], in_pos.z, 1.0);
 	}
 	else {
 		// vec2 pos = in_pos.xy * (2.0 / base_res) - 1.0;
@@ -138,7 +139,7 @@ void main()
 
 		vec3 vertex = vec3(vertices[gl_VertexID], 0.0);
 		vertex.xy += in_origin_offset * 0.5;
-		vec4 v = view_projection * in_model * vec4(vertex, 1);
+		vec4 v = projection * view * in_model * vec4(vertex, 1);
 		gl_Position = v;
 	}
 

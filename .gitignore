@@ -37,8 +37,8 @@ generate_ctags.bat
 *.rdbg
 *_output.txt
 *.zip
-*.html
 *.js
+index.html
 *.wasm
 *.data
 *.wasm.map

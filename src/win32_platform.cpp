@@ -117,17 +117,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 {
 
 	#ifdef m_debug
-	if(argc > 1 && strcmp(argv[1], "embed") == 0) {
-		g_do_embed = true;
-	}
-	#else // m_debug
-	if(__argc > 1 && strcmp(__argv[1], "embed") == 0) {
-		g_do_embed = true;
-	}
-	#endif // m_debug
-
-
-	#ifdef m_debug
 	t_init_game* init_game = NULL;
 	t_update* update = NULL;
 	t_render* render = NULL;
@@ -878,20 +867,7 @@ static u64 get_random_seed()
 
 static s_sound* load_sound(s_platform_data* platform_data, const char* path, s_lin_arena* arena)
 {
-	if(g_do_embed) {
-		g_to_embed.add(path);
-	}
-
-	#ifdef m_debug
-
 	s_sound sound = load_sound_from_file(path, arena);
-
-	#else // m_debug
-
-	s_sound sound = load_sound_from_data(embed_data[g_asset_index]);
-	g_asset_index += 1;
-
-	#endif // m_debug
 
 	sound.index = platform_data->sounds.count;
 	int index = platform_data->sounds.add(sound);

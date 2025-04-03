@@ -113,6 +113,7 @@ X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers) \
 X(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv) \
 X(PFNGLBLENDFUNCSEPARATEPROC, glBlendFuncSeparate) \
 X(PFNGLGENERATEMIPMAPPROC, glGenerateMipmap) \
+X(PFNGLBINDBUFFERBASEPROC, glBindBufferBase) \
 
 #else // __EMSCRIPTEN__
 
@@ -158,6 +159,7 @@ X(PFNGLDELETEFRAMEBUFFERSPROC, glDeleteFramebuffers) \
 X(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv) \
 X(PFNGLBLENDFUNCSEPARATEPROC, glBlendFuncSeparate) \
 X(PFNGLGENERATEMIPMAPPROC, glGenerateMipmap) \
+X(PFNGLBINDBUFFERBASEPROC, glBindBufferBase) \
 
 #endif // __EMSCRIPTEN__
 
@@ -181,7 +183,11 @@ enum e_wrap
 	e_wrap_clamp,
 };
 
+#if defined(m_debug)
 #define assert(cond) do { if(!(cond)) { on_failed_assert(#cond, __FILE__, __LINE__); } } while(0)
+#else // m_debug
+#define assert(cond)
+#endif
 #define unreferenced(thing) (void)thing;
 #define check(cond) do { if(!(cond)) { error(false); }} while(0)
 #define invalid_default_case default: { assert(false); }
@@ -894,13 +900,6 @@ enum e_fbo_clear
 };
 
 static constexpr int c_default_fbo_clear_flags = e_fbo_clear_color | e_fbo_clear_depth;
-
-
-#ifndef m_game
-#ifndef m_debug
-#include "embed.h"
-#endif // m_debug
-#endif // m_game
 
 struct s_ray
 {
@@ -1951,12 +1950,23 @@ struct s_vbo
 	u32 gl_id;
 };
 
+#pragma pack(push, 1)
+struct s_uniform_data
+{
+	s_m4 view;
+	s_m4 projection;
+	s_v2 base_res;
+	s_v2 window_size;
+};
+#pragma pack(pop)
+
 struct s_platform_renderer
 {
 	u32 default_vao;
 	s_vbo default_vbo;
 	u32 index_buffer_2d;
 	u32 index_buffer_3d;
+	u32 ubo;
 	s_sarray<s_shader_paths, c_max_shaders> shader_path_arr;
 };
 static s_platform_renderer g_platform_renderer = {};
@@ -4161,62 +4171,6 @@ static void ui_checkbox(s_game_renderer* game_renderer, s_len_str text, s_v2 pos
 	}
 }
 
-static b8 g_do_embed = false;
-static s_sarray<const char*, 128> g_to_embed;
-static int g_asset_index = 0;
-
-static void write_embed_file()
-{
-	constexpr int max_chars = 100 * c_mb;
-	assert(g_do_embed);
-	s_str_builder<max_chars>* builder = (s_str_builder<max_chars>*)malloc(sizeof(s_str_builder<max_chars>));
-	builder->tab_count = 0;
-	builder->len = 0;
-	foreach_val(embed_i, embed, g_to_embed) {
-		FILE* file = fopen(embed, "rb");
-		assert(file);
-		fseek(file, 0, SEEK_END);
-		u64 file_size = ftell(file);
-		fseek(file, 0, SEEK_SET);
-		u8* data = (u8*)malloc(file_size + 1);
-		fread(data, 1, file_size, file);
-		data[file_size] = 0;
-		u8* cursor = data;
-
-		builder->add_line("static constexpr u8 embed%i[%u] = {", embed_i, file_size + 1);
-		for(u64 i = 0; i < file_size + 1; i++) {
-			builder->add("%u,", *cursor);
-			cursor++;
-		}
-		builder->add_line("\n};");
-
-		fclose(file);
-		free(data);
-	}
-
-	builder->add_line("static constexpr u8* embed_data[%i] = {", g_to_embed.count);
-	foreach_val(embed_i, embed, g_to_embed) {
-		builder->add("(u8*)embed%i,", embed_i);
-	}
-	builder->add_line("\n};");
-
-	builder->add_line("static constexpr int embed_sizes[%i] = {", g_to_embed.count);
-	foreach_val(embed_i, embed, g_to_embed) {
-		builder->add("array_count(embed%i),", embed_i);
-	}
-	builder->add_line("\n};");
-
-	{
-		FILE* file = fopen("src/embed.h", "wb");
-		fwrite(builder->data, 1, builder->len, file);
-		fclose(file);
-	}
-
-	log_info("Successfully created embed.h!\n");
-
-	exit(0);
-}
-
 #ifdef m_debug
 static void begin_replaying_input()
 {
@@ -4604,10 +4558,6 @@ static void do_game_layer(
 	g_platform_data.input.char_events.count = 0;
 	g_platform_data.input.key_events.count = 0;
 
-	if(g_do_embed) {
-		write_embed_file();
-	}
-
 	g_platform_data.frame_arena->used = 0;
 	game_renderer->frame_arena.used = 0;
 }
@@ -4785,6 +4735,13 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 	}
 	// // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^		http end		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+	{
+		gl(glGenBuffers(1, &platform_renderer->ubo));
+		gl(glBindBuffer(GL_UNIFORM_BUFFER, platform_renderer->ubo));
+		gl(glBufferData(GL_UNIFORM_BUFFER, sizeof(s_uniform_data), NULL, GL_DYNAMIC_DRAW));
+		gl(glBindBufferBase(GL_UNIFORM_BUFFER, 0, platform_renderer->ubo));
+	}
+
 	gl(glGenVertexArrays(1, &platform_renderer->default_vao));
 	gl(glBindVertexArray(platform_renderer->default_vao));
 
@@ -4888,6 +4845,8 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 
 		for(int shader_i = 0; shader_i < array_count(c_shader_paths); shader_i++) {
 			s_shader shader = platform_load_shader(c_shader_paths[shader_i].vertex_path, c_shader_paths[shader_i].fragment_path, arena);
+			printf("%s\n", c_shader_paths[shader_i].vertex_path);
+			printf("%s\n", c_shader_paths[shader_i].fragment_path);
 			assert(shader.gl_id);
 			when_shader_first_loaded(&shader);
 			game_renderer->shader_arr.add(shader);
@@ -4995,24 +4954,10 @@ static void when_shader_first_loaded(s_shader* shader)
 
 static s_shader platform_load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
 {
-	if(g_do_embed) {
-		g_to_embed.add(vertex_path);
-		g_to_embed.add(fragment_path);
-	}
-
 	s_shader shader_result = {};
-
-	#ifndef m_debug
-
-	shader_result.gl_id = load_shader_from_str((char*)embed_data[g_asset_index], (char*)embed_data[g_asset_index + 1]);
-	g_asset_index += 2; // @TODO(tkap, 04/10/2024): this 2 should be a 1 probably if we switch to 1 file per program instead of .vertex and .fragment
-
-	#else
 
 	g_platform_renderer.shader_path_arr.add({.vertex_path = vertex_path, .fragment_path = fragment_path});
 	shader_result.gl_id = load_shader_from_file(vertex_path, fragment_path, frame_arena);
-
-	#endif
 
 	return shader_result;
 
@@ -5130,10 +5075,6 @@ static void premultiply_alpha(void* data, int width, int height)
 
 static s_texture load_texture(s_game_renderer* game_renderer, const char* path, e_filter in_filter_mode, e_wrap in_wrap_mode)
 {
-	if(g_do_embed) {
-		g_to_embed.add(path);
-	}
-
 	int filter_mode = 0;
 	int wrap_mode = 0;
 	if(in_filter_mode == e_filter_nearest) {
@@ -5150,18 +5091,7 @@ static s_texture load_texture(s_game_renderer* game_renderer, const char* path, 
 	}
 	invalid_else;
 
-	#ifndef m_debug
-
-	int width, height, num_channels;
-	void* data = stbi_load_from_memory(embed_data[g_asset_index], embed_sizes[g_asset_index], &width, &height, &num_channels, 4);
-	premultiply_alpha(data, width, height);
-	s_texture result = load_texture_from_data(data, width, height, filter_mode, GL_RGBA, wrap_mode);
-	g_asset_index += 1;
-
-	#else
-
 	s_texture result = load_texture_from_file(path, filter_mode, wrap_mode);
-	#endif
 
 	result.game_id = game_renderer->texture_arr.count;
 	result.path = path;
@@ -5193,6 +5123,7 @@ static s_texture load_texture_from_file(const char* path, u32 filtering, int wra
 {
 	int width, height, num_channels;
 	void* data = stbi_load(path, &width, &height, &num_channels, 4);
+	printf("%s\n", path);
 	premultiply_alpha(data, width, height);
 	assert(data);
 	s_texture texture = load_texture_from_data(data, width, height, filtering, GL_RGBA, wrap_mode);
@@ -5313,21 +5244,7 @@ static void after_making_framebuffer(int index, s_game_renderer* game_renderer)
 
 static s_font* load_font(s_game_renderer* game_renderer, const char* path, int font_size, s_lin_arena* arena)
 {
-	if(g_do_embed) {
-		g_to_embed.add(path);
-	}
-
-	#ifdef m_debug
-
 	s_font font = load_font_from_file(path, font_size, arena);
-
-	#else // m_debug
-
-	s_font font = load_font_from_data(embed_data[g_asset_index], font_size, arena);
-	g_asset_index += 1;
-
-	#endif // m_debug
-
 	font.texture.game_id = game_renderer->texture_arr.count;
 	game_renderer->texture_arr.add(font.texture);
 	after_loading_texture(game_renderer);
@@ -5830,7 +5747,16 @@ static void end_render_pass(s_game_renderer* gr, s_render_pass* render_pass, s_f
 	set_blend_mode(render_pass_data.blend_mode);
 	set_cull_mode(render_pass_data.cull_mode);
 
-	s_m4 view_projection = m4_multiply(render_pass_data.projection, render_pass_data.view);
+	{
+		gl(glBindBuffer(GL_UNIFORM_BUFFER, g_platform_renderer.ubo));
+		s_uniform_data data = {};
+		data.view = render_pass_data.view;
+		data.projection = render_pass_data.projection;
+		data.base_res = g_base_res;
+		data.window_size.x = (float)g_platform_data.window_width;
+		data.window_size.y = (float)g_platform_data.window_height;
+		gl(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(s_uniform_data), &data));
+	}
 
 	foreach_val(group_i, group, render_pass->render_group_arr) {
 		assert(group.count > 0);
@@ -5850,15 +5776,6 @@ static void end_render_pass(s_game_renderer* gr, s_render_pass* render_pass, s_f
 		}
 		if(shader.base_res_location >= 0) {
 			glUniform2fv(shader.base_res_location, 1, &g_base_res.x);
-		}
-		if(shader.view_location >= 0) {
-			gl(glUniformMatrix4fv(shader.view_location, 1, GL_FALSE, &render_pass_data.view.elements[0][0]));
-		}
-		if(shader.projection_location >= 0) {
-			gl(glUniformMatrix4fv(shader.projection_location, 1, GL_FALSE, &render_pass_data.projection.elements[0][0]));
-		}
-		if(shader.view_projection_location >= 0) {
-			gl(glUniformMatrix4fv(shader.view_projection_location, 1, GL_FALSE, &view_projection.elements[0][0]));
 		}
 		if(shader.cam_pos_location >= 0) {
 			gl(glUniform3fv(shader.cam_pos_location, 1, &render_pass_data.cam_pos.x));

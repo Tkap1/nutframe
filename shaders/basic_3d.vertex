@@ -32,7 +32,6 @@ out vec2 v_local_uv;
 out vec2 v_uv;
 
 uniform vec2 base_res;
-uniform vec2 window_size;
 uniform mat4 view_projection;
 
 mat2 rot(float angle)

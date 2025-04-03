@@ -27,16 +27,9 @@ if !debug!==0 (
 	set comp=!comp! -O3
 	set comp=!comp! -sSAFE_HEAP=0
 	set comp=!comp! -sASSERTIONS=0
-	set comp=!comp! --preload-file ../shaders/vertex.vertex@shaders/vertex.vertex
-	set comp=!comp! --preload-file ../shaders/fragment.fragment@shaders/fragment.fragment
-	set comp=!comp! --preload-file ../shaders/light.fragment@shaders/light.fragment
-	set comp=!comp! --preload-file ../shaders/basic_3d.vertex@shaders/basic_3d.vertex
-	set comp=!comp! --preload-file ../shaders/basic_3d.fragment@shaders/basic_3d.fragment
-	set comp=!comp! --preload-file ../shaders/3d_flat.vertex@shaders/3d_flat.vertex
-	set comp=!comp! --preload-file ../shaders/3d_flat.fragment@shaders/3d_flat.fragment
-	set comp=!comp! --preload-file ../shaders/threshold.fragment@shaders/threshold.fragment
-	set comp=!comp! --preload-file ../shaders/blur.fragment@shaders/blur.fragment
-	set comp=!comp! --preload-file ../assets/consola.ttf@assets/consola.ttf
+	set comp=!comp! --preload-file ../shaders@shaders
+	set comp=!comp! --preload-file ../assets@assets
+	set comp=!comp! --preload-file ../examples/test/assets@examples/test/assets
 	@REM set comp=!comp! -gsource-map
 	@REM set comp=!comp! -fsanitize=address
 )

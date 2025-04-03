@@ -18,7 +18,6 @@ in vec2 v_local_uv;
 out vec4 out_color;
 
 uniform vec2 base_res;
-uniform vec2 window_size;
 uniform float time;
 uniform vec2 player_pos;
 uniform vec2 mouse;
