@@ -309,6 +309,8 @@ constexpr s_map_data c_map_data[] = {
 	{.name = m_strlit("Zanarias"), .path = "zanarias.map", .cam_offset = v3(0.0f, -2, -10), .leaderboard_id = 22762},
 	{.name = m_strlit("Azenris"), .path = "azenris.map", .cam_offset = v3(0.0f, -2, -10), .leaderboard_id = 22763},
 	{.name = m_strlit("Platforms"), .path = "platforms.map", .cam_offset = v3(5.0f, -2, -15), .leaderboard_id = 22806},
+	{.name = m_strlit("Jump Power"), .path = "jump_power.map", .cam_offset = v3(0.0f, -2, -10), .leaderboard_id = 22605},
+	{.name = m_strlit("example"), .path = "example.map", .cam_offset = v3(0.0f, -2, -10), .leaderboard_id = 22605},
 
 	#ifndef m_emscripten
 	{.name = m_strlit("Create map"), .path = "example.map", .leaderboard_id = 0},
