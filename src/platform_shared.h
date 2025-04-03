@@ -1,5 +1,6 @@
 
 #define m_multisample 0
+#define m_cpu_side 1
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -1950,15 +1951,7 @@ struct s_vbo
 	u32 gl_id;
 };
 
-#pragma pack(push, 1)
-struct s_uniform_data
-{
-	s_m4 view;
-	s_m4 projection;
-	s_v2 base_res;
-	s_v2 window_size;
-};
-#pragma pack(pop)
+#include "shader_shared.h"
 
 struct s_platform_renderer
 {
@@ -2001,7 +1994,7 @@ struct s_data_chunk
 static void add_int_attrib(s_attrib_handler* handler, int count);
 static void add_float_attrib(s_attrib_handler* handler, int count);
 static void finish_attribs(s_attrib_handler* handler);
-static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src, char* out_buffer = NULL);
+static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src, s_lin_arena* frame_arena, char* out_error = NULL);
 static u32 load_shader_from_file(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena);
 static void after_making_framebuffer(int index, s_game_renderer* game_renderer);
 static s_font load_font_from_file(const char* path, int font_size, s_lin_arena* arena);
@@ -3177,13 +3170,6 @@ static s_platform_data g_platform_data = {};
 
 struct s_shader
 {
-	int time_location;
-	int mouse_location;
-	int view_location;
-	int base_res_location;
-	int projection_location;
-	int view_projection_location;
-	int cam_pos_location;
 	u32 gl_id;
 };
 
@@ -4845,9 +4831,12 @@ static void init_gl(s_platform_renderer* platform_renderer, s_game_renderer* gam
 
 		for(int shader_i = 0; shader_i < array_count(c_shader_paths); shader_i++) {
 			s_shader shader = platform_load_shader(c_shader_paths[shader_i].vertex_path, c_shader_paths[shader_i].fragment_path, arena);
-			printf("%s\n", c_shader_paths[shader_i].vertex_path);
-			printf("%s\n", c_shader_paths[shader_i].fragment_path);
-			assert(shader.gl_id);
+			if(!shader.gl_id) {
+				printf("Shaders failed to compile:\n");
+				printf("%s\n", c_shader_paths[shader_i].vertex_path);
+				printf("%s\n", c_shader_paths[shader_i].fragment_path);
+				assert(false);
+			}
 			when_shader_first_loaded(&shader);
 			game_renderer->shader_arr.add(shader);
 		}
@@ -4943,13 +4932,6 @@ static s_recti do_letter_boxing(int base_width, int base_height, int window_widt
 static void when_shader_first_loaded(s_shader* shader)
 {
 	gl(glUseProgram(shader->gl_id));
-	shader->time_location = glGetUniformLocation(shader->gl_id, "time");
-	shader->mouse_location = glGetUniformLocation(shader->gl_id, "mouse_pos");
-	shader->base_res_location = glGetUniformLocation(shader->gl_id, "u_base_res");
-	shader->view_location = glGetUniformLocation(shader->gl_id, "view");
-	shader->projection_location = glGetUniformLocation(shader->gl_id, "projection");
-	shader->view_projection_location = glGetUniformLocation(shader->gl_id, "view_projection");
-	shader->cam_pos_location = glGetUniformLocation(shader->gl_id, "cam_pos");
 }
 
 static s_shader platform_load_shader(const char* vertex_path, const char* fragment_path, s_lin_arena* frame_arena)
@@ -4970,10 +4952,10 @@ static u32 load_shader_from_file(const char* vertex_path, const char* fragment_p
 	char* fragment_src = read_file(fragment_path, frame_arena);
 	if(!fragment_src || !fragment_src[0]) { return 0; }
 
-	return load_shader_from_str(vertex_src, fragment_src);
+	return load_shader_from_str(vertex_src, fragment_src, frame_arena);
 }
 
-static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src, char* out_error)
+static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src, s_lin_arena* frame_arena, char* out_error)
 {
 	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
 	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -4984,8 +4966,11 @@ static u32 load_shader_from_str(const char* vertex_src, const char* fragment_src
 	const char* header = "#version 330 core\n";
 	#endif
 
-	const char* vertex_src_arr[] = {header, vertex_src};
-	const char* fragment_src_arr[] = {header, fragment_src};
+	char* shared_src = read_file("src/shader_shared.h", frame_arena);
+	assert(shared_src);
+
+	const char* vertex_src_arr[] = {header, shared_src, vertex_src};
+	const char* fragment_src_arr[] = {header, shared_src, fragment_src};
 	gl(glShaderSource(vertex, array_count(vertex_src_arr), (const GLchar * const *)vertex_src_arr, NULL));
 	gl(glShaderSource(fragment, array_count(fragment_src_arr), (const GLchar * const *)fragment_src_arr, NULL));
 	gl(glCompileShader(vertex));
@@ -5123,7 +5108,6 @@ static s_texture load_texture_from_file(const char* path, u32 filtering, int wra
 {
 	int width, height, num_channels;
 	void* data = stbi_load(path, &width, &height, &num_channels, 4);
-	printf("%s\n", path);
 	premultiply_alpha(data, width, height);
 	assert(data);
 	s_texture texture = load_texture_from_data(data, width, height, filtering, GL_RGBA, wrap_mode);
@@ -5755,6 +5739,9 @@ static void end_render_pass(s_game_renderer* gr, s_render_pass* render_pass, s_f
 		data.base_res = g_base_res;
 		data.window_size.x = (float)g_platform_data.window_width;
 		data.window_size.y = (float)g_platform_data.window_height;
+		data.time = (float)gr->total_time;
+		data.mouse = g_platform_data.mouse;
+		data.cam_pos = render_pass_data.cam_pos;
 		gl(glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(s_uniform_data), &data));
 	}
 
@@ -5767,19 +5754,6 @@ static void end_render_pass(s_game_renderer* gr, s_render_pass* render_pass, s_f
 		u32 shader_id = shader.gl_id;
 
 		gl(glUseProgram(shader_id));
-
-		if(shader.time_location >= 0) {
-			glUniform1f(shader.time_location, (float)gr->total_time);
-		}
-		if(shader.mouse_location >= 0) {
-			glUniform2fv(shader.mouse_location, 1, &g_platform_data.mouse.x);
-		}
-		if(shader.base_res_location >= 0) {
-			glUniform2fv(shader.base_res_location, 1, &g_base_res.x);
-		}
-		if(shader.cam_pos_location >= 0) {
-			gl(glUniform3fv(shader.cam_pos_location, 1, &render_pass_data.cam_pos.x));
-		}
 
 		gl(glActiveTexture(GL_TEXTURE0));
 		gl(glBindTexture(GL_TEXTURE_2D, texture_id));

@@ -25,11 +25,12 @@ if !debug!==0 (
 ) else (
 	@REM set comp=!comp! -Dm_debug
 	set comp=!comp! -O3
-	set comp=!comp! -sSAFE_HEAP=0
-	set comp=!comp! -sASSERTIONS=0
+	set comp=!comp! -sSAFE_HEAP=1
+	set comp=!comp! -sASSERTIONS=1
 	set comp=!comp! --preload-file ../shaders@shaders
 	set comp=!comp! --preload-file ../assets@assets
 	set comp=!comp! --preload-file ../examples/test/assets@examples/test/assets
+	set comp=!comp! --preload-file ../src/shader_shared.h@src/shader_shared.h
 	@REM set comp=!comp! -gsource-map
 	@REM set comp=!comp! -fsanitize=address
 )

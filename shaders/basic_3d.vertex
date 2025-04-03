@@ -31,9 +31,6 @@ flat out vec3 v_normal;
 out vec2 v_local_uv;
 out vec2 v_uv;
 
-uniform vec2 base_res;
-uniform mat4 view_projection;
-
 mat2 rot(float angle)
 {
 	float c = cos(-angle);
@@ -161,5 +158,5 @@ void main()
 	int face_index = gl_VertexID / 6;
 	v_normal = normals[face_index];
 
-	gl_Position = view_projection * in_model * vec4(vertex, 1.0);
+	gl_Position = projection * view * in_model * vec4(vertex, 1.0);
 }

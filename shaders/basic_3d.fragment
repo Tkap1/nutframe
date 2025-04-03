@@ -17,10 +17,7 @@ in vec2 v_local_uv;
 
 out vec4 out_color;
 
-uniform vec2 base_res;
-uniform float time;
 uniform vec2 player_pos;
-uniform vec2 mouse;
 uniform vec2 snake_pos;
 uniform vec2 ball_rot;
 uniform float snake_apple_time;
