@@ -422,35 +422,50 @@ m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_ga
 		}
 
 		// printf("%.*s: %.*s\n", user.len, user.data, content.len, content.data);
-		if(game->state == e_state_play && content.len > 4 && strncmp_ignore_case(content.data, "push", 4)) {
-			char* out = null;
-			char* out2 = null;
-			int angle = parse_int(content.data + 4, &out);
-			if(!out) { continue; }
-			int strength = parse_int(out, &out2);
-			if(!out2) { continue; }
-			strength = clamp(strength, 1, 100);
-			// printf("%i, %i\n", angle, strength);
-
-			int ball_index = get_ball_by_name(user);
-			if(ball_index >= 0 && !game->transient.has_given_up_on_level[ball_index]) {
-				s_ball* ball = &game->balls[ball_index];
-				ball->inactivity_time = 0;
-				s_v2 push_vector = v2_from_angle(deg_to_rad((float)angle)) * range_lerp((float)strength, 1, 100, 25, 2000);
-				ball->has_push_queued = true;
-				ball->queued_push = push_vector;
-
-				if(!game->modifiers[e_game_modifier_all_shoot_at_once]) {
-					ball->vel += push_vector;
-					ball->pos_before_last_push = v2(ball->c.p);
-					platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
-
-					if(!game->transient.has_beat_level[ball_index]) {
-						game->transient.push_count[ball_index] += 1;
-						ball->push_count += 1;
+		if(game->state == e_state_play) {
+			char* cursor = content.data;
+			char* end = null;
+			s_sarray<int, 2> parsed_arr;
+			while(true) {
+				int value = strtoul(cursor, &end, 10);
+				if(end > cursor) {
+					cursor = end;
+					parsed_arr.add(value);
+					if(parsed_arr.count >= 2) {
+						break;
 					}
 				}
+				else {
+					cursor += 1;
+					if(*cursor == '\0') {
+						break;
+					}
+				}
+			}
+			// printf("%i, %i\n", angle, strength);
 
+			if(parsed_arr.count >= 2) {
+				int angle = parsed_arr[0];
+				int strength = clamp(parsed_arr[1], 1, 100);
+				int ball_index = get_ball_by_name(user);
+				if(ball_index >= 0 && !game->transient.has_given_up_on_level[ball_index]) {
+					s_ball* ball = &game->balls[ball_index];
+					ball->inactivity_time = 0;
+					s_v2 push_vector = v2_from_angle(deg_to_rad((float)angle)) * range_lerp((float)strength, 1, 100, 25, 2000);
+					ball->has_push_queued = true;
+					ball->queued_push = push_vector;
+
+					if(!game->modifiers[e_game_modifier_all_shoot_at_once]) {
+						ball->vel += push_vector;
+						ball->pos_before_last_push = v2(ball->c.p);
+						platform_data->play_sound(game->push_sounds[game->rng.randu() % array_count(game->push_sounds)]);
+
+						if(!game->transient.has_beat_level[ball_index]) {
+							game->transient.push_count[ball_index] += 1;
+							ball->push_count += 1;
+						}
+					}
+				}
 			}
 		}
 	}
@@ -794,9 +809,11 @@ m_dll_export void render(s_platform_data* platform_data, void* game_memory, s_ga
 					color = brighter(rgb(0xA4BB96), 1.2f);
 				}
 				draw_texture(g_r, v2(ball.c.p), e_layer_ball, v2(ball.c.r * 2.0f), color, game->noise, {}, {.effect_id = 2, .texture_size = ball.rotation});
-				if(!in_hole) {
+				b8 moving = v2_length(ball.vel) > 4;
+				if(moving || !in_hole) {
 					draw_text(g_r, ball.name, v2(ball.c.p), 50, 24, make_color(1), true, game->font);
-
+				}
+				if(!moving && !in_hole) {
 					// @Note(tkap, 27/10/2023): Angle indicator from ball
 					for(int j = 0; j < 2; j++) {
 						float a = j * 0.125f;

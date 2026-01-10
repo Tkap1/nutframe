@@ -1,6 +1,5 @@
 
 import socket
-import secret
 import time
 import os
 from config import target_channel

@@ -85,6 +85,7 @@ m_dll_export void init_game(s_platform_data* platform_data)
 	platform_data->set_window_size((int)c_base_res.x, (int)c_base_res.y);
 	platform_data->update_delay = 1.0 / c_updates_per_second;
 	platform_data->variables_path = "examples/blocks/variables.h";
+	platform_data->set_base_resolution((int)c_base_res.x, (int)c_base_res.y);
 }
 
 m_dll_export void update(s_platform_data* platform_data, void* game_memory, s_game_renderer* renderer)
